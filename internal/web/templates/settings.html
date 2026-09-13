@@ -1,0 +1,78 @@
+{{define "content"}}
+{{$d := .Data}}
+{{$s := $d.Settings}}
+
+<section class="card">
+  <h1>Settings</h1>
+  <p class="sub">Application-wide settings. Anything that varies by year — race
+     count, auto-qualifier places, wildcard spots — lives on the season instead.</p>
+
+  <form method="post" action="/settings" class="form">
+    <label>
+      <span class="lbl">Website path</span>
+      <input type="text" name="derby_site_path"
+             value="{{setting $s "derby_site_path" ""}}"
+             placeholder="/Users/you/git/derby-site" spellcheck="false">
+      <span class="hint">The Hugo site clone. Publishing writes race CSVs here.
+        Nothing is ever committed — you review and push.</span>
+    </label>
+
+    <label>
+      <span class="lbl">Coordinator PIN</span>
+      <input type="text" name="coordinator_pin" value="{{setting $s "coordinator_pin" ""}}"
+             inputmode="numeric" autocomplete="off">
+      <span class="hint">Scheduling, editing results, publishing. Blank means no prompt.</span>
+    </label>
+
+    <label>
+      <span class="lbl">Crew PIN</span>
+      <input type="text" name="crew_pin" value="{{setting $s "crew_pin" ""}}"
+             inputmode="numeric" autocomplete="off">
+      <span class="hint">Check-in and voting admin. Blank means no prompt.</span>
+    </label>
+
+    <label>
+      <span class="lbl">Auto-advance pause</span>
+      <input type="number" name="auto_advance_secs" min="0" max="120"
+             value="{{setting $s "auto_advance_secs" "8"}}">
+      <span class="hint">Seconds a finished heat stays on the screens before the
+        next one arms.</span>
+    </label>
+
+    <label>
+      <span class="lbl">Backups to keep</span>
+      <input type="number" name="backup_keep" min="1" max="500"
+             value="{{setting $s "backup_keep" "20"}}">
+      <span class="hint">Older snapshots are deleted automatically.</span>
+    </label>
+
+    <fieldset>
+      <legend>Ports</legend>
+      <p class="hint">Changing these needs a restart.</p>
+      <label class="inline">
+        <span class="lbl">HTTP</span>
+        <input type="number" name="http_port" min="1024" max="65535" value="{{$d.HTTPPort}}">
+      </label>
+      <label class="inline">
+        <span class="lbl">HTTPS</span>
+        <input type="number" name="https_port" min="1024" max="65535" value="{{$d.HTTPSPort}}">
+      </label>
+    </fieldset>
+
+    <p><button class="btn primary" type="submit">Save settings</button></p>
+  </form>
+</section>
+
+<section class="card">
+  <h1>Where things live</h1>
+  <table class="urls">
+    <tr><th>Database</th><td><code>{{$d.Paths.DB}}</code></td></tr>
+    <tr><th>Photos</th><td><code>{{$d.Paths.Photos}}</code></td></tr>
+    <tr><th>Backups</th><td><code>{{$d.Paths.Backups}}</code></td></tr>
+    <tr><th>Certificates</th><td><code>{{$d.Paths.Certs}}</code></td></tr>
+    <tr><th>Timer traces</th><td><code>{{$d.Paths.Traces}}</code></td></tr>
+  </table>
+  <p class="note">Everything the app writes is under one folder, so backing up the
+     club's data is a single folder copy.</p>
+</section>
+{{end}}

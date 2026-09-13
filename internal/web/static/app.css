@@ -1,0 +1,215 @@
+/* Derby and Ales — coordinator UI.
+   Dark by default: race nights happen in dim breweries, and the same palette
+   carries over to the TV display scenes. */
+
+:root {
+  --bg:        #12131a;
+  --panel:     #1b1d27;
+  --panel-2:   #232634;
+  --line:      #2f3345;
+  --ink:       #e9ebf2;
+  --ink-dim:   #99a0b5;
+  --ink-faint: #6b7288;
+
+  --green:  #3fbf63;
+  --amber:  #f0a53a;
+  --red:    #e5524a;
+  --blue:   #4f9ae8;
+
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- top bar --------------------------------------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 20px;
+  height: 56px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #0d1a10;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .02em;
+}
+
+.wordmark { font-weight: 600; letter-spacing: .01em; }
+
+.topbar nav { display: flex; gap: 4px; margin-right: auto; }
+
+.topbar nav a {
+  color: var(--ink-dim);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.topbar nav a:hover { background: var(--panel-2); color: var(--ink); }
+.topbar nav a.on { background: var(--panel-2); color: var(--ink); }
+
+.conn { font-size: 12px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.conn.live { color: var(--green); }
+.conn.lost { color: var(--red); }
+
+/* --- layout ---------------------------------------------------------------- */
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+}
+
+.card h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+.sub { margin: 6px 0 16px; color: var(--ink-dim); font-size: 13.5px; }
+.note { color: var(--ink-faint); font-size: 13px; }
+.note.ok { color: var(--green); }
+.empty { color: var(--ink-faint); font-style: italic; }
+
+code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  background: var(--panel-2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--ink);
+}
+
+/* --- preflight checks ------------------------------------------------------ */
+
+.checks { list-style: none; margin: 0; padding: 0; }
+
+.check {
+  display: grid;
+  grid-template-columns: 12px 130px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.check:last-child { border-bottom: 0; }
+
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-faint); }
+.check.pass    .dot { background: var(--green); }
+.check.warn    .dot { background: var(--amber); }
+.check.fail    .dot { background: var(--red); }
+.check.skipped .dot { background: var(--ink-faint); }
+.check.browser .dot { background: var(--blue); }
+
+.cname { font-weight: 500; font-size: 14px; }
+.cdetail { color: var(--ink-dim); font-size: 13px; }
+
+/* --- tables ---------------------------------------------------------------- */
+
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+table th, table td { text-align: left; padding: 7px 10px 7px 0; vertical-align: top; }
+table th { color: var(--ink-dim); font-weight: 500; white-space: nowrap; }
+.backups tr + tr td, .backups tr + tr th { border-top: 1px solid var(--line); }
+
+.urls td:first-of-type { width: 100%; }
+.seasons { list-style: none; margin: 0; padding: 0; }
+.seasons li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.seasons li:last-child { border-bottom: 0; }
+.seasons .note { display: block; margin-top: 2px; }
+
+/* --- forms and buttons ----------------------------------------------------- */
+
+.form { display: flex; flex-direction: column; gap: 18px; max-width: 560px; }
+
+.form label { display: flex; flex-direction: column; gap: 5px; }
+.form label.inline { display: inline-flex; margin-right: 20px; }
+
+.lbl { font-size: 13.5px; font-weight: 500; }
+
+.form input {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 8px 10px;
+  font: 14px var(--sans);
+}
+.form input:focus { outline: 2px solid var(--blue); outline-offset: -1px; border-color: transparent; }
+
+.hint { color: var(--ink-faint); font-size: 12.5px; }
+
+fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 0; }
+legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
+
+.btn {
+  display: inline-block;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font: 13.5px var(--sans);
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--ink-faint); }
+.btn.small { padding: 4px 10px; font-size: 12.5px; }
+.btn.primary { background: var(--green); border-color: var(--green); color: #0d1a10; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+/* --- narrow screens -------------------------------------------------------- */
+
+@media (max-width: 620px) {
+  main { padding: 16px 14px 48px; }
+  .card { padding: 16px; }
+  .check { grid-template-columns: 12px 1fr; row-gap: 2px; }
+  .check .cdetail { grid-column: 2; }
+  .check .btn { grid-column: 2; justify-self: start; margin-top: 4px; }
+  .topbar { gap: 12px; padding: 0 12px; }
+  .wordmark { display: none; }
+}

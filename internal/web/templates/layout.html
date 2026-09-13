@@ -1,0 +1,28 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · Derby and Ales</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">
+    <span class="mark">D&amp;A</span>
+    <span class="wordmark">Derby and Ales</span>
+  </a>
+  <nav>
+    <a href="/" class="{{if eq .Active "home"}}on{{end}}">Status</a>
+    <a href="/settings" class="{{if eq .Active "settings"}}on{{end}}">Settings</a>
+  </nav>
+  <span class="conn" id="conn" title="Live connection">&bull; connecting</span>
+</header>
+
+<main>
+{{template "content" .}}
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>{{end}}

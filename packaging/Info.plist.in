@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>DerbyAndAles</string>
+	<key>CFBundleDisplayName</key>
+	<string>Derby and Ales</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.midsouthderbyandales.derbyandales</string>
+	<key>CFBundleExecutable</key>
+	<string>derbyandales</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>__VERSION__</string>
+	<key>CFBundleVersion</key>
+	<string>__VERSION__</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>12.0</string>
+
+	<!-- The app serves over plain HTTP on the LAN for displays and voting.
+	     Check-in devices use the HTTPS listener instead, because browsers
+	     only grant camera access on a secure context. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+
+	<!-- macOS asks the user to approve local network access on first run;
+	     without it, tablets and TVs cannot reach the server. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Derby and Ales serves the check-in, voting and display pages to tablets and TVs on your local network.</string>
+
+	<key>NSHumanReadableCopyright</key>
+	<string>MidSouth Derby and Ales</string>
+</dict>
+</plist>

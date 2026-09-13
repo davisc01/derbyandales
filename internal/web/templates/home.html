@@ -1,0 +1,92 @@
+{{define "content"}}
+{{$d := .Data}}
+
+<section class="card">
+  <h1>Preflight</h1>
+  <p class="sub">Everything that should be true before a race night starts.</p>
+  <ul class="checks">
+    {{range $d.Checks}}
+    <li class="check {{.Verdict}}">
+      <span class="dot" aria-hidden="true"></span>
+      <span class="cname">{{.Name}}</span>
+      <span class="cdetail">{{.Detail}}</span>
+      {{if .Action}}<a class="btn small" href="{{.Action}}">{{.ActionLabel}}</a>{{end}}
+    </li>
+    {{end}}
+  </ul>
+</section>
+
+<section class="card">
+  <h1>Connect a device</h1>
+  <p class="sub">Check-in needs a camera, and browsers only allow that on a secure
+     address. Displays and voting work on any of these.</p>
+  <table class="urls">
+    <tr>
+      <th>Coordinator</th>
+      <td><code>{{$d.URLs.Local}}</code></td>
+      <td class="note ok">camera works</td>
+    </tr>
+    {{range $d.URLs.Secure}}
+    <tr>
+      <th>Check-in</th>
+      <td><code>{{.}}</code></td>
+      <td class="note ok">camera works after trusting the certificate once</td>
+    </tr>
+    {{end}}
+    {{range $d.URLs.Insecure}}
+    <tr>
+      <th>Displays</th>
+      <td><code>{{.}}</code></td>
+      <td class="note">voting and screens &middot; no camera</td>
+    </tr>
+    {{end}}
+  </table>
+</section>
+
+<section class="card">
+  <h1>Seasons</h1>
+  {{if $d.Seasons}}
+  <ul class="seasons">
+    {{range $d.Seasons}}
+    <li>
+      <strong>{{.Name}}</strong>
+      <span class="note">{{.RaceCount}} races &middot; top {{.AutoQualPlaces}} auto-qualify
+        &middot; {{.WildcardSpots}} wildcards &middot; {{.LaneCount}} lanes &middot;
+        {{.TrackLengthFt}} ft at 1:{{.ScaleDenom}}</span>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="empty">No seasons yet. Season setup arrives with check-in (milestone M1).</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h1>Backups</h1>
+  <p class="sub">Snapshots are taken at startup, when a race opens, when check-in
+     closes, and when a race completes.</p>
+  <p><button class="btn" id="backup-now">Back up now</button>
+     <span id="backup-status" class="note"></span></p>
+  {{if $d.Backups}}
+  <table class="backups">
+    <tr><th>When</th><th>Reason</th><th>Size</th></tr>
+    {{range $d.Backups}}
+    <tr>
+      <td title="{{datetime .Taken}}">{{ago .Taken}}</td>
+      <td><code>{{.Reason}}</code></td>
+      <td>{{bytes .Size}}</td>
+    </tr>
+    {{end}}
+  </table>
+  {{end}}
+  <p class="note">Database: <code>{{$d.DBPath}}</code></p>
+</section>
+
+<section class="card">
+  <h1>Stop the server</h1>
+  <p class="sub">Takes a final snapshot, then shuts down. Displays and tablets
+     will show that the server has stopped.</p>
+  <p><button class="btn" id="quit">Quit Derby and Ales</button>
+     <span id="quit-status" class="note"></span></p>
+</section>
+{{end}}
