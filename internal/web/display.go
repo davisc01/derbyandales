@@ -122,6 +122,12 @@ func (s *Server) handleSetScene(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	// Remember that this race showed this scene. The run of show has two steps
+	// — the reveal and the final standings — that change no result and would
+	// otherwise never complete.
+	if err := s.app.DB.RecordSceneShown(r.Context(), s.app.Race.CurrentRaceID(), scene); err != nil {
+		s.app.Log.Warn("recording the scene failed", "scene", scene, "err", err)
+	}
 
 	// The change reaches the screen over SSE, so there is nothing to poll and
 	// no reload: a TV switches scene within a frame or two.

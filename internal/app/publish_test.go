@@ -110,7 +110,7 @@ func TestPublishingARaceWritesTheWholePage(t *testing.T) {
 	if len(awards)-1 != 3 {
 		t.Fatalf("%d awards published, want 3", len(awards)-1)
 	}
-	if awards[1][0] != "Fastest in Event" {
+	if awards[1][0] != "1st" {
 		t.Errorf("the first award is %q", awards[1][0])
 	}
 	for _, r := range awards[1:] {
@@ -159,7 +159,9 @@ func TestThePaceCarIsSkippedForTrophiesEvenWhenItPlacesWell(t *testing.T) {
 			if *l.EntryID == control {
 				times[l.Lane] = 1.900
 			} else {
-				times[l.Lane] = 2.400 + float64(*l.EntryID%11)*0.01
+				// Distinct paces: a tie for a trophy would (rightly) block the
+				// trophies, which is not what this test is about.
+				times[l.Lane] = 2.400 + float64(*l.EntryID)*0.003
 			}
 		}
 		a.DB.RecordHeatResults(ctx, h.ID, times)
@@ -184,7 +186,7 @@ func TestThePaceCarIsSkippedForTrophiesEvenWhenItPlacesWell(t *testing.T) {
 	}
 	// And the trophy went to the fastest car that can take one.
 	if awards[0].Entry.ID != standings[1].Entry.ID {
-		t.Errorf("Fastest in Event went to car %d, want the fastest eligible car %d",
+		t.Errorf("the 1st-place trophy went to car %d, want the fastest eligible car %d",
 			awards[0].Entry.CarNumber, standings[1].Entry.CarNumber)
 	}
 

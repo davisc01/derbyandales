@@ -728,3 +728,13 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 .run-blocker { font-size: 13px; color: var(--amber); margin-top: 2px; }
 .run-hint { font-size: 12.5px; color: var(--ink-faint); margin-top: 4px; max-width: 62ch; }
 .run-action { flex: 0 0 auto; }
+
+/* --- ties for a trophy ------------------------------------------------------------ */
+
+.tie-card { border-color: rgba(240, 165, 58, .35); }
+.ties { list-style: none; margin: 0; padding: 0; }
+.tie { padding: 12px 0; border-top: 1px solid var(--line); }
+.tie:first-child { border-top: 0; }
+.tie.settled { opacity: .7; }
+.tie-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tie-cars { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; }

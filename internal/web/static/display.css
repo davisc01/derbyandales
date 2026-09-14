@@ -342,3 +342,35 @@ html, body { height: 100%; }
 .voting-q-word { font-size: 2.2vh; color: var(--ink-dim); }
 
 .voting-closed-note { font-size: 2.8vh; color: var(--ink-dim); margin-top: 4vh; }
+
+/* --- final standings, for the wrap-up ---------------------------------------------
+   The whole field at once. Row height follows the number of cars so a 24-car
+   night and an 8-car one both fill a 1080p screen instead of one overflowing. */
+
+.final {
+  display: flex;
+  flex-direction: column;
+  gap: calc(0.7vh * (24 / max(var(--final-rows), 8)));
+  font-size: clamp(1rem, calc(62vh / max(var(--final-rows), 8)), 3rem);
+}
+.final-row {
+  display: grid;
+  grid-template-columns: 2.6em 3.2em 1fr auto auto;
+  gap: 0.8em;
+  align-items: baseline;
+  padding: 0.18em 0.5em;
+  border-radius: 0.3em;
+}
+.final-place { text-align: right; font-weight: 800; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.final-car { font-family: var(--mono); color: var(--ink-dim); }
+.final-who { min-width: 0; }
+.final-driver { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.final-name { font-size: 0.72em; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.final-time { font-variant-numeric: tabular-nums; font-weight: 700; }
+.final-mph { font-size: 0.72em; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+
+.final-row.podium { background: rgba(63, 191, 99, .1); }
+.final-row.podium .final-place { color: var(--green); }
+.final-row.winner { background: rgba(63, 191, 99, .2); }
+/* The pace car is ranked but is not competing, so it recedes. */
+.final-row.control { opacity: .55; }

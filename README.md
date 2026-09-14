@@ -181,6 +181,14 @@ wifi network and no uplink. Every asset is compiled into the binary and served
 from it — no CDNs, no web fonts, no outbound requests of any kind. Started up,
 the process holds two listening sockets and opens nothing.
 
+**A tie for a trophy is settled on the track.** Below the top three a tie simply
+stands: two cars that ran the same average are the same speed, and the results
+say so. But 1st, 2nd and 3rd are handed to a person, so those are run off head
+to head — after the reveal, so the room finds out there is a tie the same way it
+finds out everything else. The run-off decides the order and nothing else: its
+times stay out of every average, so the two cars keep the identical averages
+that tied them.
+
 **A heat that went wrong gets found.** Cars are slow for their own reasons, but
 if *every* car in one heat ran its worst time of the night, the heat was the
 problem: a sticky gate, a knock to the track. The reverse — every car its best —

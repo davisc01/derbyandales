@@ -26,6 +26,7 @@ const (
 	SceneRoster   Scene = "roster"
 	SceneRacing   Scene = "now-racing"
 	SceneReveal   Scene = "results-reveal"
+	SceneFinal    Scene = "final-standings"
 	SceneAwards   Scene = "awards"
 	SceneSlides   Scene = "slideshow"
 	SceneBracket  Scene = "bracket"
@@ -48,6 +49,7 @@ func Scenes() []SceneInfo {
 		{SceneRoster, "Racers", "Tonight's line-up, for the intros.", true},
 		{SceneRacing, "Now racing", "Lane assignments, then the finish order.", true},
 		{SceneReveal, "Results reveal", "One car at a time, slowest to fastest.", true},
+		{SceneFinal, "Final standings", "The whole table at once, for the wrap-up.", true},
 		{SceneSlides, "Car photos", "Slideshow of the cars.", false},
 		{SceneAwards, "Awards", "Award winners.", false},
 		{SceneBracket, "Bracket", "The championship bracket.", false},
@@ -200,3 +202,34 @@ func (db *DB) TouchDisplay(ctx context.Context, id int64) error {
 // as connected. It is several times the heartbeat interval so a slow network
 // does not make a working screen look dead.
 const DisplayOnlineWindow = 45 * time.Second
+
+// RecordSceneShown notes that a race put a scene on a screen.
+//
+// This is what lets the run of show know that the results were revealed and the
+// final standings went up — two steps that otherwise leave no trace at all. It
+// records an assignment to a real display rather than a button press, so it
+// cannot claim something happened that did not.
+func (db *DB) RecordSceneShown(ctx context.Context, raceID int64, scene Scene) error {
+	if raceID == 0 {
+		return nil
+	}
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO scene_shown (race_id, scene, at) VALUES (?,?,?)
+		ON CONFLICT(race_id, scene) DO UPDATE SET at = excluded.at`,
+		raceID, string(scene), time.Now().Unix())
+	return err
+}
+
+// SceneShown reports whether a race has put a scene on a screen.
+func (db *DB) SceneShown(ctx context.Context, raceID int64, scene Scene) (bool, error) {
+	var n int
+	err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM scene_shown WHERE race_id = ? AND scene = ?`,
+		raceID, string(scene)).Scan(&n)
+	return n > 0, err
+}
+
+// RunOffHeats returns a race's run-off heats, keyed by the place each settles.
+func (db *DB) RunOffHeats(ctx context.Context, raceID int64) (map[int]HeatView, error) {
+	return db.runoffHeats(ctx, raceID)
+}

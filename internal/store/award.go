@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/davisc01/derbyandales/internal/model"
 )
@@ -16,11 +17,11 @@ import (
 // system required.
 
 // SpeedAwardNames are the club's names for the top three, in order.
-var SpeedAwardNames = []string{
-	"Fastest in Event",
-	"2nd Fastest in Event",
-	"3rd Fastest in Event",
-}
+//
+// Plainly "1st", "2nd", "3rd". Earlier seasons published these as "Fastest in
+// Event" and so on; the club asked for the shorter names, so files written from
+// 2027 onwards will differ from the archive in that one column.
+var SpeedAwardNames = []string{"1st", "2nd", "3rd"}
 
 // AwardTypeSpeed is the award type the old system used for these.
 const AwardTypeSpeed = "Speed Trophy"
@@ -35,6 +36,28 @@ const AwardTypeSpeed = "Speed Trophy"
 // Awards already declared from the ballot are left alone: this replaces the
 // automatic ones only.
 func (db *DB) GenerateSpeedAwards(ctx context.Context, raceID int64) ([]AwardView, error) {
+	// A trophy cannot be shared, and picking between two cars that ran the same
+	// average is not the software's call to make. Settle the run-off first.
+	ties, err := db.UnsettledTies(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range ties {
+		if t.Settled {
+			continue
+		}
+		names := make([]string, 0, len(t.Entries))
+		for _, e := range t.Entries {
+			names = append(names, fmt.Sprintf("#%d %s", e.CarNumber, e.CarName))
+		}
+		if t.DeadHeat {
+			return nil, fmt.Errorf("the run-off for %s finished level as well — run heat %d again",
+				ordinal(t.Place), t.HeatNumber)
+		}
+		return nil, fmt.Errorf("%s are %s — run that off before setting the trophies",
+			strings.Join(names, " and "), t.Describe())
+	}
+
 	standings, err := db.Standings(ctx, raceID)
 	if err != nil {
 		return nil, err

@@ -145,7 +145,14 @@ type Heat struct {
 	Status           HeatStatus
 	ArmedAt          *time.Time
 	CompletedAt      *time.Time
-	Lanes            []HeatLane
+
+	// RunoffPlace marks a heat that exists to settle a tie for that position.
+	// Its times decide an order between the tied cars and are deliberately not
+	// counted towards anybody's average: the club's rule is four runs, one per
+	// lane, and a fifth run for two cars would rewrite the averages that tied.
+	RunoffPlace *int
+
+	Lanes []HeatLane
 }
 
 // HeatLane is one car's run in one lane of one heat. A nil EntryID is a bye:

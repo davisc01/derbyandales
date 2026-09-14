@@ -131,6 +131,8 @@
           return await renderRoster();
         case "results-reveal":
           return await renderReveal();
+        case "final-standings":
+          return await renderFinal();
         case "blank":
           return renderBlank();
         default:
@@ -282,6 +284,44 @@
   }
 
   // Slowest first, one at a time, building up to the winner.
+  // The whole table at once, for the wrap-up — after the reveal has walked up
+  // the order and after any tie for a trophy has been run off. This is the
+  // picture people photograph, so it shows the settled result rather than the
+  // one the reveal ended on.
+  async function renderFinal() {
+    const data = await getJSON("/api/race/standings");
+    const rows = (data.standings || []).filter(function (s) { return s.place > 0; });
+
+    const { wrap, body } = sceneShell(data.race || "Final standings", "Final standings");
+    if (!rows.length) {
+      body.appendChild(el("p", "display-hint", "No results yet."));
+      return swap(wrap);
+    }
+
+    const list = el("div", "final");
+    // Row height follows the field size, so twenty-four cars and eight both
+    // fill the screen rather than one of them overflowing it.
+    list.style.setProperty("--final-rows", String(rows.length));
+    rows.forEach(function (s) {
+      const row = el("div", "final-row");
+      if (s.place <= 3) row.classList.add("podium");
+      if (s.place === 1) row.classList.add("winner");
+      if (s.is_control) row.classList.add("control");
+
+      row.appendChild(el("div", "final-place", (s.tied ? "T" : "") + s.place));
+      row.appendChild(el("div", "final-car", "#" + s.car_number));
+      const who = el("div", "final-who");
+      who.appendChild(el("div", "final-driver", s.driver));
+      who.appendChild(el("div", "final-name", s.car_name || ""));
+      row.appendChild(who);
+      row.appendChild(el("div", "final-time", s.average ? s.average + "s" : "—"));
+      row.appendChild(el("div", "final-mph", s.mph ? s.mph + " mph" : ""));
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+    swap(wrap);
+  }
+
   async function renderReveal() {
     if (!revealRows.length) {
       const data = await getJSON("/api/race/standings");
@@ -437,13 +477,14 @@
     source.addEventListener("race", function () {
       // Any race change redraws whatever this screen is showing. The reveal is
       // operator-paced, so it is left alone.
-      if (scene === "now-racing" || scene === "roster" || scene === "voting-qr") render();
+      if (scene === "now-racing" || scene === "roster" || scene === "voting-qr" ||
+          scene === "final-standings") render();
     });
 
     source.addEventListener("vote", function () {
       // The live count on the intermission screen shows the tablet is being
       // used; the coordinator watches it from across the room.
-      if (scene === "voting-qr" || scene === "now-racing") render();
+      if (scene === "voting-qr" || scene === "now-racing" || scene === "final-standings") render();
     });
 
     source.addEventListener("system", function (e) {

@@ -19,6 +19,10 @@ type HeatView struct {
 	Lanes []LaneView
 }
 
+// RunOff reports a heat that exists to settle a tie for a trophy. Its times
+// decide an order and nothing else — they are not part of any average.
+func (h HeatView) RunOff() bool { return h.RunoffPlace != nil }
+
 // LaneView is one lane of a heat, with the car in it.
 type LaneView struct {
 	Lane        int
@@ -114,7 +118,7 @@ const heatLaneCols = `hl.lane, hl.entry_id, hl.finish_time, hl.finish_place, hl.
 // Heats lists a race's heats with their lanes, in running order.
 func (db *DB) Heats(ctx context.Context, raceID int64) ([]HeatView, error) {
 	rows, err := db.QueryContext(ctx,
-		`SELECT id, race_id, number, phase, bracket_matchup_id, status, armed_at, completed_at
+		`SELECT id, race_id, number, phase, bracket_matchup_id, status, armed_at, completed_at, runoff_place
 		 FROM heat WHERE race_id = ? ORDER BY number`, raceID)
 	if err != nil {
 		return nil, err
@@ -145,15 +149,16 @@ func (db *DB) Heats(ctx context.Context, raceID int64) ([]HeatView, error) {
 
 func scanHeat(sc interface{ Scan(...any) error }) (HeatView, error) {
 	var h HeatView
-	var matchupID, armedAt, completedAt sql.NullInt64
+	var matchupID, armedAt, completedAt, runoff sql.NullInt64
 	err := sc.Scan(&h.ID, &h.RaceID, &h.Number, &h.Phase, &matchupID,
-		&h.Status, &armedAt, &completedAt)
+		&h.Status, &armedAt, &completedAt, &runoff)
 	if err != nil {
 		return h, err
 	}
 	h.BracketMatchupID = nullInt(matchupID)
 	h.ArmedAt = fromUnixPtr(armedAt)
 	h.CompletedAt = fromUnixPtr(completedAt)
+	h.RunoffPlace = nullIntAsInt(runoff)
 	return h, nil
 }
 
@@ -198,7 +203,7 @@ func (db *DB) heatLanes(ctx context.Context, heatID int64) ([]LaneView, error) {
 // Heat loads one heat with its lanes.
 func (db *DB) Heat(ctx context.Context, id int64) (HeatView, error) {
 	row := db.QueryRowContext(ctx,
-		`SELECT id, race_id, number, phase, bracket_matchup_id, status, armed_at, completed_at
+		`SELECT id, race_id, number, phase, bracket_matchup_id, status, armed_at, completed_at, runoff_place
 		 FROM heat WHERE id = ?`, id)
 	h, err := scanHeat(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -363,7 +368,8 @@ func (db *DB) runsByEntry(ctx context.Context, raceID int64, scoredOnly bool) (m
 		FROM heat_lane hl
 		JOIN heat h ON h.id = hl.heat_id
 		JOIN entry e ON e.id = hl.entry_id
-		WHERE h.race_id = ? AND hl.finish_time IS NOT NULL`+where+`
+		WHERE h.race_id = ? AND hl.finish_time IS NOT NULL
+		  AND h.runoff_place IS NULL`+where+`
 		ORDER BY h.number, hl.lane`, raceID)
 	if err != nil {
 		return nil, err
@@ -391,6 +397,10 @@ type Standing struct {
 }
 
 // Standings scores a race and returns the results in finishing order.
+//
+// A tie that reaches the podium and has been run off is split here, using the
+// run-off's order. The tied cars keep their identical averages — the run-off
+// settled which trophy each takes, not how fast they went.
 func (db *DB) Standings(ctx context.Context, raceID int64) ([]Standing, error) {
 	runs, err := db.RunsByEntry(ctx, raceID)
 	if err != nil {
@@ -406,6 +416,11 @@ func (db *DB) Standings(ctx context.Context, raceID int64) ([]Standing, error) {
 	}
 
 	results := scoring.Standings(runs)
+	order, _, err := db.runOffOrder(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
+	applyRunOffs(results, order)
 	out := make([]Standing, 0, len(results))
 	for _, r := range results {
 		out = append(out, Standing{Result: r, Entry: byID[r.EntryID]})

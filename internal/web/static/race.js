@@ -167,6 +167,17 @@
     });
   });
 
+  document.querySelectorAll(".run-off").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      try {
+        await post("/api/race/runoff", { place: btn.dataset.place });
+        location.reload();
+      } catch (err) {
+        say("run-status", err.message, true);
+      }
+    });
+  });
+
   // --- live -----------------------------------------------------------------
 
   const source = new EventSource("/events?topics=race,timer");

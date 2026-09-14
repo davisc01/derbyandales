@@ -312,6 +312,26 @@ timer. Nothing is ticked off by being pressed.
 8. **Hand the run-of-show screen to someone who has never run a race, and have
    them run one.** That is the real acceptance test for this project.
 
+## Since M8
+
+- **Ties for a trophy are run off.** A tie anywhere else stands — two cars that
+  ran the same average are the same speed — but 1st, 2nd and 3rd are handed to
+  somebody. The run-off is a real heat, armed and timed like any other, whose
+  times are deliberately kept out of every average: the rule is four runs, one
+  per lane, and a fifth run for two cars would rewrite the averages that tied.
+  A run-off that itself finishes level is reported and re-run; the software does
+  not pick.
+- **The end of the night is ordered deliberately**: reveal → run-off → final
+  standings → awards → publish. The reveal is where the room learns there is a
+  tie, so settling it first would give the ending away; and the wrap-up table
+  has to be the settled one.
+- **`scene_shown` exists** because two of those steps — the reveal and the final
+  standings — change no result and would otherwise leave the checklist stuck on
+  them forever. It records a scene actually being assigned to a display, not a
+  button being pressed.
+- **The speed trophies are `1st`, `2nd`, `3rd`**, at the club's request, rather
+  than "Fastest in Event" as published up to 2026.
+
 ## Open questions
 
 - **"Raced in a previous championship"** is a season-spanning eligibility rule.

@@ -492,6 +492,35 @@ func (rc *RaceController) tick(ctx context.Context, dev *timer.Device) {
 	}
 }
 
+// ArmRunOff builds the run-off that settles a tie for a trophy, and arms it.
+//
+// A tie below the podium is left alone: two cars that ran the same average are
+// the same speed. A tie for 1st, 2nd or 3rd cannot stand, because a trophy is a
+// thing handed to one person.
+func (rc *RaceController) ArmRunOff(ctx context.Context, raceID int64, place int) error {
+	rc.mu.Lock()
+	paused := rc.intermission
+	rc.mu.Unlock()
+	if paused {
+		return errors.New("the race is in its intermission — resume racing before running a tie off")
+	}
+
+	heat, err := rc.app.DB.CreateRunOff(ctx, raceID, place)
+	if err != nil {
+		return err
+	}
+	// A run-off that has already been run and finished level is re-run rather
+	// than added to, so the second attempt replaces the first.
+	if heat.Complete() {
+		if err := rc.app.DB.ClearHeatResults(ctx, heat.ID); err != nil {
+			return err
+		}
+	}
+	_ = rc.app.DB.Audit(ctx, "coordinator", "race.runoff",
+		fmt.Sprintf("heat %d settles the tie for place %d", heat.Number, place))
+	return rc.ArmHeat(ctx, heat.ID)
+}
+
 // ReRun clears a heat's results and arms it again.
 //
 // This is the answer to a crash, a car that came apart on the track, a false

@@ -67,6 +67,43 @@
   </div>
 </section>
 
+{{if $d.Ties}}
+<section class="card tie-card">
+  <h1>Tied for a trophy</h1>
+  <p class="sub">
+    Below the top three a tie stands &mdash; two cars that ran the same average
+    are the same speed. But 1st, 2nd and 3rd are handed to somebody, so they are
+    settled on the track.
+  </p>
+
+  <ul class="ties">
+    {{range $d.Ties}}
+    <li class="tie {{if .Settled}}settled{{end}}">
+      <div class="tie-head">
+        <span class="badge {{if .Settled}}ok{{else}}warn{{end}}">{{.Describe}}</span>
+        {{if .Settled}}<span class="note">settled by heat {{.HeatNumber}}</span>{{end}}
+        {{if .DeadHeat}}<span class="note warn-text">heat {{.HeatNumber}} finished level too</span>{{end}}
+      </div>
+      <div class="tie-cars note">
+        {{range .Entries}}<span class="tie-car"><span class="mono">#{{.CarNumber}}</span> {{.CarName}} &mdash; {{.FullName}}</span>{{end}}
+      </div>
+      {{if not .Settled}}
+      <div class="console-row">
+        <button class="btn primary run-off" data-place="{{.Place}}">
+          {{if .DeadHeat}}Run heat {{.HeatNumber}} again{{else}}Run it off{{end}}
+        </button>
+        <span class="note">
+          They go on lanes 1 and up. One run cannot balance the lanes the way
+          four do, which is the same trade the championship already makes.
+        </span>
+      </div>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+
 {{if $d.Anomalies}}
 <section class="card anomaly-card">
   <h1>Heats worth a second look</h1>
@@ -127,6 +164,7 @@
       </td>
       {{end}}
       <td>
+        {{if .RunOff}}<span class="badge warn">run-off</span>{{end}}
         {{if .Complete}}
         <button class="btn small rerun" data-heat="{{.ID}}">Re-run</button>
         {{end}}

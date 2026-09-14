@@ -187,7 +187,7 @@ func TestFilesAreWrittenWithoutABOM(t *testing.T) {
 	files["heats.csv"] = heats
 	standings, _ := StandingsCSV([]StandingRow{{Place: 1, CarNumber: 7, Name: "A B", CarName: "C", Heats: 4, Average: 2.5, Best: 2.4, Worst: 2.6}})
 	files["standings.csv"] = standings
-	awards, _ := AwardsCSV([]AwardRow{{Award: "Fastest in Event", First: "A", Last: "B", CarNumber: 7, CarName: "C"}})
+	awards, _ := AwardsCSV([]AwardRow{{Award: "1st", First: "A", Last: "B", CarNumber: 7, CarName: "C"}})
 	files["awards.csv"] = awards
 	quals, _ := QualifiersCSV([]QualifierRow{{Seed: 1, Driver: "A B", CarName: "C", Race: 1, Finish: 1, Average: 2.5, Entries: 1}})
 	files["qualifiers.csv"] = quals

@@ -18,6 +18,7 @@ func (s *Server) raceRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/race/next", s.handleNextHeat)
 	mux.HandleFunc("POST /api/race/rerun", s.handleReRunHeat)
 	mux.HandleFunc("POST /api/race/auto", s.handleAutoAdvance)
+	mux.HandleFunc("POST /api/race/runoff", s.handleRunOff)
 }
 
 func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
@@ -27,8 +28,12 @@ func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
 
 	var heats []store.HeatView
 	var anomalies []store.HeatAnomalyView
+	var ties []store.TieView
 	if state.RaceID != 0 {
 		heats, _ = s.app.DB.Heats(ctx, state.RaceID)
+		// A tie for a trophy is settled on the track, so it belongs on the race
+		// screen rather than buried in the awards page.
+		ties, _ = s.app.DB.UnsettledTies(ctx, state.RaceID)
 		// Only once every heat has been run. Before that, a car's "slowest run
 		// of the night" is the slowest of however few it has had so far, and
 		// the check would point at the early heats every time.
@@ -45,6 +50,7 @@ func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
 			"Races":     races,
 			"Heats":     heats,
 			"Anomalies": anomalies,
+			"Ties":      ties,
 			"Timer":     s.app.Timer.Status(),
 		},
 	})
@@ -157,4 +163,23 @@ func allHeatsRun(heats []store.HeatView) bool {
 		}
 	}
 	return true
+}
+
+// handleRunOff arms the heat that settles a tie for a trophy.
+func (s *Server) handleRunOff(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	raceID := s.raceIDForm(r)
+	place, err := strconv.Atoi(r.Form.Get("place"))
+	if err != nil || place <= 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "a tie for which place?"})
+		return
+	}
+	if err := s.app.Race.ArmRunOff(r.Context(), raceID, place); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.app.Race.State(r.Context()))
 }

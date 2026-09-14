@@ -190,3 +190,68 @@ func PlaceInHeat(times map[int]float64) map[int]int {
 	}
 	return places
 }
+
+// PodiumPlaces is how far down the standings a tie has to be settled.
+//
+// The top three take trophies, and a trophy cannot be shared — so a tie that
+// reaches them is run off. Below that a tie simply stands: two cars that ran
+// the same average are the same speed, and saying so is more honest than
+// inventing a difference nobody raced for.
+const PodiumPlaces = 3
+
+// Tie is a group of cars that finished level with each other.
+type Tie struct {
+	// Place is the position they share.
+	Place int
+	// EntryIDs are the cars, in the order the standings happened to sort them,
+	// which is not meaningful — that is the whole problem.
+	EntryIDs []int64
+}
+
+// Decides reports whether this tie has to be settled: it does when the cars in
+// it are competing for a trophy.
+//
+// A group starting at place 3 still decides third, even though its lower half
+// finishes fourth. A group starting at fourth decides nothing.
+func (t Tie) Decides() bool { return t.Place > 0 && t.Place <= PodiumPlaces }
+
+// Places lists the positions this tie covers, which is what makes it clear why
+// a two-way tie for third is worth running off.
+func (t Tie) Places() []int {
+	out := make([]int, 0, len(t.EntryIDs))
+	for i := range t.EntryIDs {
+		out = append(out, t.Place+i)
+	}
+	return out
+}
+
+// Ties groups the cars that share a place.
+//
+// Cars with no usable run are left out: they have no place, so they are not
+// tied with anybody, they are simply absent from the result.
+func Ties(results []Result) []Tie {
+	var out []Tie
+	for i := 0; i < len(results); {
+		if results[i].Place == 0 || !results[i].Tied {
+			i++
+			continue
+		}
+		tie := Tie{Place: results[i].Place}
+		for ; i < len(results) && results[i].Place == tie.Place; i++ {
+			tie.EntryIDs = append(tie.EntryIDs, results[i].EntryID)
+		}
+		out = append(out, tie)
+	}
+	return out
+}
+
+// UnsettledTies returns only the ties that have to be run off.
+func UnsettledTies(results []Result) []Tie {
+	var out []Tie
+	for _, t := range Ties(results) {
+		if t.Decides() {
+			out = append(out, t)
+		}
+	}
+	return out
+}

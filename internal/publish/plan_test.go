@@ -37,7 +37,7 @@ func sampleRace(year, number int) RaceFiles {
 			{Place: 2, CarNumber: 19, Name: "Cass Nguyen", CarName: "Toast", Heats: 4, Average: 2.512, Best: 2.5, Worst: 2.58},
 		},
 		Awards: []AwardRow{
-			{Award: "Fastest in Event", First: "Ada", Last: "Fairweather", CarNumber: 7, CarName: "Lightning Bug"},
+			{Award: "1st", First: "Ada", Last: "Fairweather", CarNumber: 7, CarName: "Lightning Bug"},
 		},
 		TrackFt: 28, ScaleDenom: 25,
 	}

@@ -63,6 +63,22 @@ These are the domain, and getting them wrong changes published results.
   intermission starts and closes when it ends. It has **no set length** — the
   venue is a bar, people are refuelling, and it ends when the coordinator says
   so. Never show a countdown.
+- **Ties share a place and the next distinct place skips.** Two cars tied for
+  6th are followed by 8th. That stands everywhere except the podium: **1st, 2nd
+  and 3rd are run off**, because a trophy is handed to one person. Below that a
+  tie is published as a tie.
+- **A run-off's times are not part of any average.** The rule is four runs, one
+  per lane, drop the slowest — a fifth run for two cars would rewrite the very
+  averages that tied. `heat.runoff_place` marks those heats and every scoring
+  query leaves them out. The tied cars keep identical averages afterwards and
+  only their places differ.
+- **The end of the night runs in this order**: reveal the results (which is
+  where the room learns there is a tie) → run the tie off → put the final
+  standings up for the wrap-up → awards → publish. Settling the tie before the
+  reveal would give the ending away.
+- **The speed trophies are named `1st`, `2nd`, `3rd`.** Seasons up to 2026
+  published "Fastest in Event" and so on; the club asked for the short names, so
+  files from 2027 differ from the archive in that column.
 - **Wildcard points** go to the racer's *best* car only, and only if that best
   place did not already auto-qualify. A racer who wins the night earns nothing
   for their second car finishing 7th either — they already have their slot.
