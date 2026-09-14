@@ -4,10 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · Derby and Ales</title>
+{{if eq .Active "vote"}}
+<link rel="stylesheet" href="/static/vote.css">
+{{else}}
 <link rel="stylesheet" href="/static/display.css">
-{{if eq .Active "vote"}}<link rel="stylesheet" href="/static/vote.css">{{end}}
+{{end}}
 </head>
-<body class="display-body">
+<body class="{{if eq .Active "vote"}}vote-body{{else}}display-body{{end}}">
 {{template "content" .}}
 {{if eq .Active "vote"}}<script src="/static/vote.js"></script>{{else}}<script src="/static/display.js"></script>{{end}}
 </body>

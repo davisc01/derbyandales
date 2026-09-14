@@ -116,31 +116,87 @@
   }
 
   function renderQuestion(category) {
-    const wrap = el("div", "ballot");
-
     const head = el("div", "ballot-head");
     head.appendChild(
       el("p", "ballot-step", "Step " + (step + 1) + " of " + categories.length)
     );
     head.appendChild(el("h1", "ballot-question", category.label));
     head.appendChild(el("p", "ballot-hint", "Tap the car you like best."));
-    wrap.appendChild(head);
 
     const grid = el("div", "ballot-grid");
     cars.forEach(function (car) {
       grid.appendChild(carTile(car, category));
     });
-    wrap.appendChild(grid);
 
     const pips = el("div", "ballot-progress");
     categories.forEach(function (_, i) {
       pips.appendChild(el("span", "pip" + (i <= step ? " on" : "")));
     });
-    wrap.appendChild(pips);
 
-    root.replaceChildren(wrap);
+    const more = el("div", "ballot-more");
+    root.replaceChildren(head, grid, more, pips);
+
+    // A fast second tap would otherwise land on the next question and vote
+    // again. The grid ignores taps for a moment after it changes.
+    guardTaps(grid);
+    watchOverflow(grid, more, cars.length);
   }
 
+  // watchOverflow tells people there are more cars below.
+  //
+  // Without this, anyone who does not think to scroll votes only among the cars
+  // they can see — which would quietly favour whichever cars sort first.
+  function watchOverflow(grid, more, total) {
+    function update() {
+      const overflowing = grid.scrollHeight > grid.clientHeight + 4;
+      grid.classList.toggle("overflowing", overflowing);
+      if (!overflowing) {
+        more.classList.remove("show");
+        return;
+      }
+
+      const atEnd = grid.scrollTop + grid.clientHeight >= grid.scrollHeight - 8;
+      grid.classList.toggle("at-end", atEnd);
+      more.classList.toggle("show", !atEnd);
+
+      if (!atEnd) {
+        // Count the cars still out of sight, so the prompt is concrete rather
+        // than a vague "scroll for more".
+        const tiles = grid.querySelectorAll(".car-tile");
+        const bottom = grid.scrollTop + grid.clientHeight;
+        let hidden = 0;
+        tiles.forEach(function (t) {
+          if (t.offsetTop + t.offsetHeight * 0.5 > bottom) hidden++;
+        });
+        more.textContent =
+          hidden > 0
+            ? hidden + " more car" + (hidden === 1 ? "" : "s") + " below \u2193"
+            : "more below \u2193";
+      }
+    }
+
+    grid.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    // Images load after the first paint and change the height.
+    grid.querySelectorAll("img").forEach(function (img) {
+      img.addEventListener("load", update);
+    });
+    update();
+    setTimeout(update, 400);
+  }
+
+  // guardTaps blocks input briefly after the grid is replaced, so a tap meant
+  // for the previous question cannot carry through to this one.
+  function guardTaps(grid) {
+    grid.style.pointerEvents = "none";
+    setTimeout(function () {
+      grid.style.pointerEvents = "";
+    }, 450);
+  }
+
+  // A tile shows the photo and the car number together. The number is how
+  // someone matches a tile to the car sitting on the table in front of them;
+  // the photo confirms it. Neither alone is enough.
   function carTile(car, category) {
     const tile = el("button", "car-tile");
     tile.type = "button";
@@ -151,18 +207,31 @@
       img.src = "/photo/" + car.photo_id + "?size=card";
       img.alt = "";
       img.loading = "lazy";
+      // A broken image would otherwise leave an empty box with no number.
+      img.addEventListener("error", function () {
+        photo.classList.add("empty");
+        img.remove();
+      });
       photo.appendChild(img);
     } else {
-      // No photo is common early in a season; the car number is what people
-      // match against the car in front of them anyway.
-      photo.appendChild(el("div", "no-photo", "#" + car.car_number));
+      // No photo is common early in a season; the number fills the space so the
+      // tile is still matchable.
+      photo.classList.add("empty");
+      photo.appendChild(el("div", "no-photo-note", "no photo"));
     }
+    photo.appendChild(el("div", "car-number", car.car_number));
     tile.appendChild(photo);
 
     const label = el("div", "car-label");
     label.appendChild(el("div", "car-name", car.car_name || "Car " + car.car_number));
-    label.appendChild(el("div", "car-meta", "#" + car.car_number + "  " + car.driver));
+    label.appendChild(el("div", "car-driver", car.driver));
     tile.appendChild(label);
+
+    // Spoken aloud by a screen reader, and what the tile means in one phrase.
+    tile.setAttribute(
+      "aria-label",
+      "Car " + car.car_number + ", " + (car.car_name || "") + ", driven by " + car.driver
+    );
 
     tile.addEventListener("click", function () {
       vote(category, car, tile);
