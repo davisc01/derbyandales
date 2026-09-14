@@ -43,6 +43,39 @@ which is what makes undo and audit possible.
 Categories are per-race and toggleable, replacing a broken configuration flag in
 the old system that silently did nothing.
 
+#### Intermission
+
+**Racing pauses halfway through the heats.** During the intermission people come
+to the table and vote on the tablet for the design and theme trophies. This is
+part of the run of the night, not an incidental break, so the software should
+run it rather than leave the coordinator to remember.
+
+- A season (or race) setting `intermission_after_heat`, defaulting to half the
+  scheduled heats rounded down — heat 10 of 20, heat 12 of 25. Zero disables it.
+- When that heat's results land, the race controller **does not arm the next
+  heat**. It publishes an intermission event and waits.
+- Voting opens automatically at that moment. The coordinator should not have to
+  open it separately; forgetting is the failure this prevents.
+- Displays switch to a voting scene — what to vote for, where the tablet is, and
+  a live count of votes cast so the coordinator can see it is being used.
+- The race screen shows **Intermission** with a prominent *Resume racing*
+  button, the vote tallies, and how many heats remain.
+- Resuming arms the next heat and carries on as before.
+
+This interacts with auto-advance: the pause has to survive it. Treat the
+intermission as a hard stop that auto-advance cannot step over, rather than as a
+very long advance delay — a coordinator who nudges *Arm next heat* during the
+break should get a confirmation, not a silent restart of the race.
+
+Open questions for the club:
+
+- Does voting **close** when racing resumes, or stay open until winners are
+  declared? Staying open is more forgiving; closing makes the tally final at a
+  known moment.
+- Should the intermission also be a natural point to take a backup? It is a
+  known-quiet moment halfway through the night, which is exactly when a snapshot
+  is cheap and most useful.
+
 ### M6 — Season points and auto-qualifiers
 
 No CSV round-trip: this reads race results from the same database. The separate
@@ -184,12 +217,17 @@ not a nicety:
 
 ```
 1. Open race        2. Test the timer     3. Check in racers
-4. Intros           5. Race               6. Voting
-7. Results          8. Awards             9. Publish
+4. Intros           5. Race (first half)  6. Intermission — voting opens
+7. Race (second half)                     8. Results
+9. Awards          10. Publish
 ```
 
 Step 2 sits before check-in deliberately: the timer gets tested while cars are
 still being carried in, not after the room is seated.
+
+Step 6 is the club's existing intermission, halfway through the heats — see
+the intermission section under M5. The software pauses racing there and opens
+voting, rather than relying on the coordinator to remember both.
 
 ### M9 — Dress rehearsal on real hardware
 
