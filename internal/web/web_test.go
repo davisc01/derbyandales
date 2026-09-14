@@ -61,7 +61,7 @@ func TestPagesRender(t *testing.T) {
 	s := mustServer(t)
 	h := handler(t, s)
 
-	for _, path := range []string{"/", "/settings", "/timer/test", "/displays", "/season"} {
+	for _, path := range []string{"/", "/settings", "/timer/test", "/displays", "/season", "/championship"} {
 		t.Run(path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))

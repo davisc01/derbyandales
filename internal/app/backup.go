@@ -31,7 +31,10 @@ const (
 	// BackupSeasonRecompute is taken before rewriting every points row in a
 	// season, which is the one action here that can change published history.
 	BackupSeasonRecompute BackupReason = "season-recompute"
-	BackupManual          BackupReason = "manual"
+	// BackupBracketSeed is taken before the championship field is committed,
+	// which is where a whole season's results become the night's running order.
+	BackupBracketSeed BackupReason = "bracket-seed"
+	BackupManual      BackupReason = "manual"
 )
 
 // Backup is one snapshot on disk.

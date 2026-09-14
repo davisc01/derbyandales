@@ -35,6 +35,9 @@ type App struct {
 	// Season owns wildcard points and the auto-qualifier list.
 	Season *SeasonController
 
+	// Bracket runs the championship.
+	Bracket *BracketController
+
 	HTTPPort  int
 	HTTPSPort int
 }
@@ -70,6 +73,7 @@ func Open(ctx context.Context, paths Paths, log *slog.Logger) (*App, error) {
 	a.Timer = NewTimerController(a)
 	a.Race = NewRaceController(a)
 	a.Season = NewSeasonController(a)
+	a.Bracket = NewBracketController(a)
 	// Point the displays at something without being asked, so a screen plugged
 	// in at the venue shows the right race straight away.
 	a.Race.LoadMostRecentRace(ctx)

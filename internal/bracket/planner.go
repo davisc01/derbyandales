@@ -66,18 +66,19 @@ func PlanFor(races, autoQualPlaces, wildcards int) Plan {
 	return p
 }
 
-// SuggestWildcards lists the wildcard counts that give a clean bracket for a
-// given number of races: the bye-free ones first, then the smallest number of
-// byes available.
+// SuggestWildcards lists the wildcard counts that fill a bracket exactly, so
+// every car races in round one and nobody is handed a free pass.
 //
 // This is the question actually being asked when a season changes — "we are
 // dropping to five races, how many wildcards should we take?" — and it has a
-// better answer than keeping whatever the number used to be.
+// better answer than keeping whatever the number used to be. Only the bye-free
+// counts are returned: every other number is a workable championship too, and
+// listing them all would be a table of arithmetic rather than a suggestion.
 func SuggestWildcards(races, autoQualPlaces, max int) []Plan {
 	var out []Plan
 	for w := 0; w <= max; w++ {
 		p := PlanFor(races, autoQualPlaces, w)
-		if p.Entrants < 2 || len(p.Warnings) > 0 {
+		if p.Entrants < 2 || len(p.Warnings) > 0 || !p.ByeFree() {
 			continue
 		}
 		out = append(out, p)

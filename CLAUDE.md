@@ -74,6 +74,19 @@ These are the domain, and getting them wrong changes published results.
 - **Championship field size is derived**, never hardcoded:
   `entrants = races × auto_qual_places + wildcards`, `capacity = next power of 2`,
   `byes = capacity − entrants`. The club's 24/32/8/5-rounds falls out of that.
+- **Championship seeding order**: race winners by average time, then the
+  remaining auto-qualifiers by average time, then the wildcard racers by season
+  points. Seeds 1–8 get a bye.
+
+  Both halves of that are more derived than they look. "Seeds 1–6 are the race
+  winners" means *the winners first* — six is the number of races. And seeds 7–8
+  are not a separate rule from 9–18: they are one ordered run, and the split at
+  8 is where the byes stop. The byes land on the top seeds because that is what
+  the bracket construction does, not because anything says so.
+- **A bye is not a race.** Walkovers are resolved when the bracket is built, so
+  a bye racer appears in round two immediately rather than looking like a
+  matchup waiting to happen. A 24-car field is still 23 races: byes move where
+  the races happen, not how many there are.
 
 ## Conventions
 
@@ -127,6 +140,11 @@ Each of these has already caused a bug here.
   mark"), and it lands there by writing the character rather than `\ufeff` while
   handling the club's BOM-carrying CSVs. Fix it at byte level; an editor will
   happily rewrite it back.
+- **Seeding is two problems.** The *order* comes from the season and is pure.
+  *Which car fills each place* cannot be known until people turn up, and is
+  matched at championship check-in by racer plus car name. An exact match needs
+  no review; anything looser is flagged for a person, because a wrongly-seeded
+  car lands in the wrong half and nobody finds out until the semi-final.
 - **Over limit is `> cap`; maxed out is `>= cap`.** They are different tests and
   both are needed: a racer sitting exactly on the cap keeps every slot they hold
   but is out of wildcard contention. Getting these the same way round silently
@@ -145,6 +163,7 @@ internal/
   bus/        in-process event bus, fanned out over SSE
   model/      domain types
   schedule/   heat generation (offset search) and running order
+  bracket/    seed order, bracket construction, the Championship Planner
   scoring/    drop-slowest averaging, placement, scale MPH, CSV formatting
   season/     wildcard points, auto-qualifier seeding, substitutions
   store/      SQLite, migrations, queries

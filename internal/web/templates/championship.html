@@ -1,0 +1,235 @@
+{{define "content"}}
+{{$d := .Data}}
+
+{{if not $d.Season}}
+<section class="card">
+  <h1>No season yet</h1>
+  <p class="empty">The championship is built from a season's results. Create one first.</p>
+</section>
+{{else}}
+{{$s := $d.Season}}
+{{$p := $d.Plan}}
+
+<section class="card">
+  <h1>Championship</h1>
+  <p class="sub">
+    {{$s.RaceCount}} races &times; top {{$s.AutoQualPlaces}}, plus {{$s.WildcardSpots}} wildcards.
+    Everything below follows from those three numbers.
+  </p>
+
+  <table class="plan">
+    <tr>
+      <th>Entrants</th><th>Bracket</th><th>Byes</th><th>First round</th><th>Rounds</th>
+    </tr>
+    <tr>
+      <td class="num big">{{$p.Entrants}}</td>
+      <td class="num big">{{$p.Capacity}}</td>
+      <td class="num big">{{$p.Byes}}</td>
+      <td class="num big">{{$p.FirstRound}}</td>
+      <td class="num big">{{$p.Rounds}}</td>
+    </tr>
+  </table>
+  <p class="note">
+    {{if $p.ByeFree}}Every car races in round one.
+    {{else}}Seeds 1&ndash;{{$p.Byes}} go straight into round two.{{end}}
+  </p>
+
+  {{range $p.Warnings}}
+  <p class="warn-text">{{.}}</p>
+  {{end}}
+
+  {{if $d.Suggestions}}
+  <details class="planner">
+    <summary>What if the season changed shape?</summary>
+    <p class="hint">
+      With {{$s.RaceCount}} races, these wildcard counts fill a bracket exactly:
+      every car races in round one and nobody is handed a free pass. Any other
+      number works too &mdash; it just means byes.
+    </p>
+    <table class="plan-options">
+      <tr><th>Wildcards</th><th>Entrants</th><th>Bracket</th><th>First round</th><th>Rounds</th></tr>
+      {{range $d.Suggestions}}
+      <tr class="{{if eq .Wildcards $s.WildcardSpots}}current{{end}}">
+        <td class="num">{{.Wildcards}}</td>
+        <td class="num">{{.Entrants}}</td>
+        <td class="num">{{.Capacity}}</td>
+        <td class="num">{{.FirstRound}}</td>
+        <td class="num">{{.Rounds}}</td>
+      </tr>
+      {{end}}
+    </table>
+  </details>
+  {{end}}
+</section>
+
+{{if not $d.Race}}
+<section class="card">
+  <h1>No championship race yet</h1>
+  <p class="empty">
+    Create a championship race for {{$s.Name}}, check the field in, and the
+    seeding appears here.
+  </p>
+</section>
+{{else}}
+
+{{if $d.SeedError}}
+<section class="card">
+  <h1>Seeding</h1>
+  <p class="err-text">{{$d.SeedError}}</p>
+</section>
+{{end}}
+
+{{if $d.Proposals}}
+<section class="card">
+  <h1>Seeding</h1>
+  <p class="sub">
+    Worked out from the season: race winners by average, then the rest of the
+    auto-qualifiers by average, then the wildcard racers on points. Each place
+    has been matched to a car that checked in.
+  </p>
+
+  <div class="timer-status">
+    <span class="badge {{if eq $d.Missing 0}}ok{{else}}warn{{end}}">
+      {{$d.Matched}} of {{len $d.Proposals}} places filled
+    </span>
+    {{if gt $d.Loose 0}}
+    <span class="badge warn">{{$d.Loose}} brought a different car</span>
+    {{end}}
+    {{if gt $d.Missing 0}}
+    <span class="badge off">{{$d.Missing}} absent</span>
+    {{end}}
+    <span class="grow"></span>
+    <span class="note">Absent racers shrink the field; the bracket adjusts.</span>
+  </div>
+
+  <table class="seeding">
+    <tr>
+      <th>Seed</th><th>Driver</th><th>Won by</th><th>Car tonight</th><th></th>
+    </tr>
+    {{range $d.Proposals}}
+    <tr class="{{if not .Matched}}absent{{else if not .Exact}}loose{{end}}">
+      <td class="num">{{.Seed}}</td>
+      <td>
+        {{.Driver}}
+        <div class="note">
+          {{if eq (printf "%s" .Origin) "wildcard"}}
+          <span class="badge wildcard">wild-card</span>
+          {{else}}
+          <span class="badge qualifier">auto-qualifier</span>
+          {{end}}
+        </div>
+      </td>
+      <td class="note">
+        {{if eq (printf "%s" .Origin) "wildcard"}}
+        {{.Points}} season points
+        {{else}}
+        {{.CarName}} &mdash; race {{.RaceNumber}}, {{.Place}}{{if eq .Place 1}}st{{else if eq .Place 2}}nd{{else if eq .Place 3}}rd{{else}}th{{end}}
+        <span class="mono">{{average .Average}}</span>
+        {{end}}
+      </td>
+      <td>
+        {{if .Matched}}<span class="mono">#{{.CarNumber}}</span> {{.Car}}{{end}}
+      </td>
+      <td class="note">
+        {{if .Exact}}<span class="ok-text">&#10003;</span>{{else}}{{.Why}}{{end}}
+      </td>
+    </tr>
+    {{end}}
+  </table>
+
+  <div class="console-row">
+    <button class="btn primary" id="generate-bracket" data-season="{{$s.ID}}">
+      Build the bracket
+    </button>
+    <span class="note" id="generate-status">
+      {{if gt $d.Missing 0}}
+      The {{$d.Missing}} absent place{{if ne $d.Missing 1}}s{{end}} will be left out and
+      the seeds renumbered.
+      {{else}}
+      This fixes the field. It cannot be rebuilt once the championship has started.
+      {{end}}
+    </span>
+  </div>
+</section>
+{{end}}
+
+{{if $d.Rounds}}
+{{$st := $d.State}}
+<section class="card">
+  <h1>The bracket</h1>
+  <div class="timer-status">
+    <span class="badge {{if $st.Champion}}ok{{else}}off{{end}}">
+      {{if $st.Champion}}Champion decided{{else}}{{$st.Remaining}} races to go{{end}}
+    </span>
+    <span class="grow"></span>
+    <span class="note">{{$st.Entrants}} cars &middot; {{$st.Byes}} byes &middot; {{$st.Rounds}} rounds</span>
+  </div>
+
+  {{if $st.Champion}}
+  <p class="champion-line">
+    <span class="badge ok">Champion</span>
+    <strong>#{{$st.Champion.CarNumber}} {{$st.Champion.CarName}}</strong>
+    &mdash; {{$st.Champion.FullName}}
+  </p>
+  {{end}}
+
+  {{if $st.Next}}
+  <div class="console-row">
+    <button class="btn primary" id="arm-next" data-season="{{$s.ID}}">
+      Arm the next matchup
+    </button>
+    <span class="note" id="bracket-status">
+      {{with $st.Next}}
+      {{if .Top}}#{{.Top.CarNumber}} {{.Top.CarName}}{{end}}
+      vs
+      {{if .Bottom}}#{{.Bottom.CarNumber}} {{.Bottom.CarName}}{{end}}
+      {{end}}
+    </span>
+  </div>
+  {{end}}
+
+  <div class="bracket-rounds">
+    {{range $d.Rounds}}
+    <div class="bracket-round">
+      <h2>{{.Name}}</h2>
+      {{range .Matchups}}
+      <div class="matchup {{if .WinnerEntryID}}decided{{end}} {{if .Ready}}ready{{end}} {{if .Upset}}upset{{end}}">
+        {{if .Walkover}}
+        <div class="slot bye-slot won">
+          <span class="seed">{{.OnlySeed}}</span>
+          {{with .Only}}<span class="mono">#{{.CarNumber}}</span> {{.CarName}}{{end}}
+        </div>
+        <div class="slot"><span class="pending">bye &mdash; straight to the next round</span></div>
+        {{else}}
+        <div class="slot {{if .TopWon}}won{{end}}">
+          {{if .Top}}<span class="seed">{{.TopSeed}}</span> <span class="mono">#{{.Top.CarNumber}}</span> {{.Top.CarName}}
+          {{else}}<span class="pending">waiting</span>{{end}}
+        </div>
+        <div class="slot {{if .BottomWon}}won{{end}}">
+          {{if .Bottom}}<span class="seed">{{.BottomSeed}}</span> <span class="mono">#{{.Bottom.CarNumber}}</span> {{.Bottom.CarName}}
+          {{else}}<span class="pending">waiting</span>{{end}}
+        </div>
+        {{end}}
+
+        {{if .Ready}}
+        <div class="matchup-actions">
+          <button class="btn small arm-matchup" data-matchup="{{.ID}}" data-season="{{$s.ID}}">Arm</button>
+          <button class="btn small swap-lanes" data-matchup="{{.ID}}">Swap lanes</button>
+          {{if .HeatNumber}}
+          <button class="btn small record-result" data-matchup="{{.ID}}" data-season="{{$s.ID}}">
+            Take result of heat {{.HeatNumber}}
+          </button>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+</section>
+{{end}}
+
+{{end}}
+{{end}}
+{{end}}

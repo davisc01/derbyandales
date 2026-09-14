@@ -17,6 +17,7 @@ document so they cannot be lost.
 | M4 | Displays and race control | registration, scene manager, roster / now-racing / results-reveal, auto-advance |
 | M5 | Voting and intermission | ballot tablet, tallies, undo, tie-break, winner declaration, automatic halfway pause |
 | M6 | Season points and auto-qualifiers | frozen race results, wildcard points, seeded qualifier list, substitutions, adjustments |
+| M7 | Championship bracket | planner, generalized construction, seeding from season data, running the matchups |
 
 ## Left to build
 
@@ -165,6 +166,9 @@ top finishers by average time. The list index *is* the seed.
 
 </details>
 
+<details>
+<summary>M7 — Championship bracket (built; kept for the reasoning)</summary>
+
 ### M7 — Championship bracket
 
 Fully parameterized. The old system hardcoded 24 entrants in eight-element
@@ -178,10 +182,6 @@ R1 matches  = N − P/2
 rounds      = log2(P)
 ```
 
-Today: `6 × 3 + 6 = 24`, `P = 32`, 8 byes, 8 R1 matches, 5 rounds. `N` comes
-from **actually seeded entrants**, so a no-show shrinks the field and the bracket
-regenerates with one more bye.
-
 **Pairing** uses the standard recursive construction:
 
 ```
@@ -189,41 +189,50 @@ order(1) = [1]
 order(2n) = for each s in order(n): emit s, emit (2n + 1 − s)
 ```
 
-Consecutive pairs are the R1 matchups; a pair containing a seed > N is a bye.
-Later rounds pair consecutive winners by position.
-
-This was verified to reproduce the club's current bracket exactly — same eight
-R1 matchups (`16v17, 9v24, 13v20, 12v21, 14v19, 11v22, 10v23, 15v18`), same bye
+Verified to reproduce the club's current bracket exactly — same eight R1
+matchups (`16v17, 9v24, 13v20, 12v21, 14v19, 11v22, 10v23, 15v18`), same bye
 seeds 1–8, same half-split (1/4/5/8 vs 2/3/6/7). Only the vertical rendering
-order of the bottom half differs, which is cosmetic.
+order of the bottom half differs, which is cosmetic; the generated diagram is
+now the one people will see, so it is consistent with itself.
 
-**Championship Planner** — show the consequences of a season-shape change before
-committing. Verified figures:
+#### Seeding order, as the club states it
 
-| Races | Wildcards | Entrants | Capacity | Byes | R1 matches | Rounds | |
-|---|---|---|---|---|---|---|---|
-| 4 | 4 | 16 | 16 | 0 | 8 | 4 | bye-free |
-| 5 | 1 | 16 | 16 | 0 | 8 | 4 | bye-free |
-| 6 | **6** | **24** | **32** | **8** | **8** | **5** | **today** |
-| 6 | 14 | 32 | 32 | 0 | 16 | 5 | bye-free |
-| 7 | 11 | 32 | 32 | 0 | 16 | 5 | bye-free |
-| 8 | 8 | 32 | 32 | 0 | 16 | 5 | bye-free |
+```
+Seeds 1–6    the six winners of the regular season races, by average time
+Seeds 7–8    the next two fastest auto-qualifiers, by average time
+Seeds 9–18   the remaining auto-qualifiers, by average time
+Seeds 19–24  the wild-card racers, by total wildcard points
+Seeds 1–8 get a bye into Round 2
+```
 
-Warn when `R1 matches < 2` (the field is mostly byes) or `byes > auto-qualifier
-count` (byes would spill onto wildcard racers, contradicting their purpose).
+Two clauses there are consequences rather than rules, and the code says so:
 
-**Seeding auto-populates from season data** — the biggest workflow win. Today it
-is a CSV export, a hand-edit to strip a column, an import, then typing 24 seeds.
+- **7–8 and 9–18 are one ordered run.** Both are "auto-qualifiers by average
+  time" and they run straight on. The split at 8 is where the byes stop — and
+  the byes are derived too, since 24 cars need a 32 bracket.
+- **"Seeds 1–6" means "the winners first".** Six is the number of races. A
+  five-race season puts winners in 1–5.
 
-Seed metadata is decoupled: `origin` ∈ `qualifier | wildcard` set at seeding,
-`has_bye` derived from `seed <= byes`. The old model inferred all three from
-hardcoded ranges, so a bye racer could not also be labelled an auto-qualifier —
-which is what they are.
+Neither changes the ordering M6 already produced against the published
+qualifiers list.
 
-Each matchup is a two-lane heat on the configured lane pair (default 1 & 2),
-swappable while pending. The format diagram should be **generated** from the
-computed structure; the existing one is 532 lines of hand-maintained HTML that
-would silently lie if the field size changed.
+#### What building it settled
+
+- **Seeding is two problems.** The order is pure and comes from the season.
+  *Which car* fills each place cannot be known until championship check-in, so
+  it is matched by racer plus car name: exact matches are silent, a racer who
+  brought a different car is flagged, and an absent racer shrinks the field.
+- **A no-show shrinks the field rather than leaving a hole**, because a hole
+  would act as a bye nobody earned. Seeds renumber and the byes recompute.
+- **A 24-car field is 23 races whatever the byes are.** Every car but the
+  champion loses once. Byes move where the races happen — eight in round one
+  instead of sixteen — not how many there are.
+- **The planner suggests only bye-free shapes.** Listing every workable wildcard
+  count was 25 rows of arithmetic rather than a suggestion.
+- **A dead heat is not settled by software.** There is no second criterion, and
+  inventing one would be worse than asking for the matchup to be run again.
+
+</details>
 
 ### M8 — Publishing
 

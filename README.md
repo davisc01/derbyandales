@@ -35,7 +35,7 @@ has the detail for what is left.
 | M4 | Displays and race control — roster, now-racing, results reveal | **done** (slideshow, awards, bracket with later milestones) |
 | M5 | Voting and intermission — ballot, tallies, undo, winner declaration | **done** |
 | M6 | Season — auto-qualifiers, wildcard points, substitutions, adjustments | **done** |
-| M7 | Bracket — planner, seeding, generation, advance | |
+| M7 | Bracket — planner, seeding, generation, advance | **done** |
 | M8 | Publishing — website CSV writers, run-of-show screen | |
 | M9 | Dress rehearsal on real hardware | |
 
@@ -199,8 +199,12 @@ other twice, and nobody runs in back-to-back heats.
 
 **The championship is derived, not hardcoded.** Field size, byes and rounds all
 come from `race_count × auto_qual_places + wildcard_spots`. The club's current
-24-entrant, 8-bye, 5-round bracket falls straight out of that formula, so the
-number of races in a season can change without touching code.
+24-entrant, 8-bye, 5-round bracket falls straight out of that formula — verified
+against the bracket the club already races — so the number of races in a season
+can change without touching code. The old system hardcoded 24 in two
+eight-element tables that raised an index error at any other size. The seeding
+is filled in from the season's own results rather than typed in by hand, which
+was a CSV export, a hand-edit, an import, and then twenty-four seeds.
 
 ## Credits
 
