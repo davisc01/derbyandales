@@ -25,6 +25,10 @@ type App struct {
 	Bus   *bus.Bus
 	Log   *slog.Logger
 
+	// Timer owns the connection to the finish-line timer. One owner, so the
+	// race controller and the test bench can never hold the port at once.
+	Timer *TimerController
+
 	HTTPPort  int
 	HTTPSPort int
 }
@@ -57,6 +61,8 @@ func Open(ctx context.Context, paths Paths, log *slog.Logger) (*App, error) {
 		return nil, err
 	}
 
+	a.Timer = NewTimerController(a)
+
 	// A startup snapshot means that however badly a race night goes, there is
 	// always a copy of the state the night began in.
 	keep, _ := db.SettingInt(ctx, store.KeyBackupKeep, DefaultBackupKeep)
@@ -69,8 +75,11 @@ func Open(ctx context.Context, paths Paths, log *slog.Logger) (*App, error) {
 	return a, nil
 }
 
-// Close releases the database.
+// Close releases the timer and the database.
 func (a *App) Close() error {
+	if a.Timer != nil {
+		a.Timer.Disconnect()
+	}
 	if a.DB != nil {
 		return a.DB.Close()
 	}
@@ -79,7 +88,7 @@ func (a *App) Close() error {
 
 // Preflight runs the server-side checks.
 func (a *App) Preflight(ctx context.Context) []Check {
-	return RunPreflight(ctx, a.DB, a.Paths, a.Bus.Subscribers())
+	return RunPreflight(ctx, a.DB, a.Paths, a.Bus.Subscribers(), a.Timer)
 }
 
 // URLs reports how to reach this server.

@@ -213,3 +213,131 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
   .topbar { gap: 12px; padding: 0 12px; }
   .wordmark { display: none; }
 }
+
+/* --- timer test bench ------------------------------------------------------ */
+
+.timer-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+.timer-status .grow { flex: 1; }
+
+.badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  letter-spacing: .02em;
+}
+.badge.ok   { background: rgba(63,191,99,.16);  color: var(--green); }
+.badge.warn { background: rgba(240,165,58,.16); color: var(--amber); }
+.badge.off  { background: rgba(107,114,136,.2); color: var(--ink-faint); }
+
+.mono { font-family: var(--mono); font-size: 12.5px; }
+
+.connect-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.connect-row select {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 7px 9px;
+  font: 13.5px var(--sans);
+}
+
+/* A pending check has not been run yet; it must not read as a pass. */
+.check.pending .dot { background: var(--ink-faint); opacity: .45; }
+
+.check { position: relative; }
+.check .evidence {
+  grid-column: 1 / -1;
+  margin: 8px 0 2px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  color: var(--ink-dim);
+  max-height: 320px;
+  overflow: auto;
+}
+
+.interactive { display: flex; flex-direction: column; gap: 18px; }
+
+.istep {
+  padding: 14px 16px;
+  background: var(--panel-2);
+  border-radius: 8px;
+}
+.istep h2 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.istep .hint { margin: 0 0 10px; }
+.istep select {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 5px 8px;
+  font: 13.5px var(--sans);
+}
+
+.console-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.console-row input {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 7px 10px;
+  font: 13px var(--mono);
+  width: 100px;
+  text-transform: uppercase;
+}
+
+.trace {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre;
+}
+
+.err-text  { color: var(--red); }
+.warn-text { color: var(--amber); }
+
+/* The simulator panel is deliberately distinct: nothing here is real hardware. */
+.sim-card { border-style: dashed; }
+.sim-card h1::after {
+  content: "simulated";
+  margin-left: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--amber);
+}

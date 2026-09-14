@@ -3,6 +3,7 @@ module github.com/davisc01/derbyandales
 go 1.27.1
 
 require (
+	go.bug.st/serial v1.8.0
 	golang.org/x/sys v0.47.0
 	modernc.org/sqlite v1.58.0
 )

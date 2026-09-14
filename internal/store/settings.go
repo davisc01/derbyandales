@@ -20,6 +20,7 @@ const (
 	KeyTimerPort       = "timer_port"        // remembered serial device
 	KeyTimerProfile    = "timer_profile"     // e.g. fasttrack-k, simulator
 	KeyReverseLanes    = "reverse_lanes"     // physical lane wiring is mirrored
+	KeyAutoGateRelease = "auto_gate_release" // the track has a powered release gate
 	KeyActiveSeasonID  = "active_season_id"  // what the UI opens on
 	KeyHTTPPort        = "http_port"
 	KeyHTTPSPort       = "https_port"

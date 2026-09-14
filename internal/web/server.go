@@ -85,9 +85,10 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/quit", s.handleQuitAPI)
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 
-	// Placeholders so the preflight panel's links resolve rather than 404
-	// while the corresponding milestones are still ahead.
-	mux.HandleFunc("GET /timer/test", s.handleTodo("Timer Test Bench", "M3"))
+	s.timerRoutes(mux)
+
+	// Placeholder so the preflight panel's link resolves rather than 404s while
+	// the corresponding milestone is still ahead.
 	mux.HandleFunc("GET /displays", s.handleTodo("Displays", "M4"))
 }
 

@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/davisc01/derbyandales/internal/store"
+	"github.com/davisc01/derbyandales/internal/timer"
 )
 
 // Preflight answers one question before a race night starts: is anything going
@@ -48,7 +50,7 @@ const minFreeBytes = 2 << 30 // 2 GiB
 const staleBackup = 24 * time.Hour
 
 // RunPreflight executes every server-side check.
-func RunPreflight(ctx context.Context, db *store.DB, paths Paths, displaysOnline int) []Check {
+func RunPreflight(ctx context.Context, db *store.DB, paths Paths, displaysOnline int, tc *TimerController) []Check {
 	checks := []Check{
 		checkDatabase(ctx, db, paths),
 		checkDisk(paths),
@@ -57,16 +59,7 @@ func RunPreflight(ctx context.Context, db *store.DB, paths Paths, displaysOnline
 		checkDerbySite(ctx, db),
 		checkDisplays(displaysOnline),
 	}
-	// The timer bench is the one check that matters most on race night, and it
-	// needs hardware plus an operator at the gate. It arrives with M3; until
-	// then it reports honestly rather than claiming to pass.
-	checks = append(checks, Check{
-		Name:        "Timer",
-		Verdict:     Skipped,
-		Detail:      "Timer Test Bench not yet implemented (milestone M3).",
-		Action:      "/timer/test",
-		ActionLabel: "Open test bench",
-	})
+	checks = append(checks, timerCheck(tc))
 	// Camera permission is a browser-side fact; the page fills this in.
 	checks = append(checks, Check{
 		Name:    "Camera",
@@ -210,4 +203,57 @@ func humanBytes(n int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KMGTPE"[exp])
+}
+
+// timerCheck reports the Timer Test Bench state.
+//
+// This is the check that matters most on race night, so it is deliberately
+// blunt: a bench that has never run, or ran two hours ago, is not evidence that
+// the timer works now.
+func timerCheck(tc *TimerController) Check {
+	c := Check{Name: "Timer", Action: "/timer/test", ActionLabel: "Open test bench"}
+	if tc == nil {
+		c.Verdict, c.Detail = Fail, "Timer controller unavailable."
+		return c
+	}
+
+	status := tc.Status()
+	switch {
+	case status.Bench == nil:
+		c.Verdict = Warn
+		c.Detail = "Never tested. Run the timer test before closing check-in."
+
+	case status.BenchStale:
+		age := time.Since(status.Bench.StartedAt).Round(time.Minute)
+		c.Verdict = Warn
+		c.Detail = fmt.Sprintf("Last tested %v ago — too long to trust. Re-run the test.", age)
+
+	case status.Bench.OverriddenBy != "":
+		c.Verdict = Warn
+		c.Detail = "Failing checks were overridden: " + status.Bench.OverrideReason
+
+	case !status.Bench.Passed():
+		c.Verdict = Fail
+		var names []string
+		for _, f := range status.Bench.Failures() {
+			names = append(names, f.Name)
+		}
+		c.Detail = "Failed: " + strings.Join(names, ", ")
+
+	default:
+		c.Verdict = Pass
+		detail := status.Bench.Profile
+		if status.Identity != "" {
+			detail = timer.SummariseIdentity(status.Identity)
+		}
+		if status.Port != "" {
+			detail += " on " + status.Port
+		}
+		if status.Simulated {
+			detail += " (simulated — not real hardware)"
+			c.Verdict = Warn
+		}
+		c.Detail = detail
+	}
+	return c
 }

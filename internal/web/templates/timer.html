@@ -1,0 +1,183 @@
+{{define "content"}}
+{{$d := .Data}}
+{{$s := $d.Status}}
+
+<section class="card">
+  <h1>Timer</h1>
+  <p class="sub">Test the timer before check-in closes, while cars are still
+     being carried in — not after the room is seated.</p>
+
+  <div id="timer-status" class="timer-status">
+    {{if $s.Connected}}
+      <span class="badge ok">Connected</span>
+      <span class="mono">{{$s.Profile}}</span>
+      {{if $s.Port}}<span class="note">{{$s.Port}}</span>{{end}}
+      {{if $s.Simulated}}<span class="badge warn">Simulated</span>{{end}}
+    {{else}}
+      <span class="badge off">Not connected</span>
+    {{end}}
+    <span class="grow"></span>
+    <span class="note">Gate: <b id="gate-state">{{if not $s.GateKnown}}unknown{{else if $s.GateClosed}}closed{{else}}open{{end}}</b></span>
+    <span class="note">State: <b id="race-state">{{$s.State}}</b></span>
+  </div>
+
+  <form class="connect-row" id="connect-form">
+    <label class="inline">
+      <span class="lbl">Port</span>
+      <select name="port" id="port-select">
+        {{range $d.Ports}}
+        <option value="{{.Name}}" {{if eq .Name $s.Port}}selected{{end}}>
+          {{.Name}}{{if .Likely}} — likely{{end}}
+        </option>
+        {{else}}
+        <option value="">No serial ports found</option>
+        {{end}}
+      </select>
+    </label>
+    <label class="inline">
+      <span class="lbl">Timer</span>
+      <select name="profile" id="profile-select">
+        {{range $d.Profiles}}
+        <option value="{{.Key}}" {{if eq .Key $s.ProfileKey}}selected{{end}}>{{.Name}}</option>
+        {{end}}
+        <option value="{{$d.SimKey}}" {{if eq $d.SimKey $s.ProfileKey}}selected{{end}}>
+          Simulated timer (no hardware)
+        </option>
+      </select>
+    </label>
+    <button class="btn" type="submit" id="connect-btn">
+      {{if $s.Connected}}Reconnect{{else}}Connect{{end}}
+    </button>
+    {{if $s.Connected}}
+    <button class="btn" type="button" id="disconnect-btn">Disconnect</button>
+    {{end}}
+  </form>
+  <p class="hint">No hardware to hand? Choose the simulated timer — every check
+     below works against it, so the bench can be learned before race night.</p>
+</section>
+
+<section class="card">
+  <h1>Checks</h1>
+  <p class="sub" id="bench-summary">
+    {{if $s.Bench}}
+      Last run {{ago $s.Bench.StartedAt}}{{if $s.BenchStale}} — too long ago to trust{{end}}.
+    {{else}}
+      Not yet run.
+    {{end}}
+  </p>
+
+  <p>
+    <button class="btn primary" id="run-bench" {{if not $s.Connected}}disabled{{end}}>
+      Run automatic checks
+    </button>
+    <span id="bench-status" class="note"></span>
+  </p>
+
+  <ul class="checks" id="bench-checks">
+    {{if $s.Bench}}
+      {{range $s.Bench.Checks}}
+      <li class="check {{.Verdict}}" data-id="{{.ID}}">
+        <span class="dot"></span>
+        <span class="cname">{{.Name}}</span>
+        <span class="cdetail">{{.Detail}}</span>
+        {{if .Evidence}}<button class="btn small evidence-toggle">Details</button>{{end}}
+        {{if .Evidence}}<pre class="evidence" hidden>{{.Evidence}}</pre>{{end}}
+      </li>
+      {{end}}
+    {{else}}
+      <li class="empty">Connect a timer and run the checks.</li>
+    {{end}}
+  </ul>
+</section>
+
+<section class="card">
+  <h1>Checks that need someone at the track</h1>
+  <p class="sub">These cannot be automated — someone has to open a gate or roll
+     a car down the track.</p>
+
+  <div class="interactive">
+    <div class="istep">
+      <h2>Start gate</h2>
+      <p class="hint">Press start, then open and close the gate. The most common
+         race-night failure, and this also measures how long the switch bounces.</p>
+      <button class="btn" id="check-gate" {{if not $s.Connected}}disabled{{end}}>Watch the gate</button>
+      <span class="note" id="gate-result"></span>
+    </div>
+
+    <div class="istep">
+      <h2>Lane mapping</h2>
+      <p class="hint">Roll a car down the lane you pick. If the timer reports a
+         different lane, the wiring is reversed — worth knowing before a whole
+         race is recorded backwards.</p>
+      <label class="inline">
+        <span class="lbl">Send a car down lane</span>
+        <select id="lane-select">
+          {{range $lane := $d.Lanes}}
+          <option {{if eq $lane 3}}selected{{end}}>{{$lane}}</option>
+          {{end}}
+        </select>
+      </label>
+      <button class="btn" id="check-lane" {{if not $s.Connected}}disabled{{end}}>Start</button>
+      <span class="note" id="lane-result"></span>
+    </div>
+
+    <div class="istep">
+      <h2>Test heat</h2>
+      <p class="hint">Runs a full practice heat: arm, stage, release, collect.
+         The results are discarded and never touch a race.</p>
+      <button class="btn" id="check-heat" {{if not $s.Connected}}disabled{{end}}>Run a test heat</button>
+      <span class="note" id="heat-result"></span>
+    </div>
+  </div>
+</section>
+
+{{if $s.Simulated}}
+<section class="card sim-card">
+  <h1>Stand in for the track</h1>
+  <p class="sub">The simulated timer has no gate and no cars, so these buttons
+     play that part. Everything above behaves exactly as it will on the night.</p>
+  <div class="console-row">
+    <button class="btn" data-sim-gate="true">Close the gate</button>
+    <button class="btn" data-sim-gate="false">Open the gate (start the race)</button>
+  </div>
+  <div class="console-row">
+    <span class="note">Send one car down lane</span>
+    {{range $lane := $d.Lanes}}
+    <button class="btn small" data-sim-car="{{$lane}}">{{$lane}}</button>
+    {{end}}
+    <span class="note" id="sim-status"></span>
+  </div>
+</section>
+{{end}}
+
+<section class="card">
+  <h1>Race anyway</h1>
+  <p class="sub">A jammed gate switch should never stop a race happening. If a
+     check fails and you know why, say so and carry on — the decision is recorded.</p>
+  <form class="form" id="override-form">
+    <label>
+      <span class="lbl">Reason</span>
+      <input type="text" id="override-reason" placeholder="Gate switch jammed; starting heats by hand">
+    </label>
+    <p><button class="btn" type="submit">Record and continue</button>
+       <span class="note" id="override-status"></span></p>
+  </form>
+  {{if and $s.Bench $s.Bench.OverriddenBy}}
+  <p class="note warn-text">Currently overridden by {{$s.Bench.OverriddenBy}}: {{$s.Bench.OverrideReason}}</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h1>Serial console</h1>
+  <p class="sub">Everything said to and by the timer. This is what turns "the
+     timer is being weird" into something diagnosable.</p>
+  <div class="console-row">
+    <input type="text" id="raw-command" placeholder="RV" spellcheck="false" maxlength="8">
+    <button class="btn" id="send-raw" {{if not $s.Connected}}disabled{{end}}>Send</button>
+    <button class="btn" id="refresh-trace">Refresh</button>
+    <button class="btn" id="save-trace">Save to file</button>
+    <span class="note" id="trace-status"></span>
+  </div>
+  <pre class="trace" id="trace">Connect a timer to start recording.</pre>
+</section>
+{{end}}

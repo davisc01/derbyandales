@@ -8,10 +8,12 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/davisc01/derbyandales/internal/store"
+	"github.com/davisc01/derbyandales/internal/timer"
 )
 
 // openForTest opens a database file directly, used to prove a snapshot is a
@@ -239,11 +241,108 @@ func TestPreflightReportsHonestly(t *testing.T) {
 	if got := byName["Website path"].Verdict; got != Warn {
 		t.Errorf("unconfigured Website path verdict = %q, want warn", got)
 	}
-	// The timer bench does not exist yet; claiming a pass would be a lie that
-	// matters on race night.
-	if got := byName["Timer"].Verdict; got != Skipped {
-		t.Errorf("Timer verdict = %q, want skipped", got)
+	// The bench has never run, so this must warn rather than pass. Claiming a
+	// working timer without having tested one is the lie that matters most.
+	if got := byName["Timer"].Verdict; got != Warn {
+		t.Errorf("Timer verdict = %q, want warn", got)
 	}
+	if detail := byName["Timer"].Detail; !strings.Contains(detail, "Never tested") {
+		t.Errorf("Timer detail = %q, want it to say the bench has not run", detail)
+	}
+}
+
+// The timer preflight line is what stands between a broken timer and a room
+// full of people waiting, so each of its states is pinned down.
+func TestTimerPreflightStates(t *testing.T) {
+	cases := []struct {
+		name     string
+		bench    *timer.Result
+		want     Verdict
+		contains string
+	}{
+		{
+			name: "never run",
+			want: Warn, contains: "Never tested",
+		},
+		{
+			name: "stale",
+			bench: &timer.Result{
+				StartedAt: time.Now().Add(-timer.MaxBenchAge - time.Hour),
+				Checks:    []timer.Check{{Verdict: timer.VerdictPass}},
+			},
+			want: Warn, contains: "too long to trust",
+		},
+		{
+			name: "failing",
+			bench: &timer.Result{
+				StartedAt: time.Now(),
+				Checks: []timer.Check{
+					{Name: "Start gate", Verdict: timer.VerdictFail},
+				},
+			},
+			want: Fail, contains: "Start gate",
+		},
+		{
+			name: "overridden",
+			bench: &timer.Result{
+				StartedAt:      time.Now(),
+				Checks:         []timer.Check{{Name: "Start gate", Verdict: timer.VerdictFail}},
+				OverriddenBy:   "coordinator",
+				OverrideReason: "switch jammed",
+			},
+			want: Warn, contains: "switch jammed",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			a := testApp(t)
+			if c.bench != nil {
+				a.Timer.mu.Lock()
+				a.Timer.lastBench = c.bench
+				a.Timer.mu.Unlock()
+			}
+			var got Check
+			for _, check := range a.Preflight(context.Background()) {
+				if check.Name == "Timer" {
+					got = check
+				}
+			}
+			if got.Verdict != c.want {
+				t.Errorf("verdict = %q, want %q (detail: %s)", got.Verdict, c.want, got.Detail)
+			}
+			if !strings.Contains(got.Detail, c.contains) {
+				t.Errorf("detail = %q, want it to mention %q", got.Detail, c.contains)
+			}
+		})
+	}
+}
+
+// Connecting the simulator must never be mistaken for a working timer.
+func TestSimulatedTimerNeverReportsAFullPass(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+
+	if err := a.Timer.Connect(ctx, "", timer.SimulatorKey); err != nil {
+		t.Fatalf("connect simulator: %v", err)
+	}
+	if _, err := a.Timer.RunBench(ctx); err != nil {
+		t.Fatalf("run bench: %v", err)
+	}
+
+	for _, check := range a.Preflight(ctx) {
+		if check.Name != "Timer" {
+			continue
+		}
+		if check.Verdict == Pass {
+			t.Error("a simulated timer must not report a clean pass")
+		}
+		if !strings.Contains(check.Detail, "simulated") {
+			t.Errorf("detail = %q, want it to say the timer is simulated", check.Detail)
+		}
+		return
+	}
+	t.Fatal("Timer check missing")
 }
 
 func TestPreflightFailsOnBadWebsitePath(t *testing.T) {

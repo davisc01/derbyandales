@@ -27,7 +27,7 @@ Under construction, targeting the **2027 season**.
 | M0 | Skeleton — app bundle, database, HTTP/HTTPS, event bus, settings, preflight, backups | **done** |
 | M1 | Check-in — seasons, races, racers, entries, photo capture | |
 | M2 | Schedule and scoring — generator search, drop-slowest standings, scale MPH | **done** |
-| M3 | Timer — FastTrack driver, simulator, Timer Test Bench, race control | |
+| M3 | Timer — FastTrack driver, simulator, Timer Test Bench | **done** (race control with M4) |
 | M4 | Displays — roster, now-racing, results reveal, slideshow, awards | |
 | M5 | Voting — ballot, tallies, undo, winner declaration | |
 | M6 | Season — auto-qualifiers, wildcard points, substitutions | |
@@ -117,6 +117,18 @@ downstream.
 
 **Racers are rows, not name strings.** The old tracker keyed season points on the
 name text, so a typo or a changed surname silently split a racer's season.
+
+**The timer is described, not coded.** A timer model is a `Profile`: serial
+settings, a probe, regular expressions that turn its output into events. Adding
+a second model is data rather than code. The one implemented is Micro Wizard's
+FastTrack K/Q-series, which is what the club races on.
+
+**There is a simulator that speaks the real protocol.** It echoes commands,
+acknowledges with `*`, answers `RV` and `RF`, holds a gate state, and sends a
+genuine unterminated result line. A simulator that shortcut to "here are four
+times" would never exercise line assembly, detector excision, masking or the
+gate debounce — which is exactly where the bugs are. It also means the Timer
+Test Bench can be rehearsed with no hardware present.
 
 **The scheduler searches instead of shipping tables.** DerbyNet ships ~1.4 MB of
 precomputed generator tables. Searching for the lane offsets at runtime takes

@@ -14,6 +14,7 @@
   </a>
   <nav>
     <a href="/" class="{{if eq .Active "home"}}on{{end}}">Status</a>
+    <a href="/timer/test" class="{{if eq .Active "timer"}}on{{end}}">Timer</a>
     <a href="/settings" class="{{if eq .Active "settings"}}on{{end}}">Settings</a>
   </nav>
   <span class="conn" id="conn" title="Live connection">&bull; connecting</span>
@@ -24,5 +25,6 @@
 </main>
 
 <script src="/static/app.js"></script>
+{{if eq .Active "timer"}}<script src="/static/timer.js"></script>{{end}}
 </body>
 </html>{{end}}
