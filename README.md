@@ -20,7 +20,10 @@ rules natively.
 
 ## Status
 
-Under construction, targeting the **2027 season**.
+Under construction, targeting the **2027 season**. The run-of-show is
+continuous end to end: create a season, check cars in, close check-in, race
+every heat, reveal the results. [docs/ROADMAP.md](docs/ROADMAP.md) has the
+detail for what is left.
 
 | Milestone | | |
 |---|---|---|
@@ -34,6 +37,9 @@ Under construction, targeting the **2027 season**.
 | M7 | Bracket — planner, seeding, generation, advance | |
 | M8 | Publishing — website CSV writers, run-of-show screen | |
 | M9 | Dress rehearsal on real hardware | |
+
+Working on this? Read [CLAUDE.md](CLAUDE.md) first — it records the club's
+rules, the conventions, and the traps that have already caused bugs here.
 
 ## Running it
 
