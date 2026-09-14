@@ -84,17 +84,38 @@ func (r Racer) FullName() string {
 
 // Entry is one car in one race. A racer may have several.
 type Entry struct {
-	ID          int64
-	RaceID      int64
-	RacerID     int64
-	CarNumber   int
-	CarName     string
-	PhotoID     *int64
-	IsControl   bool
-	Excluded    bool
+	ID        int64
+	RaceID    int64
+	RacerID   int64
+	CarNumber int
+	CarName   string
+	PhotoID   *int64
+
+	// IsControl marks the club's pace car. It races and it appears in the
+	// standings, but it takes no award and earns no wildcard points.
+	IsControl bool
+
+	// Excluded marks an entry ruled ineligible at check-in — the car ran in a
+	// previous championship, or it does not meet the race rules.
+	//
+	// An excluded car still races and still appears in the heat results. It is
+	// left out of the standings entirely, which means it takes no award, earns
+	// no points, and cannot qualify. Because the exclusion happens before places
+	// are assigned, it moves everyone behind it up: in 2026 race 4 the excluded
+	// car had the fastest average of the night, so this decided the winner.
+	Excluded        bool
+	ExclusionReason string
+
 	CheckedInAt *time.Time
 	Note        string
 }
+
+// Scores reports whether this entry belongs in the standings at all.
+func (e Entry) Scores() bool { return !e.Excluded }
+
+// EarnsPoints reports whether this entry can take an award, earn wildcard
+// points, or qualify for the championship.
+func (e Entry) EarnsPoints() bool { return !e.Excluded && !e.IsControl }
 
 // HeatPhase separates the qualifying schedule from bracket matchups.
 type HeatPhase string

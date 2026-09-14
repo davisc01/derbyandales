@@ -23,10 +23,21 @@ excluded from scoring:
 | 89 | Justin Palmer | Solo Jazz |
 | 901 | Justin Palmer | Shelby |
 
-This is not a data error — it is a real thing the club does, and the reason
-`entry.excluded` exists in the schema. It also mattered: **car 901 had the
-fastest average of the night (2.353)**, so excluding it is what made car 73
-(Duncan Breland, "Loose Moose", 2.367) the winner of record.
+This is not a data error. Exclusion is an eligibility decision made at check-in:
+the car ran in a previous championship, or it does not meet the race rules. An
+excluded car still races and still appears in the heat results — it is simply
+left out of the standings, and so takes no award, earns no wildcard points, and
+cannot qualify.
+
+Because the exclusion is applied before places are assigned, it moves everyone
+behind it up, which is why the published standings number cleanly 1–23. It also
+decided this race: **car 901 had the fastest average of the night (2.353)**, so
+excluding it is what made car 73 (Duncan Breland, "Loose Moose", 2.367) the
+winner of record.
+
+Note the contrast with the club's CONTROL pace car, which is a different thing.
+Car 1 (Derby Ales, "CONTROL") *is* in the standings, at place 23 — it races and
+is ranked, but earns no wildcard points.
 
 The same pattern appears in 2026 race 3, where car 89 and a second Derby Ales
 car were excluded. Races 1, 2 and 5 excluded nobody.

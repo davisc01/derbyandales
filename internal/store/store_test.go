@@ -29,21 +29,31 @@ func TestMigrationsAreIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first open: %v", err)
 	}
-	db.Close()
-
-	// Reopening must not try to re-apply anything.
-	db, err = Open(ctx, path)
-	if err != nil {
-		t.Fatalf("second open: %v", err)
-	}
-	defer db.Close()
-
-	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migration`).Scan(&n); err != nil {
+	var afterFirst int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migration`).Scan(&afterFirst); err != nil {
 		t.Fatal(err)
 	}
-	if n != 1 {
-		t.Errorf("applied migrations = %d, want 1", n)
+	if afterFirst == 0 {
+		t.Fatal("no migrations were applied")
+	}
+	db.Close()
+
+	// Reopening must not re-apply anything. Re-running an ALTER TABLE would
+	// error outright, so this also proves later migrations stay additive.
+	for i := 0; i < 3; i++ {
+		db, err = Open(ctx, path)
+		if err != nil {
+			t.Fatalf("reopen %d: %v", i+1, err)
+		}
+		var n int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migration`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		db.Close()
+		if n != afterFirst {
+			t.Fatalf("reopen %d applied %d migrations, want the original %d",
+				i+1, n-afterFirst, afterFirst)
+		}
 	}
 }
 
