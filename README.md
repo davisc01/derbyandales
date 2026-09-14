@@ -32,7 +32,7 @@ detail for what is left.
 | M2 | Schedule and scoring — generator search, drop-slowest standings, scale MPH | **done** |
 | M3 | Timer — FastTrack driver, simulator, Timer Test Bench | **done** |
 | M4 | Displays and race control — roster, now-racing, results reveal | **done** (slideshow, awards, bracket with later milestones) |
-| M5 | Voting — ballot, tallies, undo, winner declaration | |
+| M5 | Voting and intermission — ballot, tallies, undo, winner declaration | **done** |
 | M6 | Season — auto-qualifiers, wildcard points, substitutions | |
 | M7 | Bracket — planner, seeding, generation, advance | |
 | M8 | Publishing — website CSV writers, run-of-show screen | |
@@ -145,6 +145,11 @@ genuine unterminated result line. A simulator that shortcut to "here are four
 times" would never exercise line assembly, detector excision, masking or the
 gate debounce — which is exactly where the bugs are. It also means the Timer
 Test Bench can be rehearsed with no hardware present.
+
+**Racing pauses itself for the intermission.** Halfway through the heats the
+race stops, voting opens, and a backup is taken — all without the coordinator
+remembering any of it. There is no set length: the venue is a bar and people
+are refuelling, so it ends when someone presses resume.
 
 **Photos are stored once and resized on demand.** Images are addressed by the
 hash of their contents, so a retake of an identical frame costs one file and

@@ -474,3 +474,34 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 .entry-photo { width: 56px; }
 .entry-photo img { width: 48px; height: 36px; object-fit: cover; border-radius: 4px; display: block; }
 .no-photo { color: var(--ink-faint); }
+
+/* --- voting ---------------------------------------------------------------- */
+
+.tally { font-size: 13.5px; }
+.tally td { padding: 7px 12px 7px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+.tally tr:first-child td { border-top: 0; }
+
+.tally-votes {
+  font-weight: 800;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  width: 44px;
+  text-align: right;
+  color: var(--ink-dim);
+}
+.tally tr.leading .tally-votes { color: var(--green); }
+.tally tr.leading { background: rgba(63, 191, 99, .07); }
+.tally-action { text-align: right; white-space: nowrap; }
+
+/* Cars with no votes recede; the coordinator is looking at the top of the list,
+   but the whole field stays visible for a manual tie-break. */
+.tally tr:not(.leading) .tally-votes:not(:empty) { opacity: .75; }
+
+.winner-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+  font-size: 14px;
+}

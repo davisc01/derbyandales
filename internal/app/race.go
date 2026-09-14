@@ -34,6 +34,11 @@ type RaceController struct {
 	// pending is the heat whose results have just been shown and which will
 	// advance when the pause elapses.
 	advanceAt time.Time
+
+	// intermission is the halfway pause, during which voting is open. It is a
+	// hard stop: auto-advance must not step over it.
+	intermission   bool
+	intermissionAt time.Time
 }
 
 // DefaultAutoAdvance is how long a finished heat stays on the screens before
@@ -88,6 +93,8 @@ type RaceState struct {
 	Timer     string          `json:"timer_state"`
 	Gate      string          `json:"gate"`
 	AutoNext  bool            `json:"auto_next"`
+	// Intermission is true while racing is paused for voting.
+	Intermission bool `json:"intermission"`
 	// AdvanceIn is how long until the next heat arms, when counting down.
 	AdvanceIn float64 `json:"advance_in_secs"`
 }
@@ -96,10 +103,11 @@ type RaceState struct {
 func (rc *RaceController) State(ctx context.Context) RaceState {
 	rc.mu.Lock()
 	s := RaceState{
-		Running:  rc.running,
-		RaceID:   rc.raceID,
-		Heat:     rc.current,
-		AutoNext: rc.autoNext,
+		Running:      rc.running,
+		RaceID:       rc.raceID,
+		Heat:         rc.current,
+		AutoNext:     rc.autoNext,
+		Intermission: rc.intermission,
 	}
 	if !rc.advanceAt.IsZero() {
 		if remaining := time.Until(rc.advanceAt); remaining > 0 {
@@ -232,6 +240,7 @@ func (rc *RaceController) Stop() {
 	rc.stop = nil
 	rc.running = false
 	rc.advanceAt = time.Time{}
+	rc.intermission = false
 	rc.mu.Unlock()
 
 	if stop != nil {
@@ -255,11 +264,20 @@ func (rc *RaceController) SetAutoAdvance(on bool) {
 }
 
 // ArmNext loads the next unrun heat and arms the timer for it.
+//
+// It refuses during the intermission. A coordinator who reflexively presses
+// "arm next heat" while people are at the table voting should be told, not
+// have the race silently restart around them.
 func (rc *RaceController) ArmNext(ctx context.Context) error {
 	rc.mu.Lock()
 	raceID := rc.raceID
+	paused := rc.intermission
 	rc.advanceAt = time.Time{}
 	rc.mu.Unlock()
+
+	if paused {
+		return errors.New("the race is in its intermission — resume racing to carry on")
+	}
 
 	if raceID == 0 {
 		return errors.New("no race is running")
@@ -420,6 +438,13 @@ func (rc *RaceController) recordFinish(ctx context.Context) {
 	rc.app.Bus.Publish(bus.TopicRace, "heat.finished", rc.State(ctx))
 	rc.app.Log.Info("heat complete", "heat", heat.Number, "lanes", len(times))
 
+	// Halfway: stop, open voting, and wait for a person. Checked before
+	// auto-advance so the pause cannot be stepped over.
+	if rc.shouldPauseAfter(ctx, heat.RaceID, int64(heat.Number)) {
+		rc.startIntermission(ctx, heat.RaceID)
+		return
+	}
+
 	if autoNext {
 		pause := rc.advancePause(ctx)
 		rc.mu.Lock()
@@ -442,9 +467,10 @@ func (rc *RaceController) tick(ctx context.Context, dev *timer.Device) {
 	rc.mu.Lock()
 	advanceAt := rc.advanceAt
 	running := rc.running
+	paused := rc.intermission
 	rc.mu.Unlock()
 
-	if !running {
+	if !running || paused {
 		return
 	}
 

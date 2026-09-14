@@ -51,7 +51,7 @@ func Scenes() []SceneInfo {
 		{SceneSlides, "Car photos", "Slideshow of the cars.", false},
 		{SceneAwards, "Awards", "Award winners.", false},
 		{SceneBracket, "Bracket", "The championship bracket.", false},
-		{SceneVotingQR, "Voting", "QR code for the voting tablet.", false},
+		{SceneVotingQR, "Voting", "Points people at the tablet during the intermission.", true},
 	}
 }
 

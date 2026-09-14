@@ -299,3 +299,46 @@ html, body { height: 100%; }
   background: var(--line);
 }
 .roster-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* --- intermission / voting -------------------------------------------------- */
+
+.scene-voting { align-items: center; justify-content: center; text-align: center; }
+
+.voting-panel { max-width: 80vw; }
+
+.voting-kicker {
+  font-size: 2.6vh;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin: 0 0 1.5vh;
+}
+
+.voting-title { font-size: 8vh; font-weight: 800; margin: 0; line-height: 1.05; }
+
+.voting-where { font-size: 3.4vh; color: var(--ink-dim); margin: 2vh 0 0; }
+
+.voting-questions {
+  display: flex;
+  gap: 4vw;
+  justify-content: center;
+  margin-top: 5vh;
+}
+
+.voting-q {
+  background: var(--panel);
+  border-radius: 1.6vh;
+  padding: 2.5vh 4vw;
+  min-width: 22vw;
+}
+.voting-q-label { font-size: 2.6vh; color: var(--ink-dim); }
+.voting-q-count {
+  font-size: 9vh;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--green);
+}
+.voting-q-word { font-size: 2.2vh; color: var(--ink-dim); }
+
+.voting-closed-note { font-size: 2.8vh; color: var(--ink-dim); margin-top: 4vh; }

@@ -173,8 +173,11 @@ func TestFullRaceRunsToCompletion(t *testing.T) {
 		t.Fatal("expected the simulated timer")
 	}
 
-	// Play the part of the person at the track for every heat.
-	deadline := time.Now().Add(90 * time.Second)
+	// Play the part of the person at the track for every heat — including the
+	// coordinator, who has to end the intermission halfway through. Racing
+	// stops there on purpose and nothing but a person restarts it.
+	resumed := false
+	deadline := time.Now().Add(120 * time.Second)
 	for time.Now().Before(deadline) {
 		p, err := a.DB.Progress(ctx, raceID)
 		if err != nil {
@@ -183,12 +186,22 @@ func TestFullRaceRunsToCompletion(t *testing.T) {
 		if p.Completed >= p.Total {
 			break
 		}
+		if a.Race.Intermission(ctx).Active {
+			if err := a.Race.ResumeRacing(ctx); err != nil {
+				t.Fatalf("resuming after the intermission: %v", err)
+			}
+			resumed = true
+			continue
+		}
 		if a.Timer.Device().State() == timer.StateMark {
 			sim.CloseGate()
 			time.Sleep(MinGateSettle)
 			sim.OpenGate()
 		}
 		time.Sleep(120 * time.Millisecond)
+	}
+	if !resumed {
+		t.Error("the race never paused for its intermission")
 	}
 
 	p, _ := a.DB.Progress(ctx, raceID)

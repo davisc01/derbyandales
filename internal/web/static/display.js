@@ -125,6 +125,8 @@
       switch (scene) {
         case "now-racing":
           return await renderRacing();
+        case "voting-qr":
+          return await renderVoting();
         case "roster":
           return await renderRoster();
         case "results-reveal":
@@ -156,6 +158,12 @@
   // Lane assignments before the heat, finish order and times after it.
   async function renderRacing() {
     const state = await getJSON("/api/race/state");
+
+    // During the intermission the screen says so rather than sitting on a
+    // finished heat for twenty minutes while people are at the bar.
+    if (state.intermission) {
+      return renderVoting();
+    }
 
     if (!state.lanes || !state.lanes.length) {
       const { wrap, body } = sceneShell(state.race_name || "Derby and Ales");
@@ -332,6 +340,46 @@
 
   let revealTitle = "Results";
 
+  // The intermission screen: what to vote for and where the tablet is. There
+  // is deliberately no countdown — the intermission ends when the coordinator
+  // says it does, not when a clock runs out.
+  async function renderVoting() {
+    let data = { categories: [], voting_open: false };
+    try {
+      data = await getJSON("/api/vote/tally");
+    } catch (err) {
+      /* fall through to the static text */
+    }
+
+    const wrap = el("div", "scene scene-voting");
+    const inner = el("div", "voting-panel");
+
+    inner.appendChild(el("p", "voting-kicker", "Intermission"));
+    inner.appendChild(el("h1", "voting-title", "Vote for your favourites"));
+    inner.appendChild(
+      el("p", "voting-where", "The tablet is at the check-in table. Refill first.")
+    );
+
+    const qs = el("div", "voting-questions");
+    (data.categories || [])
+      .filter(function (c) { return c.enabled; })
+      .forEach(function (c) {
+        const box = el("div", "voting-q");
+        box.appendChild(el("div", "voting-q-label", c.label));
+        box.appendChild(el("div", "voting-q-count", c.votes));
+        box.appendChild(el("div", "voting-q-word", c.votes === 1 ? "vote" : "votes"));
+        qs.appendChild(box);
+      });
+    if (qs.children.length) inner.appendChild(qs);
+
+    if (!data.voting_open) {
+      inner.appendChild(el("p", "voting-closed-note", "Voting is closed."));
+    }
+
+    wrap.appendChild(inner);
+    swap(wrap);
+  }
+
   function ordinal(n) {
     const suffix = ["th", "st", "nd", "rd"][n % 100 > 10 && n % 100 < 14 ? 0 : Math.min(n % 10, 4) % 4] || "th";
     return n + suffix;
@@ -389,7 +437,13 @@
     source.addEventListener("race", function () {
       // Any race change redraws whatever this screen is showing. The reveal is
       // operator-paced, so it is left alone.
-      if (scene === "now-racing" || scene === "roster") render();
+      if (scene === "now-racing" || scene === "roster" || scene === "voting-qr") render();
+    });
+
+    source.addEventListener("vote", function () {
+      // The live count on the intermission screen shows the tablet is being
+      // used; the coordinator watches it from across the room.
+      if (scene === "voting-qr" || scene === "now-racing") render();
     });
 
     source.addEventListener("system", function (e) {

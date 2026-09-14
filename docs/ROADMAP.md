@@ -15,8 +15,12 @@ document so they cannot be lost.
 | M2 | Schedule and scoring | offset search, running order, drop-slowest standings, scale MPH |
 | M3 | Timer | FastTrack K/Q driver, simulator, Timer Test Bench |
 | M4 | Displays and race control | registration, scene manager, roster / now-racing / results-reveal, auto-advance |
+| M5 | Voting and intermission | ballot tablet, tallies, undo, tie-break, winner declaration, automatic halfway pause |
 
 ## Left to build
+
+<details>
+<summary>M5 — Voting and intermission (built; kept for the reasoning)</summary>
 
 ### M5 — Voting
 
@@ -86,6 +90,8 @@ This interacts with auto-advance: the pause has to survive it. Treat the
 intermission as a hard stop that auto-advance cannot step over, rather than as a
 very long advance delay — a coordinator who nudges *Arm next heat* during the
 break should get a confirmation, not a silent restart of the race.
+
+</details>
 
 ### M6 — Season points and auto-qualifiers
 

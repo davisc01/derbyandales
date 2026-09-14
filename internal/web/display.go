@@ -199,6 +199,9 @@ func (s *Server) raceStateJSON(r *http.Request) map[string]any {
 		"gate":       state.Gate,
 		"auto_next":  state.AutoNext,
 		"advance_in": state.AdvanceIn,
+		// The displays need this: during the intermission a screen should say
+		// so and point people at the voting tablet, not sit on a stale heat.
+		"intermission": state.Intermission,
 	}
 	if state.Heat == nil {
 		return out

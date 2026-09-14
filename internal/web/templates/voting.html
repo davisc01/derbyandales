@@ -1,0 +1,102 @@
+{{define "content"}}
+{{$d := .Data}}
+{{$i := $d.Intermission}}
+
+<section class="card">
+  <h1>Voting</h1>
+  <div class="timer-status">
+    <span class="badge {{if $i.Active}}ok{{else}}off{{end}}" id="vote-badge">
+      {{if $i.Active}}Intermission — voting open{{else}}Voting closed{{end}}
+    </span>
+    <span class="grow"></span>
+    {{if $i.AfterHeat}}
+    <span class="note">Intermission after heat <b>{{$i.AfterHeat}}</b></span>
+    {{end}}
+    {{if $i.Active}}
+    <span class="note"><b>{{$i.HeatsRemaining}}</b> heats still to run</span>
+    {{end}}
+  </div>
+
+  {{if $i.Active}}
+  <p class="sub">Racing is paused. Voting closes the moment you resume, so check
+     the tallies below first.</p>
+  <div class="console-row">
+    <button class="btn primary" id="resume-racing">Resume racing</button>
+    <button class="btn" id="close-voting">Close voting, stay paused</button>
+    <span class="note" id="intermission-status"></span>
+  </div>
+  {{else}}
+  <p class="sub">Voting opens by itself at the intermission, halfway through the
+     heats, and closes when you resume racing. There is no set length — it ends
+     when you say so.</p>
+  <div class="console-row">
+    <button class="btn" id="reopen-voting">Reopen voting</button>
+    <span class="note" id="intermission-status">Use this if someone still wants to vote.</span>
+  </div>
+  {{end}}
+
+  <table class="urls">
+    {{range $d.URLs.Insecure}}
+    <tr><th>Voting tablet</th><td><code>{{.}}/vote</code></td></tr>
+    {{end}}
+  </table>
+</section>
+
+{{if $d.Categories}}
+{{range $cat := $d.Categories}}
+<section class="card" data-category="{{$cat.ID}}">
+  <h1>{{$cat.Label}}</h1>
+  <p class="sub">
+    <b class="vote-count">{{$cat.Votes}}</b> vote{{if ne $cat.Votes 1}}s{{end}} cast
+    {{if not $cat.Enabled}}<span class="badge off">switched off</span>{{end}}
+  </p>
+
+  {{if $cat.Winner}}
+  <p class="winner-line">
+    <span class="badge ok">Winner</span>
+    <strong>#{{$cat.Winner.CarNumber}} {{$cat.Winner.CarName}}</strong>
+    — {{$cat.Winner.FullName}}
+    <button class="btn small clear-winner" data-category="{{$cat.ID}}">Change</button>
+  </p>
+  {{else if $cat.Tied}}
+  <p class="note warn-text">The top count is shared. Pick the winner yourself —
+     the software will not choose for you.</p>
+  {{end}}
+
+  {{if $cat.Tally}}
+  <table class="tally">
+    {{range $cat.Tally}}
+    <tr class="{{if .Leading}}leading{{end}}">
+      <td class="tally-votes">{{.Votes}}</td>
+      <td class="mono">#{{.Entry.CarNumber}}</td>
+      <td>{{.Entry.CarName}}<div class="note">{{.Entry.FullName}}</div></td>
+      <td class="tally-action">
+        <button class="btn small declare"
+                data-category="{{$cat.ID}}" data-entry="{{.Entry.ID}}">Declare winner</button>
+      </td>
+    </tr>
+    {{end}}
+  </table>
+  {{else}}
+  <p class="empty">No cars to vote on yet.</p>
+  {{end}}
+
+  <div class="console-row">
+    <button class="btn small undo-vote" data-category="{{$cat.ID}}">Undo last vote</button>
+    <button class="btn small reset-votes" data-category="{{$cat.ID}}">Reset this question</button>
+    <label class="inline">
+      <input type="checkbox" class="toggle-category" data-category="{{$cat.ID}}"
+             {{if $cat.Enabled}}checked{{end}}>
+      <span class="lbl" style="margin-left:6px">On the ballot</span>
+    </label>
+    <span class="note category-status"></span>
+  </div>
+</section>
+{{end}}
+{{else}}
+<section class="card">
+  <h1>No ballot yet</h1>
+  <p class="empty">Open a race for check-in and the ballot questions appear here.</p>
+</section>
+{{end}}
+{{end}}

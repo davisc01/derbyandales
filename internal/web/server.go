@@ -90,6 +90,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	s.displayRoutes(mux)
 	s.raceRoutes(mux)
 	s.checkinRoutes(mux)
+	s.voteRoutes(mux)
 }
 
 // StartTLS brings up the HTTPS listener, which exists so remote check-in
@@ -179,6 +180,7 @@ type pageData struct {
 // business displaying a navigation bar.
 var bareLayoutPages = map[string]bool{
 	"display.html": true,
+	"vote.html":    true,
 }
 
 // parsePages pairs each page template with a layout, giving every page its own

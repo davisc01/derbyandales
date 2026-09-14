@@ -25,6 +25,9 @@ const (
 	BackupRaceOpen     BackupReason = "race-open"
 	BackupCheckinClose BackupReason = "checkin-close"
 	BackupRaceComplete BackupReason = "race-complete"
+	// BackupIntermission is taken when racing pauses halfway through. It is a
+	// known-quiet moment, which is when a snapshot is cheapest and most useful.
+	BackupIntermission BackupReason = "intermission"
 	BackupManual       BackupReason = "manual"
 )
 

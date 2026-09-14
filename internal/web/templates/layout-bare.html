@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · Derby and Ales</title>
 <link rel="stylesheet" href="/static/display.css">
+{{if eq .Active "vote"}}<link rel="stylesheet" href="/static/vote.css">{{end}}
 </head>
 <body class="display-body">
 {{template "content" .}}
-<script src="/static/display.js"></script>
+{{if eq .Active "vote"}}<script src="/static/vote.js"></script>{{else}}<script src="/static/display.js"></script>{{end}}
 </body>
 </html>{{end}}

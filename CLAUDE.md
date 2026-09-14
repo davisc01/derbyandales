@@ -45,7 +45,7 @@ These are the domain, and getting them wrong changes published results.
   when people vote for the design and theme trophies. Voting opens when the
   intermission starts and closes when it ends. It has **no set length** — the
   venue is a bar, people are refuelling, and it ends when the coordinator says
-  so. Never show a countdown. Not built yet; see `docs/ROADMAP.md`.
+  so. Never show a countdown.
 - **Championship field size is derived**, never hardcoded:
   `entrants = races × auto_qual_places + wildcards`, `capacity = next power of 2`,
   `byes = capacity − entrants`. The club's 24/32/8/5-rounds falls out of that.
@@ -88,6 +88,9 @@ Each of these has already caused a bug here.
 - **Go templates share a namespace.** Each page is parsed with its own layout
   copy; see `parsePages`. Displays use `layout-bare.html` — a TV must not show a
   nav bar.
+- **The intermission is a hard stop.** Auto-advance must not step over it and
+  `ArmNext` refuses during it. Treating it as a long advance delay would let the
+  race restart around people standing at the table.
 - **Float ties.** DerbyNet computes drop-slowest as `(SUM−MAX)/(COUNT−1)`, which
   can land one bit away from summing the kept times. `scoring.equalTimes` uses an
   epsilon so two cars that ran identical times tie regardless of arithmetic order.
