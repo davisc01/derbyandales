@@ -13,12 +13,14 @@
     <span class="wordmark">Derby and Ales</span>
   </a>
   <nav>
+    <a href="/run" class="{{if eq .Active "run"}}on{{end}}">Tonight</a>
     <a href="/" class="{{if eq .Active "home"}}on{{end}}">Status</a>
     <a href="/checkin" class="{{if eq .Active "checkin"}}on{{end}}">Check-in</a>
     <a href="/race" class="{{if eq .Active "race"}}on{{end}}">Race</a>
     <a href="/voting" class="{{if eq .Active "voting"}}on{{end}}">Voting</a>
     <a href="/season" class="{{if eq .Active "season"}}on{{end}}">Season</a>
     <a href="/championship" class="{{if eq .Active "championship"}}on{{end}}">Championship</a>
+    <a href="/publish" class="{{if eq .Active "publish"}}on{{end}}">Publish</a>
     <a href="/displays" class="{{if eq .Active "displays"}}on{{end}}">Displays</a>
     <a href="/timer/test" class="{{if eq .Active "timer"}}on{{end}}">Timer</a>
     <a href="/settings" class="{{if eq .Active "settings"}}on{{end}}">Settings</a>
@@ -37,5 +39,7 @@
 {{if eq .Active "voting"}}<script src="/static/voting.js"></script>{{end}}
 {{if eq .Active "season"}}<script src="/static/season.js"></script>{{end}}
 {{if eq .Active "championship"}}<script src="/static/championship.js"></script>{{end}}
+{{if eq .Active "publish"}}<script src="/static/publish.js"></script>{{end}}
+{{if eq .Active "run"}}<script src="/static/run.js"></script>{{end}}
 </body>
 </html>{{end}}

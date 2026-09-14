@@ -93,6 +93,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 	s.voteRoutes(mux)
 	s.seasonRoutes(mux)
 	s.bracketRoutes(mux)
+	s.publishRoutes(mux)
+	s.runRoutes(mux)
 }
 
 // StartTLS brings up the HTTPS listener, which exists so remote check-in
@@ -417,6 +419,17 @@ func funcMap() template.FuncMap {
 				return "+" + strconv.Itoa(n)
 			}
 			return strconv.Itoa(n)
+		},
+		"publishable": publishable,
+		// A diff mark is '+', '-' or ' ', none of which is a usable class name.
+		"diffclass": func(mark byte) string {
+			switch mark {
+			case '+':
+				return "dplus"
+			case '-':
+				return "dminus"
+			}
+			return "dspace"
 		},
 		"setting": func(m map[string]string, key, def string) string {
 			if v, ok := m[key]; ok && v != "" {

@@ -149,6 +149,24 @@ Each of these has already caused a bug here.
   both are needed: a racer sitting exactly on the cap keeps every slot they hold
   but is out of wildcard contention. Getting these the same way round silently
   changes who reaches the championship.
+- **The published file formats come from the committed files, not from the
+  exporters that made them** — the committed ones were hand-trimmed and are what
+  the site renders. Asserted in `internal/publish/golden_test.go`. Two traps:
+  a **BOM** lives inside the first header cell and silently breaks the season
+  page's `hide-columns` and `highlight-column`, and a renamed header does the
+  same. `awards.csv` has **no `Award Type` column** — an early note said it did,
+  from the one file in five that has one.
+- **`index.md` is written once and never again.** It carries a hand-written
+  summary and the photo album link. Overwriting it to "keep things in sync"
+  would delete the only part of the page a person wrote.
+- **The publish diff compares normalised content** (BOM and CRLF stripped) so a
+  single corrected time reads as one line rather than a whole-file rewrite. A
+  file that differs *only* by a BOM is still rewritten, because the BOM is the
+  thing that breaks the site.
+- **Exactly one run-of-show step is ever "next".** `markNext` enforces it:
+  several steps are genuinely available at once, and the screen exists to answer
+  one question. The intermission overrides the order, because it is a hard stop
+  rather than a step in a queue.
 - **Everything runs offline.** The venue has private wifi and no internet. No
   CDNs, no web fonts, no outbound HTTP: every asset is `go:embed`ed and served
   from the app itself, and the whole page set is verified to reference only
@@ -164,6 +182,7 @@ internal/
   model/      domain types
   schedule/   heat generation (offset search) and running order
   bracket/    seed order, bracket construction, the Championship Planner
+  publish/    website CSV writers, page skeletons, diff and write
   scoring/    drop-slowest averaging, placement, scale MPH, CSV formatting
   season/     wildcard points, auto-qualifier seeding, substitutions
   store/      SQLite, migrations, queries

@@ -38,6 +38,9 @@ type App struct {
 	// Bracket runs the championship.
 	Bracket *BracketController
 
+	// Publish writes results into the club's website.
+	Publish *PublishController
+
 	HTTPPort  int
 	HTTPSPort int
 }
@@ -74,6 +77,7 @@ func Open(ctx context.Context, paths Paths, log *slog.Logger) (*App, error) {
 	a.Race = NewRaceController(a)
 	a.Season = NewSeasonController(a)
 	a.Bracket = NewBracketController(a)
+	a.Publish = NewPublishController(a)
 	// Point the displays at something without being asked, so a screen plugged
 	// in at the venue shows the right race straight away.
 	a.Race.LoadMostRecentRace(ctx)

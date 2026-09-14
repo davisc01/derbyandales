@@ -1,0 +1,85 @@
+{{define "content"}}
+{{$d := .Data}}
+
+<section class="card">
+  <h1>Publish to the website</h1>
+  <p class="sub">
+    This writes files into your copy of the website and stops. It does not run
+    git, does not commit, and does not push &mdash; you review the changes and
+    commit them yourself.
+  </p>
+
+  {{if $d.SiteError}}
+  <p class="err-text">{{$d.SiteError}}</p>
+  <p class="note">Set the website folder on the <a href="/settings">settings page</a>.</p>
+  {{else}}
+  <p class="note">Writing into <code>{{$d.SitePath}}</code></p>
+  {{end}}
+
+  {{if and $d.Season (not $d.SiteError)}}
+  <div class="console-row">
+    <select id="publish-what">
+      <option value="season" {{if eq $d.What "season"}}selected{{end}}>Season standings</option>
+      {{range $d.Races}}
+      {{if publishable .}}
+      <option value="race:{{.ID}}" {{if eq .ID $d.RaceID}}selected{{end}}>{{.Name}}</option>
+      {{end}}
+      {{end}}
+    </select>
+    <button class="btn" id="preview">Show me what would change</button>
+    <span class="note" id="publish-status"></span>
+  </div>
+  {{end}}
+</section>
+
+{{if $d.PlanError}}
+<section class="card">
+  <h1>Nothing to publish</h1>
+  <p class="err-text">{{$d.PlanError}}</p>
+</section>
+{{end}}
+
+{{with $d.Plan}}
+<section class="card">
+  <h1>{{.Label}}</h1>
+
+  {{if eq .Changes 0}}
+  <p class="note ok">Already published &mdash; nothing would change.</p>
+  {{else}}
+  <div class="console-row">
+    <button class="btn primary" id="do-publish"
+            data-what="{{$d.What}}" data-race="{{$d.RaceID}}">
+      Write {{.Changes}} file{{if ne .Changes 1}}s{{end}}
+    </button>
+    <span class="note">Then review and commit in the website folder.</span>
+  </div>
+  {{end}}
+
+  <ul class="publish-files">
+    {{range .Files}}
+    <li class="publish-file {{.Status}}">
+      <div class="publish-head">
+        <span class="badge {{if eq (printf "%s" .Status) "new"}}ok{{else if eq (printf "%s" .Status) "changed"}}warn{{else}}off{{end}}">
+          {{.Status}}
+        </span>
+        <code>{{.Path}}</code>
+        {{if .Writes}}
+        <span class="note">+{{.Added}} &minus;{{.Removed}}</span>
+        {{end}}
+      </div>
+      {{if .Note}}<div class="note">{{.Note}}</div>{{end}}
+
+      {{if .Diff}}
+      <details {{if eq (printf "%s" .Status) "changed"}}open{{end}}>
+        <summary class="note">
+          {{if eq (printf "%s" .Status) "new"}}{{.Added}} lines{{else}}what changes{{end}}
+        </summary>
+        <pre class="diff">{{range .Diff}}<span class="{{diffclass .Mark}}">{{printf "%c" .Mark}} {{.Text}}</span>{{end}}</pre>
+      </details>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+{{end}}

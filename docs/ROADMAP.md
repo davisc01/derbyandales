@@ -18,6 +18,7 @@ document so they cannot be lost.
 | M5 | Voting and intermission | ballot tablet, tallies, undo, tie-break, winner declaration, automatic halfway pause |
 | M6 | Season points and auto-qualifiers | frozen race results, wildcard points, seeded qualifier list, substitutions, adjustments |
 | M7 | Championship bracket | planner, generalized construction, seeding from season data, running the matchups |
+| M8 | Publishing and the run of show | five website files with a diff preview, speed trophies, the race-night checklist |
 
 ## Left to build
 
@@ -234,10 +235,13 @@ qualifiers list.
 
 </details>
 
+<details>
+<summary>M8 — Publishing and the run of show (built; kept for the reasoning)</summary>
+
 ### M8 — Publishing
 
-Settings hold the path to `~/git/derby-site`. "Publish Race N" shows a diff,
-then writes. **The app never runs git** — the user reviews and commits.
+Settings hold the path to `~/git/derby-site`. "Publish" shows a diff, then
+writes. **The app never runs git** — the user reviews and commits.
 
 UTF-8 **without BOM**, LF, comma-delimited. Exact headers:
 
@@ -245,49 +249,51 @@ UTF-8 **without BOM**, LF, comma-delimited. Exact headers:
 |---|---|
 | `content/races/{yyyy}/race-{n}/heats.csv` | `Heat,Lane,FirstName,LastName,CarNumber,CarName,FinishTime,Scale MPH,FinishPlace` |
 | `content/races/{yyyy}/race-{n}/standings.csv` | `Place,Car Number,Name,Car Name,Heats,Average,Best,Worst` |
-| `content/races/{yyyy}/race-{n}/awards.csv` | `Award Name,Award Type,First Name,Last Name,Car Number,Car Name` |
+| `content/races/{yyyy}/race-{n}/awards.csv` | `Award Name,First Name,Last Name,Car Number,Car Name` |
 | `content/races/{yyyy}/season-standings/qualifiers.csv` | `Current Seed,Driver,Car Name,Race,Race Finish,Avg Time,Total Entries,Over Limit` |
 | `content/races/{yyyy}/season-standings/wildcard.csv` | `Rank,Name,Total Points` |
 
-Formatting rules taken from the **committed** files, not from the exporter that
-produced them — the committed ones were hand-trimmed:
+#### What building it corrected
 
-- `heats.csv` uses unspaced `FirstName`/`CarNumber`; `standings.csv` and
-  `awards.csv` use spaced `Car Number`/`First Name`. `standings.csv` has a
-  single full-name `Name` column.
-- `FinishTime` 3 dp, trailing zeros trimmed (`2.76`). `Scale MPH` 1 dp with
-  trailing `.0` dropped (`194`). `Average` 3 dp, trailing zeros trimmed
-  (`2.43`). `scoring.FormatTime`, `FormatAverage` and `FormatMPH` already do
-  this and are asserted against every row of a published race.
-- `Avg Time` in `qualifiers.csv` is **3 dp** — the old tracker emitted 4 and
-  they were trimmed by hand.
-- Drop the old tracker's trailing `Class` column, which was stripped by hand.
-- `Over Limit` is exactly `YES` or empty — the site's row highlight matches on it.
-- `Total Points` may be the literal string `Max Entries Reached`.
-- **Championship pages get `heats.csv` + `standings.csv` only — no `awards.csv`.**
-- `index.md` written from derby-site's `archetypes/races.md` if absent; existing
-  ones never overwritten.
+- **`awards.csv` has no `Award Type` column.** This roadmap said it did, taken
+  from 2026 race 2 — but the other four races that season and every year before
+  use the five columns above. The note was wrong; the club's format is not.
+- **CRLF, not LF, is what most committed files have**, and one has no trailing
+  newline at all. It does not matter — the site's shortcode uses Go's CSV reader,
+  which takes either — so the app writes LF and normalises when *comparing*, so
+  a corrected time shows as one changed line rather than a whole-file rewrite.
+- **The BOM does matter, and now it is known why.** The `csv-table` shortcode
+  matches column names by string equality, and the season page uses
+  `hide-columns="Over Limit"` and `highlight-column="Over Limit"`. A BOM lives
+  inside the first header cell, so a file written with one silently stops both.
+- **The championship lives in `championship/`, not `race-{n}/`**, and gets
+  `heats.csv` + `standings.csv` only.
+- **The speed trophies are now generated** from the standings, skipping the
+  CONTROL car. That was the last open question in this document: `EarnsPoints()`
+  finally has a caller on the awards side.
+- **`index.md` is written once and never again.** It has the summary and the
+  photo album link in it.
 
-The site's `csv-table` shortcode tolerates a UTF-8 BOM but the BOM leaks into the
-first header cell, breaking its `hide-columns` matching. Write without one.
+#### The run of show
 
-Also in M8: the **run-of-show screen**, one linear checklist per race night.
-This is the answer to the bus-factor problem and should be treated as a feature,
-not a nicety:
+One screen, nine steps, derived entirely from the state of the database and the
+timer. Nothing is ticked off by being pressed.
 
 ```
-1. Open race        2. Test the timer     3. Check in racers
-4. Intros           5. Race (first half)  6. Intermission — voting opens
-7. Race (second half)                     8. Results
-9. Awards          10. Publish
+1. Open the race    2. Test the timer     3. Check the cars in
+4. Introduce        5. Race               6. Intermission and voting
+7. Reveal           8. Awards             9. Publish
 ```
 
-Step 2 sits before check-in deliberately: the timer gets tested while cars are
-still being carried in, not after the room is seated.
+- **Exactly one step is ever "next".** Several are genuinely available at once —
+  after a race ends the reveal, the awards and the publish are all doable — but
+  the screen answers one question, so the earliest ready step wins.
+- **The intermission overrides that order**, because it is a hard stop rather
+  than a step in a queue.
+- **A simulated timer test is marked, not ticked cleanly.** It does not block
+  rehearsing a whole night, but it says the real timer has not been tested.
 
-Step 6 is the club's existing intermission, halfway through the heats — see
-the intermission section under M5. The software pauses racing there and opens
-voting, rather than relying on the coordinator to remember both.
+</details>
 
 ### M9 — Dress rehearsal on real hardware
 
@@ -316,8 +322,7 @@ voting, rather than relying on the coordinator to remember both.
   no schema. Modelled as nothing so far. Needs a decision before it matters.
 - **Code signing and notarization** — see `packaging/NOTARIZING.md`. Worth doing
   before anyone else installs the app.
-- **Awards must skip the CONTROL car.** It is ranked in the standings and can
-  place first on times, but it takes no trophy. `Entry.EarnsPoints()` encodes
-  this. The season side now honours it; the awards side still has to, in M8.
-- **The `9*` standby row** in the published qualifiers list — see M6 above.
-  M8 has to decide whether to reproduce it or publish the committed list only.
+- **The `9*` standby row** in the published qualifiers list — see M6 above. The
+  publisher writes the committed list only. If the club wants the standby shown
+  alongside an over-limit slot the way it was in 2026, that is a change to
+  `QualifiersCSV` and a decision about what the extra row should say.

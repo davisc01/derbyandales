@@ -1,0 +1,79 @@
+{{define "content"}}
+{{$d := .Data}}
+
+<section class="card">
+  <h1>Tonight</h1>
+  <p class="sub">
+    Work down the list. Each step says what is done, what is next, and what is
+    stopping it. Nothing here is ticked off by pressing it &mdash; a step is done
+    when the thing it describes has actually happened.
+  </p>
+
+  {{with $d.Now}}
+  <div class="up-next">
+    <span class="badge warn">Next</span>
+    <div class="up-next-body">
+      <strong>{{.Number}}. {{.Title}}</strong>
+      {{if .Detail}}<div class="note">{{.Detail}}</div>{{end}}
+    </div>
+    <a class="btn primary" href="{{.Link}}">{{.Action}}</a>
+  </div>
+  {{end}}
+
+  {{if $d.Races}}
+  <div class="console-row">
+    <select id="race-picker">
+      {{range $d.Races}}
+      <option value="{{.ID}}" {{if eq .ID $d.Race.ID}}selected{{end}}>{{.Label}} ({{.Status}})</option>
+      {{end}}
+    </select>
+    <button class="btn" id="load-race">Open this race</button>
+    <span class="note" id="race-status"></span>
+  </div>
+  {{end}}
+</section>
+
+<section class="card">
+  <ol class="run-steps">
+    {{range $d.Steps}}
+    <li class="run-step {{.State}}">
+      <div class="run-mark">
+        {{if eq (printf "%s" .State) "done"}}&#10003;
+        {{else if eq (printf "%s" .State) "now"}}&rarr;
+        {{else if eq (printf "%s" .State) "blocked"}}&#8212;
+        {{else}}{{.Number}}{{end}}
+      </div>
+      <div class="run-body">
+        <div class="run-title">{{.Title}}</div>
+        {{if .Detail}}<div class="run-detail">{{.Detail}}</div>{{end}}
+        {{if .Blocker}}<div class="run-blocker">{{.Blocker}}</div>{{end}}
+        {{if .Caveat}}<div class="run-blocker">{{.Caveat}}</div>{{end}}
+        <div class="run-hint">{{.Hint}}</div>
+      </div>
+      <div class="run-action">
+        {{if ne (printf "%s" .State) "waiting"}}
+        <a class="btn small" href="{{.Link}}">{{.Action}}</a>
+        {{end}}
+      </div>
+    </li>
+    {{end}}
+  </ol>
+</section>
+
+<section class="card">
+  <h1>Where things connect</h1>
+  <table class="urls">
+    {{range $d.URLs.Insecure}}
+    <tr><th>Voting tablet</th><td><code>{{.}}/vote</code></td></tr>
+    <tr><th>A TV</th><td><code>{{.}}/display</code></td></tr>
+    {{end}}
+    {{range $d.URLs.Secure}}
+    <tr><th>Check-in on a tablet</th><td><code>{{.}}/checkin</code></td></tr>
+    {{end}}
+  </table>
+  <p class="hint">
+    Check-in needs one of the <code>https://</code> addresses for the camera to
+    work. Trust the certificate once on that device.
+  </p>
+</section>
+{{end}}

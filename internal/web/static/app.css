@@ -645,3 +645,86 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 .matchup-actions { display: flex; gap: 6px; padding: 7px 9px; border-top: 1px solid var(--line); flex-wrap: wrap; }
 
 .champion-line { display: flex; align-items: center; gap: 10px; font-size: 15px; margin: 0 0 14px; }
+
+/* --- publishing ------------------------------------------------------------------ */
+
+.publish-files { list-style: none; margin: 14px 0 0; padding: 0; }
+.publish-file { padding: 10px 0; border-top: 1px solid var(--line); }
+.publish-file:first-child { border-top: 0; }
+.publish-file.unchanged, .publish-file.kept { opacity: .6; }
+.publish-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.publish-file details { margin-top: 6px; }
+.publish-file summary { cursor: pointer; }
+
+.diff {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 22em;
+  overflow-y: auto;
+}
+.diff span { display: block; white-space: pre; }
+/* Green for what the website would gain, red for what it would lose — the same
+   way round as every diff anyone reading this has seen before. */
+.diff .dplus  { color: var(--green); }
+.diff .dminus { color: var(--red); }
+.diff .dspace { color: var(--ink-faint); }
+
+/* --- the run of show ------------------------------------------------------------- */
+
+.up-next {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  margin: 4px 0 16px;
+  background: var(--panel-2);
+  border: 1px solid var(--amber);
+  border-radius: var(--radius);
+}
+.up-next-body { flex: 1; }
+.up-next strong { font-size: 15px; }
+
+.run-steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+.run-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.run-step:first-child { border-top: 0; }
+
+/* A step nobody can do yet recedes, but stays legible: the whole point of the
+   list is being able to see what the night is going to involve. */
+.run-step.waiting { opacity: .45; }
+.run-step.now { background: rgba(240, 165, 58, .06); }
+
+.run-mark {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--panel-2);
+  color: var(--ink-faint);
+}
+.run-step.done .run-mark { background: rgba(63, 191, 99, .18); color: var(--green); }
+.run-step.now .run-mark { background: var(--amber); color: #241a05; }
+.run-step.blocked .run-mark { background: rgba(229, 82, 74, .16); color: var(--red); }
+
+.run-body { flex: 1; min-width: 0; }
+.run-title { font-size: 14.5px; font-weight: 600; }
+.run-detail { font-size: 13px; color: var(--ink-dim); margin-top: 2px; }
+.run-blocker { font-size: 13px; color: var(--amber); margin-top: 2px; }
+.run-hint { font-size: 12.5px; color: var(--ink-faint); margin-top: 4px; max-width: 62ch; }
+.run-action { flex: 0 0 auto; }

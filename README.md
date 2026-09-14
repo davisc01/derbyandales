@@ -36,7 +36,7 @@ has the detail for what is left.
 | M5 | Voting and intermission — ballot, tallies, undo, winner declaration | **done** |
 | M6 | Season — auto-qualifiers, wildcard points, substitutions, adjustments | **done** |
 | M7 | Bracket — planner, seeding, generation, advance | **done** |
-| M8 | Publishing — website CSV writers, run-of-show screen | |
+| M8 | Publishing — website CSV writers, run-of-show screen | **done** |
 | M9 | Dress rehearsal on real hardware | |
 
 Working on this? Read [CLAUDE.md](CLAUDE.md) first — it records the club's
@@ -160,6 +160,21 @@ genuine unterminated result line. A simulator that shortcut to "here are four
 times" would never exercise line assembly, detector excision, masking or the
 gate debounce — which is exactly where the bugs are. It also means the Timer
 Test Bench can be rehearsed with no hardware present.
+
+**One screen tells you how to run the night.** The run-of-show is a list, in
+order, that says what is done, what is next, and what is stopping it. Nothing on
+it is ticked off by being pressed — a step is done when the thing it describes
+has actually happened — and exactly one step is ever marked as next, because
+three answers to "what do I do now" is the same as none. This is the answer to
+the bus-factor problem, and the real acceptance test for the project is handing
+it to somebody who has never run a race.
+
+**Publishing writes files and stops.** It never runs git, never commits and
+never pushes: it shows a diff of every file it would write, you press the button,
+and then you review and commit in the website folder yourself. The five file
+formats are asserted against the club's own committed results, and `index.md` is
+written once and never again — it carries the summary and the photo album link,
+which no export knows about.
 
 **It runs with no internet at all.** The venue is a brewery with a private
 wifi network and no uplink. Every asset is compiled into the binary and served
