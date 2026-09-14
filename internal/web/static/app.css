@@ -557,3 +557,25 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
   font: inherit;
   width: 100%;
 }
+
+/* --- heats worth a second look ------------------------------------------------ */
+
+.anomaly-card { border-color: rgba(240, 165, 58, .35); }
+.anomalies { list-style: none; margin: 0; padding: 0; }
+
+.anomaly {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.anomaly:first-child { border-top: 0; }
+
+/* A heat where every car was clearly off its own form is the one to re-run.
+   The weaker ones stay listed, but must not look like the same finding. */
+.anomaly.clear .anomaly-what { font-weight: 600; }
+.anomaly:not(.clear) { opacity: .72; }
+
+.anomaly-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.anomaly-what { font-size: 14px; }
+
+.anomaly-cars { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0 2px; }
+.anomaly-car { white-space: nowrap; }

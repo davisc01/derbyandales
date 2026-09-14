@@ -408,6 +408,9 @@ func funcMap() template.FuncMap {
 			return scoring.FormatTime(*t)
 		},
 		"average": scoring.FormatAverage,
+		"seconds": scoring.FormatTime,
+		// Odds are rounded to something sayable: "1 in 256", not "1 in 256.0".
+		"odds": func(n float64) string { return strconv.FormatFloat(n, 'f', 0, 64) },
 		"signed": func(n int) string {
 			if n > 0 {
 				return "+" + strconv.Itoa(n)

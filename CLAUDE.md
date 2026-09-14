@@ -50,6 +50,14 @@ These are the domain, and getting them wrong changes published results.
   club's published 2026 wildcard standings. `store.CompetingRacers` is the list
   to offer anywhere a human is being chosen.
 
+- **A heat where every car ran its slowest — or every car its fastest — is a
+  fault, not a result.** Once every heat is run, `scoring.HeatAnomalies` flags
+  those and the coordinator can re-run them. The `Clear` field is the one to act
+  on: it also requires each car to be further off its own form than its other
+  runs are from each other, which is what keeps the check quiet on a clean night
+  (about one clean race in four hundred, against one in five for the bare rule).
+  Do not replace that with a threshold in seconds — a fixed threshold gets
+  noisier as the field gets scrappier, and this does not.
 - **Racing pauses for an intermission halfway through the heats**, and that is
   when people vote for the design and theme trophies. Voting opens when the
   intermission starts and closes when it ends. It has **no set length** — the
@@ -105,9 +113,13 @@ Each of these has already caused a bug here.
 - **Go templates share a namespace.** Each page is parsed with its own layout
   copy; see `parsePages`. Displays use `layout-bare.html` — a TV must not show a
   nav bar.
-- **The intermission is a hard stop.** Auto-advance must not step over it and
-  `ArmNext` refuses during it. Treating it as a long advance delay would let the
-  race restart around people standing at the table.
+- **The intermission is a hard stop.** Auto-advance must not step over it, and
+  `ArmNext` *and* `ReRun` both refuse during it. Treating it as a long advance
+  delay would let the race restart around people standing at the table. Any new
+  way to arm the track needs the same guard — `ReRun` was missed the first time.
+- **"Re-run" means re-run.** It is refused on a heat with no times, because
+  there it would silently mean "skip ahead to this one". The button is only
+  rendered on completed heats.
 - **Float ties.** DerbyNet computes drop-slowest as `(SUM−MAX)/(COUNT−1)`, which
   can land one bit away from summing the kept times. `scoring.equalTimes` uses an
   epsilon so two cars that ran identical times tie regardless of arithmetic order.
@@ -119,6 +131,11 @@ Each of these has already caused a bug here.
   both are needed: a racer sitting exactly on the cap keeps every slot they hold
   but is out of wildcard contention. Getting these the same way round silently
   changes who reaches the championship.
+- **Everything runs offline.** The venue has private wifi and no internet. No
+  CDNs, no web fonts, no outbound HTTP: every asset is `go:embed`ed and served
+  from the app itself, and the whole page set is verified to reference only
+  relative paths. Keep it that way — one `<link>` to a font service would fail
+  silently on race night and only there.
 
 ## Layout
 

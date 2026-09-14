@@ -26,18 +26,26 @@ func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
 	state := s.app.Race.State(ctx)
 
 	var heats []store.HeatView
+	var anomalies []store.HeatAnomalyView
 	if state.RaceID != 0 {
 		heats, _ = s.app.DB.Heats(ctx, state.RaceID)
+		// Only once every heat has been run. Before that, a car's "slowest run
+		// of the night" is the slowest of however few it has had so far, and
+		// the check would point at the early heats every time.
+		if allHeatsRun(heats) {
+			anomalies, _ = s.app.DB.HeatAnomalies(ctx, state.RaceID)
+		}
 	}
 
 	s.render(w, r, "race.html", pageData{
 		Title:  "Race",
 		Active: "race",
 		Data: map[string]any{
-			"State": state,
-			"Races": races,
-			"Heats": heats,
-			"Timer": s.app.Timer.Status(),
+			"State":     state,
+			"Races":     races,
+			"Heats":     heats,
+			"Anomalies": anomalies,
+			"Timer":     s.app.Timer.Status(),
 		},
 	})
 }
@@ -136,4 +144,17 @@ func (s *Server) raceIDForm(r *http.Request) int64 {
 		}
 	}
 	return s.app.Race.CurrentRaceID()
+}
+
+// allHeatsRun reports whether the schedule is finished.
+func allHeatsRun(heats []store.HeatView) bool {
+	if len(heats) == 0 {
+		return false
+	}
+	for _, h := range heats {
+		if !h.Complete() {
+			return false
+		}
+	}
+	return true
 }

@@ -67,6 +67,46 @@
   </div>
 </section>
 
+{{if $d.Anomalies}}
+<section class="card anomaly-card">
+  <h1>Heats worth a second look</h1>
+  <p class="sub">
+    Every car in these heats ran its slowest — or every car its fastest — run of
+    the night. Cars are slow for their own reasons, but a whole heat being off
+    usually means the heat was, not the cars.
+  </p>
+
+  <ul class="anomalies">
+    {{range $d.Anomalies}}
+    <li class="anomaly {{if .Clear}}clear{{end}}">
+      <div class="anomaly-head">
+        <span class="badge {{if .Clear}}warn{{else}}off{{end}}">Heat {{.Heat}}</span>
+        <span class="anomaly-what">{{.Description}}</span>
+      </div>
+      <div class="note">
+        {{if .Clear}}
+        Each of them by at least <b>{{seconds .Margin}}s</b> — further off their own
+        form than their other runs are from each other. Worth re-running.
+        {{else}}
+        But only by <b>{{seconds .Margin}}s</b> at the closest, which is within how
+        much these cars vary anyway. Probably a coincidence — about a 1 in
+        {{odds .OneIn}} chance per heat.
+        {{end}}
+      </div>
+      <div class="anomaly-cars note">
+        {{range .Entries}}<span class="anomaly-car">#{{.CarNumber}} {{.CarName}}</span>{{end}}
+      </div>
+      {{if .HeatID}}
+      <div class="console-row">
+        <button class="btn small rerun" data-heat="{{.HeatID}}">Re-run heat {{.Heat}}</button>
+      </div>
+      {{end}}
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+
 <section class="card">
   <h1>Heats</h1>
   {{if $d.Heats}}
@@ -86,7 +126,11 @@
         {{end}}
       </td>
       {{end}}
-      <td><button class="btn small rerun" data-heat="{{.ID}}">Re-run</button></td>
+      <td>
+        {{if .Complete}}
+        <button class="btn small rerun" data-heat="{{.ID}}">Re-run</button>
+        {{end}}
+      </td>
     </tr>
     {{end}}
   </table>

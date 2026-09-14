@@ -340,12 +340,30 @@ func (db *DB) Progress(ctx context.Context, raceID int64) (HeatProgress, error) 
 //
 // Excluded entries are left out: they race, but they are not in the standings.
 func (db *DB) RunsByEntry(ctx context.Context, raceID int64) (map[int64][]scoring.Run, error) {
+	return db.runsByEntry(ctx, raceID, true)
+}
+
+// AllRunsByEntry collects every recorded run, including the excluded cars that
+// RunsByEntry leaves out.
+//
+// This is for asking whether a heat was timed properly rather than who won. An
+// excluded car is still a car that went down the track with a clock on it, so
+// it is evidence about the heat even though it is not in the standings.
+func (db *DB) AllRunsByEntry(ctx context.Context, raceID int64) (map[int64][]scoring.Run, error) {
+	return db.runsByEntry(ctx, raceID, false)
+}
+
+func (db *DB) runsByEntry(ctx context.Context, raceID int64, scoredOnly bool) (map[int64][]scoring.Run, error) {
+	where := ""
+	if scoredOnly {
+		where = " AND e.excluded = 0"
+	}
 	rows, err := db.QueryContext(ctx, `
 		SELECT hl.entry_id, h.number, hl.lane, hl.finish_time, hl.ignored
 		FROM heat_lane hl
 		JOIN heat h ON h.id = hl.heat_id
 		JOIN entry e ON e.id = hl.entry_id
-		WHERE h.race_id = ? AND hl.finish_time IS NOT NULL AND e.excluded = 0
+		WHERE h.race_id = ? AND hl.finish_time IS NOT NULL`+where+`
 		ORDER BY h.number, hl.lane`, raceID)
 	if err != nil {
 		return nil, err
@@ -391,6 +409,64 @@ func (db *DB) Standings(ctx context.Context, raceID int64) ([]Standing, error) {
 	out := make([]Standing, 0, len(results))
 	for _, r := range results {
 		out = append(out, Standing{Result: r, Entry: byID[r.EntryID]})
+	}
+	return out, nil
+}
+
+// HeatAnomalyView is a flagged heat with enough about the cars to describe it
+// on screen.
+type HeatAnomalyView struct {
+	scoring.HeatAnomaly
+	HeatID int64
+
+	// Entries are the cars involved. Deliberately not named Cars: the embedded
+	// anomaly already has a Cars count, and a field of the same name would
+	// shadow it silently.
+	Entries []EntryView
+}
+
+// HeatAnomalies looks for heats that were a fault rather than a result.
+//
+// It is meaningful only once a race is over, because it compares each car's run
+// against the rest of that car's night. Half way through, everybody's slowest
+// run so far is just the slowest of two.
+func (db *DB) HeatAnomalies(ctx context.Context, raceID int64) ([]HeatAnomalyView, error) {
+	runs, err := db.AllRunsByEntry(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
+	found := scoring.HeatAnomalies(runs)
+	if len(found) == 0 {
+		return nil, nil
+	}
+
+	entries, err := db.Entries(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[int64]EntryView, len(entries))
+	for _, e := range entries {
+		byID[e.ID] = e
+	}
+
+	heats, err := db.Heats(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
+	heatIDs := make(map[int]int64, len(heats))
+	for _, h := range heats {
+		heatIDs[h.Number] = h.ID
+	}
+
+	out := make([]HeatAnomalyView, 0, len(found))
+	for _, a := range found {
+		v := HeatAnomalyView{HeatAnomaly: a, HeatID: heatIDs[a.Heat]}
+		for _, id := range a.EntryIDs {
+			if e, ok := byID[id]; ok {
+				v.Entries = append(v.Entries, e)
+			}
+		}
+		out = append(out, v)
 	}
 	return out, nil
 }

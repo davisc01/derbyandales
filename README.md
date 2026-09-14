@@ -161,6 +161,20 @@ times" would never exercise line assembly, detector excision, masking or the
 gate debounce — which is exactly where the bugs are. It also means the Timer
 Test Bench can be rehearsed with no hardware present.
 
+**It runs with no internet at all.** The venue is a brewery with a private
+wifi network and no uplink. Every asset is compiled into the binary and served
+from it — no CDNs, no web fonts, no outbound requests of any kind. Started up,
+the process holds two listening sockets and opens nothing.
+
+**A heat that went wrong gets found.** Cars are slow for their own reasons, but
+if *every* car in one heat ran its worst time of the night, the heat was the
+problem: a sticky gate, a knock to the track. The reverse — every car its best —
+means the start released early or the timer started late. At the end of the
+heats those are listed, with how far outside their own form each car was, and a
+button to re-run the heat. Any heat can be re-run at any point: clearing its
+times makes it the next one waiting, and the race carries on afterwards from
+wherever it had got to.
+
 **Racing pauses itself for the intermission.** Halfway through the heats the
 race stops, voting opens, and a backup is taken — all without the coordinator
 remembering any of it. There is no set length: the venue is a bar and people

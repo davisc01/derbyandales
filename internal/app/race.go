@@ -493,12 +493,51 @@ func (rc *RaceController) tick(ctx context.Context, dev *timer.Device) {
 }
 
 // ReRun clears a heat's results and arms it again.
+//
+// This is the answer to a crash, a car that came apart on the track, a false
+// start, or a heat the anomaly check flagged at the end of the night. It works
+// on any heat that has already been run, in any order, so a heat can be put
+// right at the end of the race without disturbing the ones after it: clearing
+// its times makes it the next heat waiting to run, and once it is done the
+// race carries on from wherever it had got to.
 func (rc *RaceController) ReRun(ctx context.Context, heatID int64) error {
+	rc.mu.Lock()
+	paused := rc.intermission
+	rc.mu.Unlock()
+
+	// The intermission is a hard stop, and that has to include this door. A
+	// coordinator tidying up a heat while people are standing at the voting
+	// table must not send cars down the track at them.
+	if paused {
+		return errors.New("the race is in its intermission — resume racing before re-running a heat")
+	}
+
+	heat, err := rc.app.DB.Heat(ctx, heatID)
+	if err != nil {
+		return err
+	}
+	// A heat with no times has not been run, so "re-run" would really mean
+	// "jump to it", skipping everything in between. If that is ever wanted it
+	// should be its own control with its own wording.
+	if !anyRecorded(heat) {
+		return fmt.Errorf("heat %d has not been run yet, so there is nothing to re-run", heat.Number)
+	}
+
 	if err := rc.app.DB.ClearHeatResults(ctx, heatID); err != nil {
 		return err
 	}
-	_ = rc.app.DB.Audit(ctx, "coordinator", "race.rerun", fmt.Sprintf("heat %d", heatID))
+	_ = rc.app.DB.Audit(ctx, "coordinator", "race.rerun", fmt.Sprintf("heat %d", heat.Number))
 	return rc.ArmHeat(ctx, heatID)
+}
+
+// anyRecorded reports whether a heat has at least one time against it.
+func anyRecorded(heat store.HeatView) bool {
+	for _, l := range heat.Lanes {
+		if l.FinishTime != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // finishRace wraps up when every heat has been run.
@@ -532,10 +571,28 @@ func (rc *RaceController) finishRace(ctx context.Context, raceID int64) error {
 	if err != nil {
 		return err
 	}
+	// Now that every car has a full night behind it, look for a heat that was a
+	// fault rather than a result. This can only be asked at the end: half way
+	// through, everybody's slowest run so far is just the slowest of two.
+	anomalies, err := rc.app.DB.HeatAnomalies(ctx, raceID)
+	if err != nil {
+		rc.app.Log.Warn("checking the heats for anomalies failed", "race", raceID, "err", err)
+	}
+	clear := 0
+	for _, a := range anomalies {
+		if a.Clear {
+			clear++
+		}
+		rc.app.Log.Info("heat anomaly", "heat", a.Heat, "kind", string(a.Kind),
+			"cars", a.Cars, "margin", a.Margin, "clear", a.Clear)
+	}
+
 	rc.app.Log.Info("race complete", "race", raceID, "cars", len(standings))
 	rc.app.Bus.Publish(bus.TopicRace, "complete", map[string]any{
-		"race_id": raceID,
-		"cars":    len(standings),
+		"race_id":   raceID,
+		"cars":      len(standings),
+		"anomalies": len(anomalies),
+		"suspect":   clear,
 	})
 	return nil
 }
