@@ -1,0 +1,97 @@
+{{define "content"}}
+{{$d := .Data}}
+{{$s := $d.State}}
+{{$t := $d.Timer}}
+
+<section class="card">
+  <h1>Race control</h1>
+  <p class="sub">During a normal heat you should not need to touch anything.
+     Results land, the screens show them, the next heat arms itself.</p>
+
+  <div class="timer-status">
+    <span class="badge {{if $s.Running}}ok{{else}}off{{end}}" id="run-badge">
+      {{if $s.Running}}Racing{{else}}Stopped{{end}}
+    </span>
+    <span class="mono" id="race-label">{{if $s.RaceName}}{{$s.RaceName}}{{else}}No race loaded{{end}}</span>
+    <span class="grow"></span>
+    <span class="note">Heat <b id="heat-no">{{$s.HeatNo}}</b> of <b id="heat-total">{{$s.HeatTotal}}</b></span>
+    <span class="note">Timer: <b id="timer-state">{{$t.State}}</b></span>
+    <span class="note">Gate: <b id="gate-state">{{$s.Gate}}</b></span>
+  </div>
+
+  {{if $d.Races}}
+  <div class="console-row">
+    <select id="race-picker">
+      {{range $d.Races}}
+      <option value="{{.ID}}" {{if eq .ID $s.RaceID}}selected{{end}}>{{.Label}} ({{.Status}})</option>
+      {{end}}
+    </select>
+    <button class="btn" id="load-race">Load</button>
+    <span class="note" id="race-status"></span>
+  </div>
+  {{else}}
+  <p class="empty">No races yet. Run the app with <code>-demo</code> to create a
+     practice race, or wait for check-in (milestone M1).</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h1>Run the race</h1>
+  <div class="console-row">
+    <button class="btn" id="close-checkin">Close check-in and build the schedule</button>
+    <span class="note" id="schedule-status"></span>
+  </div>
+  <div class="console-row">
+    <button class="btn primary" id="start-race">Start racing</button>
+    <button class="btn" id="stop-race">Stop</button>
+    <button class="btn" id="next-heat">Arm next heat</button>
+    <label class="inline" style="margin-left:8px">
+      <input type="checkbox" id="auto-advance" {{if $s.AutoNext}}checked{{end}}>
+      <span class="lbl" style="margin-left:6px">Advance automatically</span>
+    </label>
+    <span class="note" id="run-status"></span>
+  </div>
+  <p class="hint">Racing needs a connected timer whose test has passed. If a
+     check failed and you know why, record an override on the
+     <a href="/timer/test">timer page</a> and carry on.</p>
+</section>
+
+<section class="card">
+  <h1>Current heat</h1>
+  <div id="current-heat">
+    {{if $s.Heat}}
+    <p class="note">Heat {{$s.Heat.Number}}</p>
+    {{else}}
+    <p class="empty">Nothing armed.</p>
+    {{end}}
+  </div>
+</section>
+
+<section class="card">
+  <h1>Heats</h1>
+  {{if $d.Heats}}
+  <table class="heats">
+    <tr><th>Heat</th>{{range $i, $l := (index $d.Heats 0).Lanes}}<th>Lane {{$l.Lane}}</th>{{end}}<th></th></tr>
+    {{range $d.Heats}}
+    <tr class="{{if .Complete}}done{{end}}">
+      <td class="heat-no">{{.Number}}</td>
+      {{range .Lanes}}
+      <td class="{{if .Bye}}bye{{end}}">
+        {{if .Bye}}
+          <span class="note">—</span>
+        {{else}}
+          <div class="hl-driver">{{.DriverName}}</div>
+          <div class="note">#{{.CarNumber}} {{.CarName}}</div>
+          {{if .FinishTime}}<div class="hl-time">{{time .FinishTime}}s{{if .FinishPlace}} · {{.FinishPlace}}{{end}}</div>{{end}}
+        {{end}}
+      </td>
+      {{end}}
+      <td><button class="btn small rerun" data-heat="{{.ID}}">Re-run</button></td>
+    </tr>
+    {{end}}
+  </table>
+  {{else}}
+  <p class="empty">No schedule yet. Close check-in to build one.</p>
+  {{end}}
+</section>
+{{end}}

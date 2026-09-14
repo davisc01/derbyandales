@@ -8,6 +8,10 @@ import (
 	"github.com/davisc01/derbyandales/internal/scoring"
 )
 
+// DNFTime is the time a lane reads when it did not finish. The timer reports
+// 0.000 and the driver rewrites it to this, so it sorts last.
+const DNFTime = scoring.DNF
+
 // LaneResult is one lane's outcome in a heat.
 type LaneResult struct {
 	Lane int

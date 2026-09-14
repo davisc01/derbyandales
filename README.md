@@ -27,8 +27,8 @@ Under construction, targeting the **2027 season**.
 | M0 | Skeleton — app bundle, database, HTTP/HTTPS, event bus, settings, preflight, backups | **done** |
 | M1 | Check-in — seasons, races, racers, entries, photo capture | |
 | M2 | Schedule and scoring — generator search, drop-slowest standings, scale MPH | **done** |
-| M3 | Timer — FastTrack driver, simulator, Timer Test Bench | **done** (race control with M4) |
-| M4 | Displays — roster, now-racing, results reveal, slideshow, awards | |
+| M3 | Timer — FastTrack driver, simulator, Timer Test Bench | **done** |
+| M4 | Displays and race control — roster, now-racing, results reveal | **done** (slideshow, awards, bracket with later milestones) |
 | M5 | Voting — ballot, tallies, undo, winner declaration | |
 | M6 | Season — auto-qualifiers, wildcard points, substitutions | |
 | M7 | Bracket — planner, seeding, generation, advance | |
@@ -43,6 +43,16 @@ make test         # full suite
 make check        # formatting, vet and tests — what CI runs
 make app          # build dist/DerbyAndAles.app (universal binary)
 ```
+
+To try it without a timer or any real data:
+
+```sh
+go run ./cmd/derbyandales -demo
+```
+
+That creates a clearly-labelled demo season, and the Timer page offers a
+simulated timer with buttons that stand in for the person at the track. The
+whole race night can be rehearsed on a laptop.
 
 The app starts a web server and opens a browser. Everything happens there.
 
@@ -129,6 +139,12 @@ genuine unterminated result line. A simulator that shortcut to "here are four
 times" would never exercise line assembly, detector excision, masking or the
 gate debounce — which is exactly where the bugs are. It also means the Timer
 Test Bench can be rehearsed with no hardware present.
+
+**Displays register themselves.** A screen opens the display address, is given
+a name, and appears in the coordinator's list. Scene changes arrive over the
+event stream and are swapped in place, so a TV never shows a white flash
+mid-race. There are no IP addresses to configure — the person setting up the
+screens is carrying an HDMI cable, not a laptop.
 
 **The scheduler searches instead of shipping tables.** DerbyNet ships ~1.4 MB of
 precomputed generator tables. Searching for the lane offsets at runtime takes

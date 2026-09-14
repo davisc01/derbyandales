@@ -1,0 +1,78 @@
+{{define "content"}}
+{{$d := .Data}}
+
+<section class="card">
+  <h1>Displays</h1>
+  <p class="sub">Open the display address on a screen and it appears here. No
+     addresses to configure, nothing to edit in a file.</p>
+
+  <table class="urls">
+    {{range $d.URLs.Insecure}}
+    <tr><th>Display address</th><td><code>{{.}}/display</code></td></tr>
+    {{end}}
+    <tr><th>On this Mac</th><td><code>{{$d.URLs.Local}}/display</code></td></tr>
+  </table>
+</section>
+
+<section class="card">
+  <h1>What each screen is showing</h1>
+  {{if $d.Displays}}
+  <ul class="display-list" id="display-list">
+    {{range $d.Displays}}
+    <li class="display-row" data-id="{{.ID}}">
+      <span class="dot {{if online .LastSeenAt}}on{{else}}off{{end}}"
+            title="{{if online .LastSeenAt}}Connected{{else}}Last seen {{ago .LastSeenAt}}{{end}}"></span>
+      <input class="display-rename" value="{{.Name}}" data-id="{{.ID}}"
+             aria-label="Display name">
+      <select class="scene-picker" data-id="{{.ID}}">
+        {{$current := .Page}}
+        {{range $d.Scenes}}
+        <option value="{{.Scene}}" {{if eq (printf "%s" .Scene) $current}}selected{{end}}
+                {{if not .Ready}}disabled{{end}}>
+          {{.Name}}{{if not .Ready}} — not built yet{{end}}
+        </option>
+        {{end}}
+      </select>
+      <span class="note">{{if online .LastSeenAt}}connected{{else}}last seen {{ago .LastSeenAt}}{{end}}</span>
+      <button class="btn small forget-display" data-id="{{.ID}}">Forget</button>
+    </li>
+    {{end}}
+  </ul>
+  <p class="note" id="display-status"></p>
+  {{else}}
+  <p class="empty">No screens have connected yet. Open the display address above
+     on a TV and it will show up here within a second.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h1>Which race the screens are showing</h1>
+  <p class="sub">The roster and results scenes follow whichever race is loaded.</p>
+  {{if $d.Races}}
+  <div class="console-row">
+    <select id="race-picker">
+      {{range $d.Races}}
+      <option value="{{.ID}}" {{if eq .ID $d.RaceID}}selected{{end}}>{{.Label}} ({{.Status}})</option>
+      {{end}}
+    </select>
+    <button class="btn" id="load-race">Load</button>
+    <span class="note" id="race-status"></span>
+  </div>
+  {{else}}
+  <p class="empty">No races yet. Check-in arrives with milestone M1.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h1>Scenes</h1>
+  <ul class="checks">
+    {{range $d.Scenes}}
+    <li class="check {{if .Ready}}pass{{else}}skipped{{end}}">
+      <span class="dot"></span>
+      <span class="cname">{{.Name}}</span>
+      <span class="cdetail">{{.Hint}}{{if not .Ready}} (not built yet){{end}}</span>
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}

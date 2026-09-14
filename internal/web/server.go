@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/davisc01/derbyandales/internal/app"
+	"github.com/davisc01/derbyandales/internal/scoring"
 	"github.com/davisc01/derbyandales/internal/store"
 )
 
@@ -86,10 +87,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 
 	s.timerRoutes(mux)
-
-	// Placeholder so the preflight panel's link resolves rather than 404s while
-	// the corresponding milestone is still ahead.
-	mux.HandleFunc("GET /displays", s.handleTodo("Displays", "M4"))
+	s.displayRoutes(mux)
+	s.raceRoutes(mux)
 }
 
 // StartTLS brings up the HTTPS listener, which exists so remote check-in
@@ -175,13 +174,24 @@ type pageData struct {
 	Data   any
 }
 
-// parsePages pairs each page template with the shared layout, giving every page
-// its own namespace for the "content" block.
+// bareLayoutPages use the chrome-free layout. A TV showing the race has no
+// business displaying a navigation bar.
+var bareLayoutPages = map[string]bool{
+	"display.html": true,
+}
+
+// parsePages pairs each page template with a layout, giving every page its own
+// namespace for the "content" block.
 func parsePages() (map[string]*template.Template, error) {
-	layout, err := templateFS.ReadFile("templates/layout.html")
-	if err != nil {
-		return nil, fmt.Errorf("read layout: %w", err)
+	layouts := map[bool][]byte{}
+	for bare, file := range map[bool]string{false: "layout.html", true: "layout-bare.html"} {
+		body, err := templateFS.ReadFile("templates/" + file)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", file, err)
+		}
+		layouts[bare] = body
 	}
+
 	names, err := fs.Glob(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, err
@@ -189,14 +199,14 @@ func parsePages() (map[string]*template.Template, error) {
 	pages := make(map[string]*template.Template, len(names))
 	for _, path := range names {
 		name := strings.TrimPrefix(path, "templates/")
-		if name == "layout.html" {
+		if strings.HasPrefix(name, "layout") {
 			continue
 		}
 		body, err := templateFS.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}
-		t, err := template.New(name).Funcs(funcMap()).Parse(string(layout))
+		t, err := template.New(name).Funcs(funcMap()).Parse(string(layouts[bareLayoutPages[name]]))
 		if err != nil {
 			return nil, fmt.Errorf("parse layout for %s: %w", name, err)
 		}
@@ -386,6 +396,13 @@ func funcMap() template.FuncMap {
 			}
 		},
 		"datetime": func(t time.Time) string { return t.Format("Mon 2 Jan 15:04") },
+		"online":   displayOnline,
+		"time": func(t *float64) string {
+			if t == nil {
+				return ""
+			}
+			return scoring.FormatTime(*t)
+		},
 		"setting": func(m map[string]string, key, def string) string {
 			if v, ok := m[key]; ok && v != "" {
 				return v

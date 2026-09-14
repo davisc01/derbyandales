@@ -29,6 +29,9 @@ type App struct {
 	// race controller and the test bench can never hold the port at once.
 	Timer *TimerController
 
+	// Race runs the heats.
+	Race *RaceController
+
 	HTTPPort  int
 	HTTPSPort int
 }
@@ -62,6 +65,10 @@ func Open(ctx context.Context, paths Paths, log *slog.Logger) (*App, error) {
 	}
 
 	a.Timer = NewTimerController(a)
+	a.Race = NewRaceController(a)
+	// Point the displays at something without being asked, so a screen plugged
+	// in at the venue shows the right race straight away.
+	a.Race.LoadMostRecentRace(ctx)
 
 	// A startup snapshot means that however badly a race night goes, there is
 	// always a copy of the state the night began in.
@@ -77,6 +84,9 @@ func Open(ctx context.Context, paths Paths, log *slog.Logger) (*App, error) {
 
 // Close releases the timer and the database.
 func (a *App) Close() error {
+	if a.Race != nil {
+		a.Race.Stop()
+	}
 	if a.Timer != nil {
 		a.Timer.Disconnect()
 	}

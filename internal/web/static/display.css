@@ -1,0 +1,288 @@
+/* Display scenes.
+   Written for a 1080p TV seen from across a brewery, not for a laptop. Every
+   size is in vh/vw so the same page fills whatever screen it lands on, and the
+   type is large enough to read at ten metres. */
+
+:root {
+  --bg:        #0b0c12;
+  --panel:     #161824;
+  --line:      #272b3d;
+  --ink:       #f2f4fa;
+  --ink-dim:   #98a0b8;
+
+  --green: #46d16f;
+  --amber: #f5b23c;
+  --red:   #ef5b52;
+  --blue:  #5aa6f0;
+  --gold:  #e8c34a;
+
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+.display-body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  overflow: hidden;           /* a TV must never show a scrollbar */
+  cursor: none;               /* no mouse pointer parked on screen */
+  -webkit-font-smoothing: antialiased;
+}
+
+.display-root { height: 100vh; width: 100vw; }
+
+.scene {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  padding: 3vh 4vw;
+  animation: fade-in .35s ease;
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Reduced motion still gets the content, just without the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .scene, .reveal-row { animation: none !important; }
+}
+
+.scene-head {
+  display: flex;
+  align-items: baseline;
+  gap: 2vw;
+  margin-bottom: 2.5vh;
+  flex: 0 0 auto;
+}
+
+.scene-title {
+  margin: 0;
+  font-size: 4.4vh;
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+
+.scene-sub {
+  margin: 0;
+  font-size: 2.6vh;
+  color: var(--ink-dim);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.scene-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+.display-hint {
+  color: var(--ink-dim);
+  font-size: 3vh;
+  margin: auto;
+  text-align: center;
+}
+
+/* The display's own name, shown briefly so it can be identified when setting
+   up several screens. */
+.display-name {
+  position: fixed;
+  bottom: 1.5vh;
+  right: 1.5vw;
+  font-size: 1.6vh;
+  color: var(--ink-dim);
+  opacity: 0;
+  transition: opacity .4s ease;
+  font-family: var(--mono);
+}
+.display-name.show { opacity: .6; }
+
+/* --- now racing ------------------------------------------------------------ */
+
+.lanes { display: flex; flex-direction: column; gap: 1.4vh; flex: 1 1 auto; }
+
+.lane-row {
+  display: grid;
+  grid-template-columns: 9vw 1fr auto;
+  align-items: center;
+  gap: 2vw;
+  background: var(--panel);
+  border-radius: 1.4vh;
+  border-left: .9vw solid var(--line);
+  padding: 0 2.5vw;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+/* Lane colours, so the screen matches the physical track at a glance. */
+.lane-row[data-lane="1"] { border-left-color: #e05c5c; }
+.lane-row[data-lane="2"] { border-left-color: #5aa6f0; }
+.lane-row[data-lane="3"] { border-left-color: #46d16f; }
+.lane-row[data-lane="4"] { border-left-color: #f5b23c; }
+.lane-row[data-lane="5"] { border-left-color: #b57ce0; }
+.lane-row[data-lane="6"] { border-left-color: #4fd4d0; }
+
+.lane-no {
+  font-size: 6vh;
+  font-weight: 800;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.lane-car { min-width: 0; }
+
+.lane-driver {
+  font-size: 4.6vh;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lane-carname {
+  font-size: 2.9vh;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lane-carno {
+  display: inline-block;
+  background: var(--line);
+  border-radius: .6vh;
+  padding: 0 .8vw;
+  margin-right: .8vw;
+  font-family: var(--mono);
+  font-size: 2.4vh;
+}
+
+.lane-result { text-align: right; font-variant-numeric: tabular-nums; }
+.lane-time { font-size: 6vh; font-weight: 800; line-height: 1; }
+.lane-mph { font-size: 2.6vh; color: var(--ink-dim); }
+
+.lane-place {
+  font-size: 3.4vh;
+  font-weight: 800;
+  min-width: 3.5vw;
+  text-align: center;
+}
+.lane-row.p1 { background: #1e2a1f; }
+.lane-row.p1 .lane-place { color: var(--green); }
+.lane-row.p2 .lane-place { color: var(--ink-dim); }
+
+.lane-row.bye { opacity: .3; }
+.lane-row.bye .lane-driver { font-style: italic; color: var(--ink-dim); font-weight: 400; }
+.lane-row.dnf .lane-time { color: var(--red); font-size: 4vh; }
+
+/* --- roster ---------------------------------------------------------------- */
+
+.roster {
+  display: grid;
+  gap: 1.2vh 2vw;
+  flex: 1 1 auto;
+  align-content: start;
+  min-height: 0;
+}
+
+.roster-row {
+  display: grid;
+  grid-template-columns: 5vw 1fr;
+  align-items: baseline;
+  gap: 1.2vw;
+  padding: .6vh 1vw;
+  background: var(--panel);
+  border-radius: .9vh;
+}
+
+.roster-no {
+  font-family: var(--mono);
+  color: var(--ink-dim);
+  text-align: right;
+}
+.roster-driver { font-weight: 700; }
+.roster-car { color: var(--ink-dim); }
+.roster-row.excluded { opacity: .55; }
+
+/* --- results reveal -------------------------------------------------------- */
+
+.reveal { display: flex; flex-direction: column; gap: 1.2vh; flex: 1 1 auto; justify-content: flex-end; }
+
+.reveal-row {
+  display: grid;
+  grid-template-columns: 7vw 1fr auto;
+  align-items: center;
+  gap: 2vw;
+  background: var(--panel);
+  border-radius: 1.2vh;
+  padding: 1.4vh 2.5vw;
+  animation: slide-in .5s cubic-bezier(.2, .8, .3, 1);
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(3vh); }
+  to   { opacity: 1; transform: none; }
+}
+
+.reveal-place {
+  font-size: 5vh;
+  font-weight: 800;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.reveal-driver { font-size: 4vh; font-weight: 700; }
+.reveal-car { font-size: 2.5vh; color: var(--ink-dim); }
+.reveal-time { font-size: 5vh; font-weight: 800; font-variant-numeric: tabular-nums; }
+.reveal-mph { font-size: 2.4vh; color: var(--ink-dim); text-align: right; }
+
+.reveal-row.podium { background: #221f16; }
+.reveal-row.podium .reveal-place { color: var(--gold); }
+.reveal-row.winner {
+  background: #1e2a1f;
+  box-shadow: 0 0 0 .35vh var(--green);
+}
+.reveal-row.winner .reveal-place,
+.reveal-row.winner .reveal-time { color: var(--green); }
+
+.reveal-prompt {
+  position: fixed;
+  bottom: 2vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 2vh;
+  color: var(--ink-dim);
+}
+
+/* --- blank ----------------------------------------------------------------- */
+
+.scene-blank { align-items: center; justify-content: center; }
+
+.blank-mark {
+  display: grid;
+  place-items: center;
+  width: 16vh;
+  height: 16vh;
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-size: 4vh;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+/* --- connection trouble ---------------------------------------------------- */
+
+.display-offline {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--red);
+  color: #fff;
+  text-align: center;
+  font-size: 2.2vh;
+  padding: .8vh;
+  z-index: 50;
+}

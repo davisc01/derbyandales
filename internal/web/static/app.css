@@ -341,3 +341,78 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
   text-transform: uppercase;
   color: var(--amber);
 }
+
+/* --- displays manager ------------------------------------------------------ */
+
+.display-list { list-style: none; margin: 0; padding: 0; }
+
+.display-row {
+  display: grid;
+  grid-template-columns: 12px 1fr auto auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.display-row:last-child { border-bottom: 0; }
+
+.dot.on  { background: var(--green); }
+.dot.off { background: var(--ink-faint); }
+
+.display-rename {
+  background: var(--bg);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 6px 9px;
+  font: 14px var(--sans);
+  font-weight: 500;
+}
+.display-rename:hover { border-color: var(--line); }
+.display-rename:focus { outline: 2px solid var(--blue); outline-offset: -1px; }
+
+.scene-picker, #race-picker {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 6px 9px;
+  font: 13.5px var(--sans);
+}
+.scene-picker option:disabled { color: var(--ink-faint); }
+
+@media (max-width: 620px) {
+  .display-row { grid-template-columns: 12px 1fr; row-gap: 6px; }
+  .display-row > *:nth-child(n+3) { grid-column: 2; justify-self: start; }
+}
+
+/* --- race control ---------------------------------------------------------- */
+
+.current-lanes { display: flex; flex-direction: column; gap: 6px; }
+
+.current-lane {
+  display: grid;
+  grid-template-columns: 30px 1fr auto 30px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  background: var(--panel-2);
+  border-radius: 7px;
+  border-left: 4px solid var(--line);
+  font-size: 14px;
+}
+.current-lane[data-lane] { border-left-color: var(--blue); }
+.current-lane.bye { opacity: .45; }
+
+.cl-lane  { font-weight: 700; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.cl-time  { font-variant-numeric: tabular-nums; color: var(--ink-dim); }
+.cl-place { font-weight: 700; text-align: center; }
+
+.heats { font-size: 12.5px; }
+.heats th { font-size: 12px; }
+.heats td { padding: 6px 10px 6px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.heats tr.done .heat-no { color: var(--green); }
+.heats td.bye { opacity: .4; }
+.heat-no { font-weight: 700; font-variant-numeric: tabular-nums; }
+.hl-driver { font-weight: 500; }
+.hl-time { font-variant-numeric: tabular-nums; color: var(--green); margin-top: 2px; }

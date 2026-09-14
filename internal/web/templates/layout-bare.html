@@ -1,0 +1,13 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Title}} · Derby and Ales</title>
+<link rel="stylesheet" href="/static/display.css">
+</head>
+<body class="display-body">
+{{template "content" .}}
+<script src="/static/display.js"></script>
+</body>
+</html>{{end}}

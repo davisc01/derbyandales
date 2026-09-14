@@ -100,3 +100,75 @@
 
   connect();
 })();
+
+// Displays manager: assign scenes, rename screens, choose the race.
+(function () {
+  "use strict";
+
+  async function post(url, params) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(params || {}).toString(),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || res.statusText);
+    return body;
+  }
+
+  function say(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  document.querySelectorAll(".scene-picker").forEach(function (sel) {
+    sel.addEventListener("change", async function () {
+      try {
+        await post("/api/displays/scene", { id: sel.dataset.id, scene: sel.value });
+        say("display-status", "Scene changed.");
+      } catch (err) {
+        say("display-status", err.message);
+      }
+    });
+  });
+
+  document.querySelectorAll(".display-rename").forEach(function (input) {
+    let timer;
+    input.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(async function () {
+        try {
+          await post("/api/displays/rename", { id: input.dataset.id, name: input.value });
+          say("display-status", "Renamed.");
+        } catch (err) {
+          say("display-status", err.message);
+        }
+      }, 600);
+    });
+  });
+
+  document.querySelectorAll(".forget-display").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      if (!confirm("Forget this display? It will reappear if the screen is still open.")) return;
+      try {
+        await post("/api/displays/forget", { id: btn.dataset.id });
+        location.reload();
+      } catch (err) {
+        say("display-status", err.message);
+      }
+    });
+  });
+
+  const loadBtn = document.getElementById("load-race");
+  if (loadBtn) {
+    loadBtn.addEventListener("click", async function () {
+      const sel = document.getElementById("race-picker");
+      try {
+        await post("/api/race/load", { race_id: sel.value });
+        say("race-status", "Loaded. The screens will follow it.");
+      } catch (err) {
+        say("race-status", err.message);
+      }
+    });
+  }
+})();
