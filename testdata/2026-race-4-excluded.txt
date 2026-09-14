@@ -1,0 +1,4 @@
+# Car numbers excluded from the published standings for 2026 race 4.
+# See README.md. One number per line; blank lines and # comments ignored.
+89
+901

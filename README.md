@@ -26,7 +26,7 @@ Under construction, targeting the **2027 season**.
 |---|---|---|
 | M0 | Skeleton — app bundle, database, HTTP/HTTPS, event bus, settings, preflight, backups | **done** |
 | M1 | Check-in — seasons, races, racers, entries, photo capture | |
-| M2 | Schedule and scoring — generator search, drop-slowest standings, scale MPH | |
+| M2 | Schedule and scoring — generator search, drop-slowest standings, scale MPH | **done** |
 | M3 | Timer — FastTrack driver, simulator, Timer Test Bench, race control | |
 | M4 | Displays — roster, now-racing, results reveal, slideshow, awards | |
 | M5 | Voting — ballot, tallies, undo, winner declaration | |
@@ -117,6 +117,12 @@ downstream.
 
 **Racers are rows, not name strings.** The old tracker keyed season points on the
 name text, so a typo or a changed surname silently split a racer's season.
+
+**The scheduler searches instead of shipping tables.** DerbyNet ships ~1.4 MB of
+precomputed generator tables. Searching for the lane offsets at runtime takes
+about a millisecond for a 24-car field and removes the tables entirely. For the
+club's field sizes it finds a *perfect* schedule — no two cars ever race each
+other twice, and nobody runs in back-to-back heats.
 
 **The championship is derived, not hardcoded.** Field size, byes and rounds all
 come from `race_count × auto_qual_places + wildcard_spots`. The club's current
