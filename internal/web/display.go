@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/davisc01/derbyandales/internal/bus"
+	"github.com/davisc01/derbyandales/internal/model"
 	"github.com/davisc01/derbyandales/internal/scoring"
 	"github.com/davisc01/derbyandales/internal/store"
 )
@@ -31,6 +32,7 @@ func (s *Server) displayRoutes(mux *http.ServeMux) {
 	_ = jsonParams // reserved for scene parameters
 	mux.HandleFunc("GET /api/race/roster", s.handleRoster)
 	mux.HandleFunc("GET /api/race/standings", s.handleStandings)
+	mux.HandleFunc("GET /api/race/awards", s.handleRaceAwards)
 }
 
 // handleDisplay serves the display shell.
@@ -400,4 +402,43 @@ func jsonParams(raw string) map[string]any {
 // displayOnline reports whether a display has been seen recently enough.
 func displayOnline(lastSeen time.Time) bool {
 	return time.Since(lastSeen) < store.DisplayOnlineWindow
+}
+
+// handleRaceAwards is what the awards scene reads.
+//
+// The two voted trophies come first and carry a photo: they are given for how a
+// car looks, so the car has to be on the screen. The speed trophies are handed
+// out during the results reveal instead, as each of the top three comes up, so
+// they are returned but marked.
+func (s *Server) handleRaceAwards(w http.ResponseWriter, r *http.Request) {
+	raceID := s.raceIDParam(r)
+	if raceID == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{"awards": []any{}})
+		return
+	}
+	awards, err := s.app.DB.RaceAwards(r.Context(), raceID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	race, _ := s.app.DB.Race(r.Context(), raceID)
+
+	rows := make([]map[string]any, 0, len(awards))
+	for _, a := range awards {
+		if a.EntryID == nil {
+			continue // not decided yet
+		}
+		row := map[string]any{
+			"name":       a.Name,
+			"voted":      a.Source == model.AwardVote,
+			"car_number": a.Entry.CarNumber,
+			"car_name":   a.Entry.CarName,
+			"driver":     a.Entry.FullName(),
+		}
+		if a.Entry.PhotoID != nil {
+			row["photo_id"] = *a.Entry.PhotoID
+		}
+		rows = append(rows, row)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"race": race.Name, "awards": rows})
 }

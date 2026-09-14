@@ -50,9 +50,6 @@ func TestPublishingARaceWritesTheWholePage(t *testing.T) {
 	root := scratchSite(t, a)
 
 	runWholeRace(t, a, raceID, 0, 0)
-	if _, err := a.DB.GenerateSpeedAwards(ctx, raceID); err != nil {
-		t.Fatalf("GenerateSpeedAwards: %v", err)
-	}
 
 	plan, err := a.Publish.PlanRace(ctx, raceID)
 	if err != nil {
@@ -172,7 +169,7 @@ func TestThePaceCarIsSkippedForTrophiesEvenWhenItPlacesWell(t *testing.T) {
 		t.Fatal("the pace car is not first; this test is not exercising anything")
 	}
 
-	awards, err := a.DB.GenerateSpeedAwards(ctx, raceID)
+	awards, err := a.DB.SpeedAwards(ctx, raceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,12 +187,6 @@ func TestThePaceCarIsSkippedForTrophiesEvenWhenItPlacesWell(t *testing.T) {
 			awards[0].Entry.CarNumber, standings[1].Entry.CarNumber)
 	}
 
-	// Handing one to it deliberately is refused, in words.
-	if err := a.DB.SetAwardWinner(ctx, awards[0].ID, control); err == nil {
-		t.Fatal("the pace car was given a trophy by hand")
-	} else if !strings.Contains(err.Error(), "CONTROL") {
-		t.Errorf("error = %q, want it to name the pace car", err)
-	}
 }
 
 // The championship has no awards page, and goes in its own folder.

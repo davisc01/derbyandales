@@ -321,10 +321,17 @@ timer. Nothing is ticked off by being pressed.
   per lane, and a fifth run for two cars would rewrite the averages that tied.
   A run-off that itself finishes level is reported and re-run; the software does
   not pick.
-- **The end of the night is ordered deliberately**: reveal → run-off → final
-  standings → awards → publish. The reveal is where the room learns there is a
-  tie, so settling it first would give the ending away; and the wrap-up table
-  has to be the settled one.
+- **The end of the night is ordered deliberately**: voted trophies → reveal
+  (handing over 1st, 2nd and 3rd as those cars come up) → run-off → final
+  standings → publish. The design and theme trophies go first and on their own,
+  because they are about how a car looks; the speed ones are handed over during
+  the reveal, which makes the reveal the ceremony rather than a preamble to one;
+  and the tie is settled after the reveal, which is where the room learns there
+  is one.
+- **The speed trophies are derived, not stored.** A stored copy of the top three
+  could only ever come to disagree with the standings. Two display scenes were
+  added for this: the voted trophies one at a time with the car, and the whole
+  settled table for the wrap-up.
 - **`scene_shown` exists** because two of those steps — the reveal and the final
   standings — change no result and would otherwise leave the checklist stuck on
   them forever. It records a scene actually being assigned to a display, not a

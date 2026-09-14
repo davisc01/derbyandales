@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 
@@ -26,16 +25,20 @@ var SpeedAwardNames = []string{"1st", "2nd", "3rd"}
 // AwardTypeSpeed is the award type the old system used for these.
 const AwardTypeSpeed = "Speed Trophy"
 
-// GenerateSpeedAwards sets the top three trophies from the standings.
+// SpeedAwards works out the top three trophies from the standings.
+//
+// It derives rather than stores. The speed trophies *are* the top of the
+// standings, so keeping a copy of them in the award table only creates a way
+// for the two to disagree — after a re-run, a struck-out lane, a corrected
+// time. Deriving them means they cannot.
 //
 // The pace car is skipped. It races, it is ranked, and it can and does finish
-// high on a thin night — but it is club equipment and it takes no trophy. That
-// is the whole reason Entry.EarnsPoints exists, and this is the last place in
-// the application that needed it.
+// high on a thin night, but it is club equipment and it takes no trophy. That
+// is the whole reason Entry.EarnsPoints exists.
 //
-// Awards already declared from the ballot are left alone: this replaces the
-// automatic ones only.
-func (db *DB) GenerateSpeedAwards(ctx context.Context, raceID int64) ([]AwardView, error) {
+// A tie for one of these places is refused, because a trophy is handed to one
+// person and picking between two equal cars is not the software's call.
+func (db *DB) SpeedAwards(ctx context.Context, raceID int64) ([]AwardView, error) {
 	// A trophy cannot be shared, and picking between two cars that ran the same
 	// average is not the software's call to make. Settle the run-off first.
 	ties, err := db.UnsettledTies(ctx, raceID)
@@ -63,37 +66,59 @@ func (db *DB) GenerateSpeedAwards(ctx context.Context, raceID int64) ([]AwardVie
 		return nil, err
 	}
 
-	var winners []Standing
+	var out []AwardView
 	for _, st := range standings {
 		if st.Place == 0 || !st.Entry.EarnsPoints() {
 			continue
 		}
-		winners = append(winners, st)
-		if len(winners) == len(SpeedAwardNames) {
+		i := len(out)
+		a := AwardView{Entry: st.Entry}
+		a.RaceID = raceID
+		a.Name = SpeedAwardNames[i]
+		a.AwardType = AwardTypeSpeed
+		id := st.Entry.ID
+		a.EntryID = &id
+		a.Sort = i
+		a.Source = model.AwardAuto
+		out = append(out, a)
+		if len(out) == len(SpeedAwardNames) {
 			break
 		}
 	}
+	return out, nil
+}
 
-	err = db.Tx(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx,
-			`DELETE FROM award WHERE race_id = ? AND source = ?`,
-			raceID, model.AwardAuto); err != nil {
-			return err
-		}
-		for i, w := range winners {
-			if _, err := tx.ExecContext(ctx, `
-				INSERT INTO award (race_id, name, award_type, entry_id, sort, source)
-				VALUES (?,?,?,?,?,?)`,
-				raceID, SpeedAwardNames[i], AwardTypeSpeed, w.Entry.ID, i, model.AwardAuto); err != nil {
-				return fmt.Errorf("saving the %s award: %w", SpeedAwardNames[i], err)
-			}
-		}
-		return nil
-	})
+// RaceAwards is every trophy for a race: the ones decided on the ballot or by
+// hand, and the speed trophies derived from the standings.
+//
+// A stored award whose name matches a speed trophy wins, so a coordinator can
+// still hand "1st" to somebody else — a car disqualified after the fact — and
+// have that stick.
+func (db *DB) RaceAwards(ctx context.Context, raceID int64) ([]AwardView, error) {
+	stored, err := db.Awards(ctx, raceID)
 	if err != nil {
 		return nil, err
 	}
-	return db.Awards(ctx, raceID)
+	named := map[string]bool{}
+	for _, a := range stored {
+		named[a.Name] = true
+	}
+
+	speed, err := db.SpeedAwards(ctx, raceID)
+	if err != nil {
+		// A tie for a trophy is not an error to a caller that only wants to
+		// show what has been decided — it means the speed ones have not been.
+		speed = nil
+	}
+
+	out := make([]AwardView, 0, len(stored)+len(speed))
+	for _, a := range speed {
+		if !named[a.Name] {
+			out = append(out, a)
+		}
+	}
+	out = append(out, stored...)
+	return out, nil
 }
 
 // SetAwardWinner points an award at a different car, for the cases the software

@@ -155,27 +155,27 @@ func (s *Server) runOfShow(ctx context.Context) ([]Step, model.Race) {
 			Link: "/voting", Action: "Voting",
 		},
 		{
-			Number: 7, Title: "Reveal the results",
-			Hint: "Slowest to fastest, one car at a time, on the TV. A tie for a " +
-				"trophy shows here as a tie — it is settled after the reveal, not before.",
+			Number: 7, Title: "Present the design and theme trophies",
+			Hint: "The two voted at the intermission. They go first, on their own, " +
+				"with the car on the screen — they are given for how a car looks.",
 			Link: "/displays", Action: "Displays",
 		},
 		{
-			Number: 8, Title: "Run off any tie for a trophy",
+			Number: 8, Title: "Reveal the results",
+			Hint: "Slowest to fastest, one car at a time. Hand over the 1st, 2nd and " +
+				"3rd trophies as those cars come up — the screen says which is due.",
+			Link: "/displays", Action: "Displays",
+		},
+		{
+			Number: 9, Title: "Run off any tie for a trophy",
 			Hint: "1st, 2nd and 3rd are handed to somebody, so a tie there is raced " +
 				"again head to head. A tie further down stands.",
 			Link: "/race", Action: "Race screen",
 		},
 		{
-			Number: 9, Title: "Final standings",
+			Number: 10, Title: "Final standings",
 			Hint: "The whole table at once, settled, for the wrap-up.",
 			Link: "/displays", Action: "Displays",
-		},
-		{
-			Number: 10, Title: "Awards",
-			Hint: "The three speed trophies come from the standings. The design and " +
-				"theme trophies come from the ballot.",
-			Link: "/voting", Action: "Voting",
 		},
 		{
 			Number: 11, Title: "Publish to the website",
@@ -298,23 +298,54 @@ func (s *Server) runOfShow(ctx context.Context) ([]Step, model.Race) {
 		steps[5].Detail = fmt.Sprintf("Starts by itself after heat %d", half)
 	}
 
-	// --- 7. the reveal --------------------------------------------------------------
+	// --- 7. the design and theme trophies ------------------------------------------
 	//
-	// This comes before the run-off deliberately. The reveal walks up the order
-	// and shows the tie as a tie, which is the moment the room finds out there
-	// is one; settling it first would give the ending away.
-	revealed, _ := s.app.DB.SceneShown(ctx, raceID, store.SceneReveal)
+	// These go first, on their own. They were decided at the intermission, they
+	// have nothing to do with times, and giving them out while the room is
+	// still thinking about speed buries them.
+	awards, _ := s.app.DB.Awards(ctx, raceID)
+	voted := 0
+	for _, a := range awards {
+		if a.EntryID != nil && a.Source == model.AwardVote {
+			voted++
+		}
+	}
+	shownAwards, _ := s.app.DB.SceneShown(ctx, raceID, store.SceneAwards)
 	switch {
 	case !racedAll:
 		steps[6].State = StepWaiting
-	case revealed:
+		steps[6].Detail = "After the racing."
+	case voted == 0:
+		steps[6].State = StepBlocked
+		steps[6].Blocker = "No design or theme winner has been declared yet."
+		steps[6].Link, steps[6].Action = "/voting", "Voting"
+	case shownAwards:
 		steps[6].State = StepDone
-		steps[6].Detail = "Shown on a screen."
+		steps[6].Detail = fmt.Sprintf("%d presented", voted)
 	default:
 		steps[6].State = stepReady
+		steps[6].Detail = fmt.Sprintf("%d %s to present", voted, trophyWord(voted))
 	}
 
-	// --- 8. run off a tie for a trophy -------------------------------------------
+	// --- 8. the reveal --------------------------------------------------------------
+	//
+	// The speed trophies are handed out during this, as each of the top three
+	// comes up — which is also why the run-off comes after it. The reveal is
+	// where the room learns there is a tie; settling it first would give the
+	// ending away.
+	revealed, _ := s.app.DB.SceneShown(ctx, raceID, store.SceneReveal)
+	switch {
+	case !racedAll:
+		steps[7].State = StepWaiting
+	case revealed:
+		steps[7].State = StepDone
+		steps[7].Detail = "Shown on a screen."
+	default:
+		steps[7].State = stepReady
+		steps[7].Detail = "The screen names the trophy due as each of the top three comes up."
+	}
+
+	// --- 9. run off a tie for a trophy -------------------------------------------
 	ties, _ := s.app.DB.UnsettledTies(ctx, raceID)
 	var unsettled []store.TieView
 	for _, t := range ties {
@@ -325,68 +356,46 @@ func (s *Server) runOfShow(ctx context.Context) ([]Step, model.Race) {
 
 	switch {
 	case !racedAll:
-		steps[7].State = StepWaiting
+		steps[8].State = StepWaiting
 	case len(unsettled) > 0:
-		steps[7].State = stepReady
+		steps[8].State = stepReady
 		t := unsettled[0]
 		names := make([]string, 0, len(t.Entries))
 		for _, e := range t.Entries {
 			names = append(names, fmt.Sprintf("#%d %s", e.CarNumber, e.CarName))
 		}
 		if t.DeadHeat {
-			steps[7].Detail = fmt.Sprintf("The run-off for %s finished level too — run heat %d again",
+			steps[8].Detail = fmt.Sprintf("The run-off for %s finished level too — run heat %d again",
 				ordinalOf(t.Place), t.HeatNumber)
 		} else {
-			steps[7].Detail = fmt.Sprintf("%s are %s", strings.Join(names, " and "), t.Describe())
+			steps[8].Detail = fmt.Sprintf("%s are %s", strings.Join(names, " and "), t.Describe())
 		}
 	default:
 		// A tie that has been run off no longer shows as a tie, so "were there
 		// any" is answered by whether a run-off heat exists — not by looking at
 		// the standings, which by then say no.
 		runoffs, _ := s.app.DB.RunOffHeats(ctx, raceID)
-		steps[7].State = StepDone
+		steps[8].State = StepDone
 		if len(runoffs) > 0 {
-			steps[7].Detail = fmt.Sprintf("%d settled on the track", len(runoffs))
+			steps[8].Detail = fmt.Sprintf("%d settled on the track", len(runoffs))
 		} else {
-			steps[7].Detail = "Nothing was tied for a trophy."
+			steps[8].Detail = "Nothing was tied for a trophy."
 		}
 	}
 
-	// --- 9. the final standings -------------------------------------------------
+	// --- 10. the final standings -------------------------------------------------
 	//
 	// After the run-off, so the table people photograph is the settled one
 	// rather than the one that still says T1.
 	shownFinal, _ := s.app.DB.SceneShown(ctx, raceID, store.SceneFinal)
 	switch {
 	case !racedAll || len(unsettled) > 0:
-		steps[8].State = StepWaiting
+		steps[9].State = StepWaiting
 	case shownFinal:
-		steps[8].State = StepDone
-		steps[8].Detail = "Shown on a screen."
-	default:
-		steps[8].State = stepReady
-	}
-
-	// --- 10. awards ---------------------------------------------------------------
-	awards, _ := s.app.DB.Awards(ctx, raceID)
-	decided := 0
-	for _, a := range awards {
-		if a.EntryID != nil {
-			decided++
-		}
-	}
-	steps[9].Detail = fmt.Sprintf("%d award%s decided", decided, plural(decided))
-	switch {
-	case !racedAll:
-		steps[9].State = StepBlocked
-		steps[9].Blocker = "The heats are not finished."
-	case len(unsettled) > 0:
-		steps[9].State = StepBlocked
-		steps[9].Blocker = "A tie for a trophy has not been run off yet."
-	case decided == 0:
-		steps[9].State = stepReady
-	default:
 		steps[9].State = StepDone
+		steps[9].Detail = "Shown on a screen."
+	default:
+		steps[9].State = stepReady
 	}
 
 	// --- 11. publish ---------------------------------------------------------------
@@ -396,6 +405,9 @@ func (s *Server) runOfShow(ctx context.Context) ([]Step, model.Race) {
 	} else if !racedAll {
 		steps[10].State = StepBlocked
 		steps[10].Blocker = "The heats are not finished."
+	} else if len(unsettled) > 0 {
+		steps[10].State = StepBlocked
+		steps[10].Blocker = "A tie for a trophy has not been run off yet."
 	} else {
 		plan, err := s.app.Publish.PlanRace(ctx, raceID)
 		switch {
@@ -435,7 +447,6 @@ func plural(n int) string {
 
 func (s *Server) runRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /run", s.handleRunOfShow)
-	mux.HandleFunc("POST /api/awards/speed", s.handleSpeedAwards)
 }
 
 func (s *Server) handleRunOfShow(w http.ResponseWriter, r *http.Request) {
@@ -466,37 +477,6 @@ func (s *Server) handleRunOfShow(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleSpeedAwards works out the three speed trophies from the standings.
-func (s *Server) handleSpeedAwards(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	ctx := r.Context()
-	raceID := s.raceIDForm(r)
-	if raceID == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "which race?"})
-		return
-	}
-
-	awards, err := s.app.DB.GenerateSpeedAwards(ctx, raceID)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	_ = s.app.DB.Audit(ctx, "coordinator", "awards.speed",
-		fmt.Sprintf("race %d: %d trophies from the standings", raceID, len(awards)))
-
-	out := make([]map[string]any, 0, len(awards))
-	for _, a := range awards {
-		out = append(out, map[string]any{
-			"name": a.Name, "car": a.Entry.CarName,
-			"number": a.Entry.CarNumber, "driver": a.Entry.FullName(),
-		})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"awards": out})
-}
-
 // ordinalOf renders a place the way it is said out loud.
 func ordinalOf(n int) string {
 	suffix := "th"
@@ -510,4 +490,12 @@ func ordinalOf(n int) string {
 		suffix = "rd"
 	}
 	return fmt.Sprintf("%d%s", n, suffix)
+}
+
+// trophyWord is "trophy" or "trophies", because "trophys" is not a word.
+func trophyWord(n int) string {
+	if n == 1 {
+		return "trophy"
+	}
+	return "trophies"
 }

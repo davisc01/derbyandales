@@ -99,7 +99,7 @@ func TestATieBelowThePodiumIsLeftAlone(t *testing.T) {
 	}
 
 	// The trophies can be set without anybody running anything extra.
-	if _, err := a.DB.GenerateSpeedAwards(ctx, raceID); err != nil {
+	if _, err := a.DB.SpeedAwards(ctx, raceID); err != nil {
 		t.Errorf("a tie for 5th blocked the trophies: %v", err)
 	}
 }
@@ -125,7 +125,7 @@ func TestATieForATrophyBlocksTheAwardsUntilItIsRunOff(t *testing.T) {
 		t.Error("an unrun tie reports itself settled")
 	}
 
-	_, err = a.DB.GenerateSpeedAwards(ctx, raceID)
+	_, err = a.DB.SpeedAwards(ctx, raceID)
 	if err == nil {
 		t.Fatal("the trophies were set while two cars were tied for first")
 	}
@@ -224,7 +224,7 @@ func TestARunOffSettlesTheOrderWithoutChangingTheAverages(t *testing.T) {
 	}
 
 	// And the trophies can now be set, to the right cars.
-	awards, err := a.DB.GenerateSpeedAwards(ctx, raceID)
+	awards, err := a.DB.SpeedAwards(ctx, raceID)
 	if err != nil {
 		t.Fatalf("the trophies are still blocked after the run-off: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestARunOffThatDeadHeatsHasToBeRunAgain(t *testing.T) {
 	if standings[0].Place != 1 || !standings[0].Tied {
 		t.Error("a level run-off separated the cars anyway")
 	}
-	if _, err := a.DB.GenerateSpeedAwards(ctx, raceID); err == nil {
+	if _, err := a.DB.SpeedAwards(ctx, raceID); err == nil {
 		t.Error("the trophies were set off a level run-off")
 	}
 }

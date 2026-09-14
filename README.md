@@ -181,6 +181,12 @@ wifi network and no uplink. Every asset is compiled into the binary and served
 from it — no CDNs, no web fonts, no outbound requests of any kind. Started up,
 the process holds two listening sockets and opens nothing.
 
+**The end of the night is a ceremony, and the software knows the order.** The
+two voted trophies first, on their own, with the car on the screen. Then the
+results slowest to fastest, with 1st, 2nd and 3rd handed over as those cars come
+up — the screen names the trophy due. Then any tie is run off, and the settled
+table goes up for the wrap-up.
+
 **A tie for a trophy is settled on the track.** Below the top three a tie simply
 stands: two cars that ran the same average are the same speed, and the results
 say so. But 1st, 2nd and 3rd are handed to a person, so those are run off head

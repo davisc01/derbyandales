@@ -51,7 +51,7 @@ func Scenes() []SceneInfo {
 		{SceneReveal, "Results reveal", "One car at a time, slowest to fastest.", true},
 		{SceneFinal, "Final standings", "The whole table at once, for the wrap-up.", true},
 		{SceneSlides, "Car photos", "Slideshow of the cars.", false},
-		{SceneAwards, "Awards", "Award winners.", false},
+		{SceneAwards, "Design & theme trophies", "The two voted trophies, one at a time, with the car.", true},
 		{SceneBracket, "Bracket", "The championship bracket.", false},
 		{SceneVotingQR, "Voting", "Points people at the tablet during the intermission.", true},
 	}

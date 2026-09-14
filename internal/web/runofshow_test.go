@@ -2,9 +2,12 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -336,13 +339,10 @@ func TestATieForATrophyBecomesTheNextThingToDo(t *testing.T) {
 	if final := stepNamed(t, steps, "Final standings"); final.State != StepWaiting {
 		t.Errorf("the final standings are %q with a tie outstanding", final.State)
 	}
-	// And the trophies are blocked, with the reason.
-	awards := stepNamed(t, steps, "Awards")
-	if awards.State != StepBlocked {
-		t.Errorf("awards is %q with a trophy tie outstanding", awards.State)
-	}
-	if !strings.Contains(awards.Blocker, "tie") {
-		t.Errorf("the blocker does not mention the tie: %q", awards.Blocker)
+	// And publishing is blocked, with the reason.
+	pub := stepNamed(t, steps, "Publish to the website")
+	if pub.State != StepBlocked {
+		t.Errorf("publishing is %q with a trophy tie outstanding", pub.State)
 	}
 
 	// And the race screen offers the run-off.
@@ -355,10 +355,11 @@ func TestATieForATrophyBecomesTheNextThingToDo(t *testing.T) {
 	}
 }
 
-// The order the club runs the end of the night in: reveal the results — which
-// is where the room learns there is a tie — then settle the tie on the track,
-// then put the finished table up for the wrap-up.
-func TestTheEndOfTheNightRunsRevealThenRunOffThenFinalStandings(t *testing.T) {
+// The order the club runs the end of the night in: the two voted trophies
+// first, on their own; then the results revealed slowest to fastest with the
+// speed trophies handed over as the top three come up; then any tie settled on
+// the track; then the finished table for the wrap-up.
+func TestTheEndOfTheNightRunsInCeremonyOrder(t *testing.T) {
 	s, a, _ := seasonServer(t)
 	ctx := context.Background()
 
@@ -366,6 +367,16 @@ func TestTheEndOfTheNightRunsRevealThenRunOffThenFinalStandings(t *testing.T) {
 	a.Race.SetRace(ctx, live.ID)
 	connectAndBench(t, a)
 	if _, err := a.Race.GenerateSchedule(ctx, live.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	// A website to publish into, so the last step is reachable rather than
+	// blocked on a setting.
+	site := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(site, "content", "races"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.DB.SetSetting(ctx, store.KeyDerbySitePath, site); err != nil {
 		t.Fatal(err)
 	}
 
@@ -425,9 +436,38 @@ func TestTheEndOfTheNightRunsRevealThenRunOffThenFinalStandings(t *testing.T) {
 		}
 	}
 
-	// The reveal comes first, with the tie still standing.
+	// Nothing has been voted on, so the design and theme trophies cannot be
+	// presented — and the checklist says so rather than sitting on them.
+	steps, _ := s.runOfShow(ctx)
+	trophies := stepNamed(t, steps, "Present the design and theme trophies")
+	if trophies.State != StepBlocked {
+		t.Errorf("the voted trophies are %q with nothing declared", trophies.State)
+	}
+
+	// Declare them, as the intermission would have. The ballot is normally
+	// prepared when the intermission opens; this race never had one.
+	if err := a.DB.EnsureVoteCategories(ctx, live.ID); err != nil {
+		t.Fatal(err)
+	}
+	cats, err := a.DB.VoteCategories(ctx, live.ID)
+	if err != nil || len(cats) == 0 {
+		t.Fatalf("no ballot categories: %v", err)
+	}
+	for i, c := range cats {
+		if err := a.DB.DeclareVoteWinner(ctx, c.ID, entries[i+1].ID); err != nil {
+			t.Fatalf("declaring %s: %v", c.Label, err)
+		}
+	}
+
+	// They come first, before any talk of times.
+	if got := next(); got != "Present the design and theme trophies" {
+		t.Fatalf("after the heats the next step is %q, want the voted trophies", got)
+	}
+	showScene(store.SceneAwards)
+
+	// Then the reveal, with the tie still standing.
 	if got := next(); got != "Reveal the results" {
-		t.Fatalf("after the heats the next step is %q, want the reveal", got)
+		t.Fatalf("after the trophies the next step is %q, want the reveal", got)
 	}
 	standings, _ := a.DB.Standings(ctx, live.ID)
 	if !standings[0].Tied {
@@ -471,7 +511,117 @@ func TestTheEndOfTheNightRunsRevealThenRunOffThenFinalStandings(t *testing.T) {
 	}
 
 	showScene(store.SceneFinal)
-	if got := next(); got != "Awards" {
-		t.Fatalf("after the final standings the next step is %q, want the awards", got)
+	if got := next(); got != "Publish to the website" {
+		t.Fatalf("after the final standings the next step is %q, want publishing", got)
+	}
+
+	// And the speed trophies need no separate step: they are the top of the
+	// standings, derived rather than stored, so they cannot disagree with it.
+	awards, _ := a.DB.RaceAwards(ctx, live.ID)
+	speed := 0
+	for _, aw := range awards {
+		if aw.Source == model.AwardAuto {
+			speed++
+		}
+	}
+	if speed != 3 {
+		t.Errorf("%d speed trophies after the run-off, want 3", speed)
+	}
+	for _, aw := range awards {
+		if aw.Source == model.AwardAuto && aw.Name == "1st" && aw.Entry.ID != second {
+			t.Error("the 1st trophy did not follow the run-off")
+		}
+	}
+}
+
+// The voted trophies go first, on their own — they were decided at the
+// intermission and have nothing to do with times.
+func TestTheVotedTrophiesComeBeforeTheResults(t *testing.T) {
+	s, a, _ := seasonServer(t)
+	ctx := context.Background()
+
+	live := liveRace(t, a)
+	a.Race.SetRace(ctx, live.ID)
+	connectAndBench(t, a)
+	if _, err := a.Race.GenerateSchedule(ctx, live.ID); err != nil {
+		t.Fatal(err)
+	}
+	heats, _ := a.DB.Heats(ctx, live.ID)
+	for _, h := range heats {
+		times := map[int]float64{}
+		for _, l := range h.Lanes {
+			if l.EntryID != nil {
+				times[l.Lane] = 2.300 + float64(*l.EntryID)*0.004
+			}
+		}
+		if err := a.DB.RecordHeatResults(ctx, h.ID, times); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Nothing declared: the step says so rather than sitting there as "next".
+	steps, _ := s.runOfShow(ctx)
+	trophies := stepNamed(t, steps, "Present the design and theme trophies")
+	if trophies.State != StepBlocked {
+		t.Errorf("the voted trophies are %q with nothing declared", trophies.State)
+	}
+	if !strings.Contains(trophies.Blocker, "declared") {
+		t.Errorf("the blocker does not explain: %q", trophies.Blocker)
+	}
+
+	entries, _ := a.DB.Entries(ctx, live.ID)
+	if err := a.DB.EnsureVoteCategories(ctx, live.ID); err != nil {
+		t.Fatal(err)
+	}
+	cats, _ := a.DB.VoteCategories(ctx, live.ID)
+	for i, c := range cats {
+		if err := a.DB.DeclareVoteWinner(ctx, c.ID, entries[i+1].ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	steps, _ = s.runOfShow(ctx)
+	trophies = stepNamed(t, steps, "Present the design and theme trophies")
+	if trophies.State != StepNow {
+		t.Fatalf("with two trophies declared the step is %q, want next", trophies.State)
+	}
+	if !strings.Contains(trophies.Detail, "trophies") {
+		t.Errorf("detail reads %q", trophies.Detail)
+	}
+	if stepNamed(t, steps, "Reveal the results").State == StepNow {
+		t.Error("the reveal is next; the voted trophies come first")
+	}
+
+	// And the scene serves them with the car, not as a list of names.
+	rec := get(t, s, "/api/race/awards")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("awards API: %d", rec.Code)
+	}
+	var out struct {
+		Awards []struct {
+			Name  string `json:"name"`
+			Voted bool   `json:"voted"`
+			Car   string `json:"car_name"`
+		} `json:"awards"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	voted := 0
+	for _, a := range out.Awards {
+		if a.Voted {
+			voted++
+			if a.Car == "" {
+				t.Errorf("%s has no car on it", a.Name)
+			}
+		}
+	}
+	if voted != 2 {
+		t.Errorf("%d voted trophies in the scene data, want 2", voted)
+	}
+	// The speed trophies are there too, but they are handed over during the
+	// reveal rather than in this scene.
+	if len(out.Awards) != 5 {
+		t.Errorf("%d trophies in total, want 5", len(out.Awards))
 	}
 }

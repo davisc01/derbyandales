@@ -374,3 +374,47 @@ html, body { height: 100%; }
 .final-row.winner { background: rgba(63, 191, 99, .2); }
 /* The pace car is ranked but is not competing, so it recedes. */
 .final-row.control { opacity: .55; }
+
+/* --- the design and theme trophies -------------------------------------------------
+   One at a time, with the car big. These are given for how a car looks, so a
+   list of names would be the wrong shape entirely. */
+
+.award-card {
+  display: flex;
+  align-items: center;
+  gap: 4vw;
+  justify-content: center;
+  height: 100%;
+}
+.award-pic {
+  flex: 0 1 46vw;
+  aspect-ratio: 4 / 3;
+  max-height: 62vh;
+  border-radius: 1.2vh;
+  overflow: hidden;
+  background: var(--panel-2);
+  display: grid;
+  place-items: center;
+}
+.award-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.award-number { font-family: var(--mono); font-size: 12vh; color: var(--ink-dim); }
+
+.award-who { flex: 0 1 34vw; min-width: 0; }
+.award-car {
+  font-size: clamp(2rem, 6.5vh, 6rem);
+  font-weight: 800;
+  line-height: 1.1;
+}
+.award-driver { font-size: clamp(1.2rem, 4vh, 3rem); color: var(--ink-dim); margin-top: 1.5vh; }
+.award-number-small { font-family: var(--mono); font-size: 3vh; color: var(--ink-faint); margin-top: 1vh; }
+
+/* The cue in the results reveal: which trophy is being handed over as this car
+   comes up. */
+.reveal-trophy {
+  margin-top: .6vh;
+  font-size: .62em;
+  font-weight: 700;
+  color: var(--amber);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}

@@ -15,6 +15,10 @@
   let scene = "blank";
   let params = {};
   let revealIndex = 0;
+  // The awards scene is paced the same way as the reveal: one trophy, a pause
+  // while it is handed over and photographed, then the next.
+  let awardIndex = 0;
+  let awardRows = [];
   let revealRows = [];
 
   try {
@@ -92,6 +96,8 @@
     params = typeof rawParams === "string" ? safeParse(rawParams) : rawParams || {};
     revealIndex = 0;
     revealRows = [];
+    awardIndex = 0;
+    awardRows = [];
     render();
   }
 
@@ -133,6 +139,8 @@
           return await renderReveal();
         case "final-standings":
           return await renderFinal();
+        case "awards":
+          return await renderAwards();
         case "blank":
           return renderBlank();
         default:
@@ -284,6 +292,62 @@
   }
 
   // Slowest first, one at a time, building up to the winner.
+  // The two voted trophies, one at a time, with the car big on the screen.
+  //
+  // These are given for how a car looks, so the photo is the point — a list of
+  // names would be the wrong shape entirely. The speed trophies are not here:
+  // they are handed out during the results reveal, as each of the top three
+  // comes up, which is what the club asked for.
+  async function renderAwards() {
+    if (!awardRows.length) {
+      const data = await getJSON("/api/race/awards");
+      awardRows = (data.awards || []).filter(function (a) { return a.voted; });
+      revealTitle = data.race || "Trophies";
+    }
+
+    if (!awardRows.length) {
+      const { wrap, body } = sceneShell("Trophies");
+      body.appendChild(el("p", "display-hint",
+        "The design and theme trophies have not been declared yet."));
+      return swap(wrap);
+    }
+
+    const shown = Math.min(awardIndex, awardRows.length - 1);
+    const a = awardRows[shown];
+    const { wrap, body } = sceneShell(a.name,
+      (shown + 1) + " of " + awardRows.length);
+
+    const card = el("div", "award-card");
+    const pic = el("div", "award-pic");
+    if (a.photo_id) {
+      const img = document.createElement("img");
+      img.src = "/photo/" + a.photo_id + "?size=large";
+      img.alt = "";
+      img.addEventListener("error", function () {
+        pic.classList.add("empty");
+        img.remove();
+        pic.appendChild(el("div", "award-number", "#" + a.car_number));
+      });
+      pic.appendChild(img);
+    } else {
+      pic.classList.add("empty");
+      pic.appendChild(el("div", "award-number", "#" + a.car_number));
+    }
+    card.appendChild(pic);
+
+    const who = el("div", "award-who");
+    who.appendChild(el("div", "award-car", a.car_name || ("Car " + a.car_number)));
+    who.appendChild(el("div", "award-driver", a.driver));
+    who.appendChild(el("div", "award-number-small", "#" + a.car_number));
+    card.appendChild(who);
+    body.appendChild(card);
+
+    if (awardIndex < awardRows.length - 1) {
+      wrap.appendChild(el("div", "reveal-prompt", "Press space for the next trophy"));
+    }
+    swap(wrap);
+  }
+
   // The whole table at once, for the wrap-up — after the reveal has walked up
   // the order and after any tie for a trophy has been run off. This is the
   // picture people photograph, so it shows the settled result rather than the
@@ -355,6 +419,12 @@
         const who = el("div");
         who.appendChild(el("div", "reveal-driver", s.driver));
         who.appendChild(el("div", "reveal-car", "#" + s.car_number + "  " + (s.car_name || "")));
+        // The speed trophies are handed over here, as each of the top three is
+        // revealed, so the screen says which one is due. The pace car is ranked
+        // but takes nothing, and a place still tied has no trophy to give yet.
+        if (s.place <= 3 && !s.tied && !s.is_control) {
+          who.appendChild(el("div", "reveal-trophy", trophyFor(s.place)));
+        }
         row.appendChild(who);
 
         const time = el("div");
@@ -425,8 +495,29 @@
     return n + suffix;
   }
 
+  // The trophy due at a given place, in the club's words.
+  function trophyFor(place) {
+    return ["1st", "2nd", "3rd"][place - 1] + " place trophy";
+  }
+
   // The reveal is operator-paced: space or arrow advances, backspace steps back.
   document.addEventListener("keydown", function (e) {
+    if (scene === "awards") {
+      if (e.key === " " || e.key === "ArrowRight" || e.key === "Enter") {
+        e.preventDefault();
+        if (awardIndex < awardRows.length - 1) {
+          awardIndex++;
+          render();
+        }
+      } else if (e.key === "ArrowLeft" || e.key === "Backspace") {
+        e.preventDefault();
+        if (awardIndex > 0) {
+          awardIndex--;
+          render();
+        }
+      }
+      return;
+    }
     if (scene !== "results-reveal") return;
     if (e.key === " " || e.key === "ArrowRight" || e.key === "Enter") {
       e.preventDefault();
@@ -445,6 +536,13 @@
 
   // Touch works too, for a screen driven from a tablet.
   document.addEventListener("click", function () {
+    if (scene === "awards") {
+      if (awardIndex < awardRows.length - 1) {
+        awardIndex++;
+        render();
+      }
+      return;
+    }
     if (scene !== "results-reveal") return;
     if (revealIndex < revealRows.length) {
       revealIndex++;

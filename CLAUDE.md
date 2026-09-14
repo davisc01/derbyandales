@@ -72,10 +72,22 @@ These are the domain, and getting them wrong changes published results.
   averages that tied. `heat.runoff_place` marks those heats and every scoring
   query leaves them out. The tied cars keep identical averages afterwards and
   only their places differ.
-- **The end of the night runs in this order**: reveal the results (which is
-  where the room learns there is a tie) → run the tie off → put the final
-  standings up for the wrap-up → awards → publish. Settling the tie before the
-  reveal would give the ending away.
+- **The end of the night runs in this order**: present the two voted trophies
+  on their own → reveal the results slowest to fastest, handing over 1st, 2nd
+  and 3rd as those cars come up → run off any tie → final standings for the
+  wrap-up → publish.
+
+  Each part of that is deliberate. The voted trophies go first because they are
+  about how a car looks, and giving them out while the room is thinking about
+  speed buries them. The speed trophies are handed over *during* the reveal, so
+  the reveal is the ceremony rather than a preamble to one. And the tie is
+  settled after the reveal, because the reveal is where the room learns there
+  is one.
+- **The speed trophies are derived, never stored.** They are the top three of
+  the standings, so a stored copy could only ever disagree with it — after a
+  re-run, a struck-out lane, a corrected time. `SpeedAwards` computes them;
+  `RaceAwards` merges them with the voted and manual ones, and a stored award of
+  the same name wins so an override still sticks.
 - **The speed trophies are named `1st`, `2nd`, `3rd`.** Seasons up to 2026
   published "Fastest in Event" and so on; the club asked for the short names, so
   files from 2027 differ from the archive in that column.

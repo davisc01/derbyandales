@@ -136,7 +136,7 @@ func (pc *PublishController) standingRows(ctx context.Context, raceID int64) ([]
 }
 
 func (pc *PublishController) awardRows(ctx context.Context, raceID int64) ([]publish.AwardRow, error) {
-	awards, err := pc.app.DB.Awards(ctx, raceID)
+	awards, err := pc.app.DB.RaceAwards(ctx, raceID)
 	if err != nil {
 		return nil, err
 	}
