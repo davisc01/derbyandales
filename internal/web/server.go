@@ -91,6 +91,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	s.raceRoutes(mux)
 	s.checkinRoutes(mux)
 	s.voteRoutes(mux)
+	s.seasonRoutes(mux)
 }
 
 // StartTLS brings up the HTTPS listener, which exists so remote check-in
@@ -405,6 +406,13 @@ func funcMap() template.FuncMap {
 				return ""
 			}
 			return scoring.FormatTime(*t)
+		},
+		"average": scoring.FormatAverage,
+		"signed": func(n int) string {
+			if n > 0 {
+				return "+" + strconv.Itoa(n)
+			}
+			return strconv.Itoa(n)
 		},
 		"setting": func(m map[string]string, key, def string) string {
 			if v, ok := m[key]; ok && v != "" {

@@ -32,6 +32,9 @@ type App struct {
 	// Race runs the heats.
 	Race *RaceController
 
+	// Season owns wildcard points and the auto-qualifier list.
+	Season *SeasonController
+
 	HTTPPort  int
 	HTTPSPort int
 }
@@ -66,6 +69,7 @@ func Open(ctx context.Context, paths Paths, log *slog.Logger) (*App, error) {
 
 	a.Timer = NewTimerController(a)
 	a.Race = NewRaceController(a)
+	a.Season = NewSeasonController(a)
 	// Point the displays at something without being asked, so a screen plugged
 	// in at the venue shows the right race straight away.
 	a.Race.LoadMostRecentRace(ctx)

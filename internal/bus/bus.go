@@ -22,6 +22,8 @@ const (
 	TopicRace Topic = "race"
 	// TopicVote carries ballot tallies.
 	TopicVote Topic = "vote"
+	// TopicSeason carries season points, qualifiers and standings changes.
+	TopicSeason Topic = "season"
 	// TopicBracket carries matchup and round progression.
 	TopicBracket Topic = "bracket"
 	// TopicDisplay carries scene assignments to connected screens.

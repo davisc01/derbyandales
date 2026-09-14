@@ -1,0 +1,203 @@
+{{define "content"}}
+{{$d := .Data}}
+
+{{if not $d.Overview}}
+<section class="card">
+  <h1>No season yet</h1>
+  <p class="empty">Create a season and race a night, and the standings appear here.</p>
+</section>
+{{else}}
+{{$o := $d.Overview}}
+{{$s := $o.Season}}
+
+<section class="card">
+  <h1>{{$s.Name}}</h1>
+  <div class="timer-status">
+    <span class="badge {{if eq $o.Entrants $o.Expected}}ok{{else}}off{{end}}">
+      {{len $o.Qualifiers}} of {{$o.QualifyingPlaces}} qualifying places decided
+    </span>
+    <span class="grow"></span>
+    <span class="note">
+      A full season is {{$s.RaceCount}} races &times; top {{$s.AutoQualPlaces}},
+      plus {{$s.WildcardSpots}} wildcards &mdash; a <b>{{$o.Expected}}</b>-car championship
+    </span>
+  </div>
+
+  {{if gt $o.OverLimit 0}}
+  <p class="warn-text">
+    {{$o.OverLimit}} slot{{if ne $o.OverLimit 1}}s are{{else}} is{{end}} held by
+    racers above the {{$s.MaxChampionshipEntry}}-entry cap. Substitute the extra
+    ones away before seeding the bracket, or the field will be wrong.
+  </p>
+  {{end}}
+
+  {{if not $s.PointsCountControl}}
+  <p class="note">
+    The CONTROL pace car is left out of the field size, so points match the
+    club's published rule. The old tracker counted it, which added a point to
+    everyone. Change this in Settings if you need to reproduce an old year.
+  </p>
+  {{else}}
+  <p class="warn-text">
+    The CONTROL pace car is being counted in the field size. That inflates every
+    racer's points by one and contradicts the club's published rule.
+  </p>
+  {{end}}
+
+  <div class="console-row">
+    <button class="btn" id="recompute" data-season="{{$s.ID}}">Recompute every race</button>
+    <span class="note" id="recompute-status">
+      Race results are recorded when the night ends and do not move afterwards.
+      Recompute only after correcting a result or changing a season setting.
+    </span>
+  </div>
+</section>
+
+<section class="card">
+  <h1>Races</h1>
+  <table class="season-races">
+    <tr><th>Race</th><th>Venue</th><th>Cars</th><th>Scored</th><th>Recorded</th></tr>
+    {{range $o.Races}}
+    <tr>
+      <td>{{.Race.Name}}</td>
+      <td class="note">{{.Race.Venue}}</td>
+      <td class="num">{{if .Frozen}}{{.Cars}}{{end}}</td>
+      <td class="num">{{if .Frozen}}{{.Scored}}{{end}}</td>
+      <td>
+        {{if .Frozen}}<span class="note">{{ago .FrozenAt}}</span>
+        {{else}}<span class="badge off">not yet raced</span>{{end}}
+      </td>
+    </tr>
+    {{end}}
+  </table>
+</section>
+
+<section class="card">
+  <h1>Auto-qualifiers</h1>
+  <p class="sub">
+    The top {{$s.AutoQualPlaces}} of every race, ordered winners first by average
+    and then everyone else by average. This order <em>is</em> the championship
+    seeding.
+  </p>
+
+  {{if $o.Qualifiers}}
+  <table class="qualifiers">
+    <tr>
+      <th>Seed</th><th>Driver</th><th>Car</th><th>Race</th>
+      <th>Finish</th><th>Average</th><th>Entries</th><th></th>
+    </tr>
+    {{range $o.Qualifiers}}
+    <tr class="{{if .OverLimit}}over-limit{{end}}" data-entry="{{.EntryID}}">
+      <td class="num">{{.Seed}}</td>
+      <td>
+        {{.Driver}}
+        {{if .SubstitutedFor}}
+        <div class="note">in place of {{.SubstitutedFor.Driver}} &mdash;
+          {{.SubstitutedFor.CarName}}</div>
+        {{end}}
+      </td>
+      <td>{{.CarName}}</td>
+      <td class="note">Race {{.RaceNumber}}</td>
+      <td class="num">{{.Place}}</td>
+      <td class="num mono">{{average .Average}}</td>
+      <td class="num">{{.Entries}}{{if .OverLimit}} <span class="badge warn">over</span>{{end}}</td>
+      <td class="tally-action">
+        {{if .SubstitutedFor}}
+        <button class="btn small undo-substitute"
+                data-original="{{.SubstitutedFor.EntryID}}">Undo</button>
+        {{else if .OverLimit}}
+        <button class="btn small substitute" data-entry="{{.EntryID}}">Substitute</button>
+        {{end}}
+      </td>
+    </tr>
+    {{end}}
+  </table>
+  {{else}}
+  <p class="empty">Nobody has qualified yet. Finish a race and the top three appear here.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h1>Wildcard standings</h1>
+  <p class="sub">
+    The remaining {{$s.WildcardSpots}} championship places go to the top of this
+    list. A racer already holding {{$s.MaxChampionshipEntry}} slots is out of
+    contention however many points they have.
+  </p>
+
+  {{if $o.Wildcard}}
+  <table class="wildcard">
+    <tr><th>Rank</th><th>Name</th><th>Earned</th><th>Adjusted</th><th>Total</th><th>Slots</th></tr>
+    {{range $i, $row := $o.Wildcard}}
+    <tr class="{{if $row.MaxedOut}}maxed{{else if lt $i $s.WildcardSpots}}in-the-field{{end}}">
+      <td class="num">{{$row.Rank}}</td>
+      <td>{{$row.Name}}</td>
+      <td class="num">{{$row.Earned}}</td>
+      <td class="num">{{if ne $row.Adjusted 0}}{{signed $row.Adjusted}}{{end}}</td>
+      <td class="num">
+        {{if $row.MaxedOut}}<span class="badge off">Max entries reached</span>
+        {{else}}<b>{{$row.Total}}</b>{{end}}
+      </td>
+      <td class="num">{{if ne $row.Slots 0}}{{$row.Slots}}{{end}}</td>
+    </tr>
+    {{end}}
+  </table>
+  {{else}}
+  <p class="empty">No points yet.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <h1>Adjustments</h1>
+  <p class="sub">
+    A manual correction to a racer's points. The reason is required, because this
+    is the thing most likely to be argued about later.
+  </p>
+
+  <div class="console-row">
+    <select id="adjust-racer">
+      <option value="">Choose a racer…</option>
+      {{range $d.Racers}}
+      <option value="{{.ID}}">{{.FullName}}</option>
+      {{end}}
+    </select>
+    <input type="number" id="adjust-points" placeholder="Points" step="1" style="width:90px">
+    <input type="text" id="adjust-reason" placeholder="Why" style="flex:1">
+    <button class="btn" id="adjust-save" data-season="{{$s.ID}}">Save</button>
+    <span class="note" id="adjust-status"></span>
+  </div>
+
+  {{if $o.Adjustments}}
+  <table class="adjustments">
+    {{range $o.Adjustments}}
+    <tr>
+      <td class="num">{{signed .Points}}</td>
+      <td>{{.Driver}}</td>
+      <td class="note">{{.Reason}}</td>
+      <td class="note">{{ago .CreatedAt}}</td>
+      <td class="tally-action">
+        <button class="btn small remove-adjustment" data-id="{{.ID}}">Remove</button>
+      </td>
+    </tr>
+    {{end}}
+  </table>
+  {{end}}
+</section>
+
+<dialog id="substitute-dialog">
+  <form method="dialog" class="form">
+    <h1 id="substitute-title">Substitute</h1>
+    <p class="hint" id="substitute-hint"></p>
+    <label>
+      <span class="lbl">Who takes the slot</span>
+      <select id="substitute-pick"></select>
+    </label>
+    <div class="console-row">
+      <button class="btn primary" id="substitute-confirm" value="confirm">Substitute</button>
+      <button class="btn" value="cancel">Cancel</button>
+      <span class="note err-text" id="substitute-error"></span>
+    </div>
+  </form>
+</dialog>
+{{end}}
+{{end}}

@@ -16,7 +16,10 @@ go run ./cmd/derbyandales -demo # a practice season, no hardware needed
 
 `-demo` plus the simulated timer means a whole race night can be rehearsed on a
 laptop. Use it — most bugs in this codebase have surfaced that way rather than
-in unit tests.
+in unit tests. It seeds five nights already raced and scored plus a sixth at
+check-in, so the season and championship screens have real data on them; the
+fabricated results deliberately include an over-limit racer and an ineligible
+car, because those paths are otherwise never seen.
 
 ## The club's rules
 
@@ -41,11 +44,25 @@ These are the domain, and getting them wrong changes published results.
   In 2026 race 4 the excluded car had the fastest average of the night, so this
   decided the winner of record.
 
+  The pace car is **equipment, not a person**. It must not be counted in the
+  field size, and its "driver" must never appear in a list of racers — both
+  happened in the old tracker, which is why "Derby Ales" is ranked 36th in the
+  club's published 2026 wildcard standings. `store.CompetingRacers` is the list
+  to offer anywhere a human is being chosen.
+
 - **Racing pauses for an intermission halfway through the heats**, and that is
   when people vote for the design and theme trophies. Voting opens when the
   intermission starts and closes when it ends. It has **no set length** — the
   venue is a bar, people are refuelling, and it ends when the coordinator says
   so. Never show a countdown.
+- **Wildcard points** go to the racer's *best* car only, and only if that best
+  place did not already auto-qualify. A racer who wins the night earns nothing
+  for their second car finishing 7th either — they already have their slot.
+  `points = max(0, field − (place − (auto_qual_places + 1)))`.
+- **A finished race is frozen.** Places and points are written to `race_result`
+  when the last heat lands and do not move afterwards. Recompute is an explicit,
+  audited action that takes a backup first. Never recompute as a side effect of
+  a setting change.
 - **Championship field size is derived**, never hardcoded:
   `entrants = races × auto_qual_places + wildcards`, `capacity = next power of 2`,
   `byes = capacity − entrants`. The club's 24/32/8/5-rounds falls out of that.
@@ -94,6 +111,14 @@ Each of these has already caused a bug here.
 - **Float ties.** DerbyNet computes drop-slowest as `(SUM−MAX)/(COUNT−1)`, which
   can land one bit away from summing the kept times. `scoring.equalTimes` uses an
   epsilon so two cars that ran identical times tie regardless of arithmetic order.
+- **A literal BOM in a Go source file** is a compile error ("illegal byte order
+  mark"), and it lands there by writing the character rather than `\ufeff` while
+  handling the club's BOM-carrying CSVs. Fix it at byte level; an editor will
+  happily rewrite it back.
+- **Over limit is `> cap`; maxed out is `>= cap`.** They are different tests and
+  both are needed: a racer sitting exactly on the cap keeps every slot they hold
+  but is out of wildcard contention. Getting these the same way round silently
+  changes who reaches the championship.
 
 ## Layout
 
@@ -104,6 +129,7 @@ internal/
   model/      domain types
   schedule/   heat generation (offset search) and running order
   scoring/    drop-slowest averaging, placement, scale MPH, CSV formatting
+  season/     wildcard points, auto-qualifier seeding, substitutions
   store/      SQLite, migrations, queries
   timer/      FastTrack driver, simulator, state machine, Test Bench
   web/        handlers, templates, static assets

@@ -505,3 +505,55 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
   margin: 0 0 14px;
   font-size: 14px;
 }
+
+/* --- season ----------------------------------------------------------------- */
+
+.season-races, .qualifiers, .wildcard, .adjustments { font-size: 13.5px; }
+.season-races th, .qualifiers th, .wildcard th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--ink-faint);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 0 12px 6px 0;
+}
+.season-races td, .qualifiers td, .wildcard td, .adjustments td {
+  padding: 7px 12px 7px 0;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+}
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.qualifiers th.num, .wildcard th.num { text-align: right; }
+
+/* A slot held by a racer over the entry cap has to be given away before the
+   bracket can be seeded, so it is marked rather than left to be counted. */
+.qualifiers tr.over-limit { background: rgba(240, 165, 58, .07); }
+
+/* The racers currently taking the wildcard places. The line between in and out
+   moves every race, and being able to see where it is now is the whole reason
+   this table is published mid-season. */
+.wildcard tr.in-the-field { background: rgba(63, 191, 99, .07); }
+.wildcard tr.in-the-field td:first-child { box-shadow: inset 2px 0 0 var(--green); }
+.wildcard tr.maxed td { color: var(--ink-faint); }
+
+#substitute-dialog {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  min-width: 420px;
+  max-width: 90vw;
+}
+#substitute-dialog::backdrop { background: rgba(0, 0, 0, .55); }
+#substitute-dialog h1 { margin: 0 0 6px; font-size: 16px; }
+#substitute-dialog select {
+  background: var(--panel-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 7px 9px;
+  font: inherit;
+  width: 100%;
+}

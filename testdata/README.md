@@ -44,3 +44,30 @@ car were excluded. Races 1, 2 and 5 excluded nobody.
 
 `2026-race-4-excluded.txt` lists the excluded car numbers so the golden test can
 apply the exclusion the way the app will.
+
+## The 2026 season files
+
+`2026-race-{1..5}-standings.csv` are the five nights the club had published when
+this was written, copied verbatim from `derby-site/content/races/2026/`. Races 2,
+3 and 5 were published without the `Heats` column, so the golden test reads the
+headers rather than assuming positions.
+
+`2026-wildcard.csv` and `2026-qualifiers.csv` are the season standings the old
+tracker produced from those five races. `internal/season/golden_test.go` rebuilds
+both from the race files. Two rows are expected **not** to match, and the test
+says which and why rather than skipping them:
+
+- **`Derby Ales`, ranked 36th on zero points** in `2026-wildcard.csv` is the
+  CONTROL pace car's driver. There is no such person. The old tracker built its
+  roster from every standings row, so the pace car became a competitor.
+- **The row seeded `9*`** in `2026-qualifiers.csv` was added by hand. It is the
+  standby for an over-limit racer — shown alongside the slot rather than
+  replacing it, because mid-season the substitution had not been committed.
+
+Everything else matches exactly, including the published points totals, which
+were produced with the pace car counted in the field size. That is what
+`Rules.CountControl` restores; the corrected default costs each racer one point
+per race they scored in, and the test asserts precisely that difference.
+
+Note these two files carry **no BOM** — they came from the Python tracker, not
+the DerbyNet export.

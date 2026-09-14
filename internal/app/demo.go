@@ -44,22 +44,38 @@ var demoRacers = []struct {
 	{"Sam", "Thibodeaux", "Final Warning", 99},
 }
 
-// SeedDemoRace creates a season, a race and a field of cars to race.
+// SeedDemoRace creates a season and one race with a field of cars, ready to
+// check in. For a season with nights already behind it, see SeedDemoSeason.
 func (a *App) SeedDemoRace(ctx context.Context, year int) (model.Race, error) {
-	season := store.DefaultSeason(year)
-	season.Name = fmt.Sprintf("%d Season (demo data)", year)
-
-	created, err := a.DB.CreateSeason(ctx, season)
+	created, err := a.seedDemoSeasonRow(ctx, year)
 	if err != nil {
-		return model.Race{}, fmt.Errorf("create demo season: %w", err)
+		return model.Race{}, err
 	}
+	return a.seedDemoLiveRace(ctx, created, 1)
+}
 
+// seedDemoSeasonRow creates the season itself, named so nobody mistakes it for
+// real results.
+func (a *App) seedDemoSeasonRow(ctx context.Context, year int) (model.Season, error) {
+	s := store.DefaultSeason(year)
+	s.Name = fmt.Sprintf("%d Season (demo data)", year)
+
+	created, err := a.DB.CreateSeason(ctx, s)
+	if err != nil {
+		return created, fmt.Errorf("create demo season: %w", err)
+	}
+	return created, nil
+}
+
+// seedDemoLiveRace creates the race that is waiting to be run, with every car
+// already checked in.
+func (a *App) seedDemoLiveRace(ctx context.Context, created model.Season, number int) (model.Race, error) {
 	race, err := a.DB.CreateRace(ctx, model.Race{
 		SeasonID: created.ID,
-		Number:   1,
-		Name:     "Race 1",
+		Number:   number,
+		Name:     fmt.Sprintf("Race %d", number),
 		Date:     time.Now(),
-		Venue:    "Demo Brewing Co.",
+		Venue:    demoVenues[(number-1)%len(demoVenues)],
 		Kind:     model.RacePoints,
 		Status:   model.StatusCheckin,
 	})

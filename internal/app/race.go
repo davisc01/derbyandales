@@ -520,6 +520,14 @@ func (rc *RaceController) finishRace(ctx context.Context, raceID int64) error {
 		rc.app.Log.Warn("snapshot after race completion failed", "err", err)
 	}
 
+	// Record the night into the season standings while the result is fresh.
+	// This is deliberately not fatal: the racing happened either way, and the
+	// points can be recomputed from the same rows at any time. Failing the end
+	// of a race over a points table would be the wrong trade at a venue.
+	if err := rc.app.Season.FreezeRace(ctx, raceID); err != nil {
+		rc.app.Log.Warn("recording season points failed", "race", raceID, "err", err)
+	}
+
 	standings, err := rc.app.DB.Standings(ctx, raceID)
 	if err != nil {
 		return err

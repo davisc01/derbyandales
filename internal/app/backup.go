@@ -28,7 +28,10 @@ const (
 	// BackupIntermission is taken when racing pauses halfway through. It is a
 	// known-quiet moment, which is when a snapshot is cheapest and most useful.
 	BackupIntermission BackupReason = "intermission"
-	BackupManual       BackupReason = "manual"
+	// BackupSeasonRecompute is taken before rewriting every points row in a
+	// season, which is the one action here that can change published history.
+	BackupSeasonRecompute BackupReason = "season-recompute"
+	BackupManual          BackupReason = "manual"
 )
 
 // Backup is one snapshot on disk.

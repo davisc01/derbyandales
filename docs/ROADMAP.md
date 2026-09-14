@@ -16,6 +16,7 @@ document so they cannot be lost.
 | M3 | Timer | FastTrack K/Q driver, simulator, Timer Test Bench |
 | M4 | Displays and race control | registration, scene manager, roster / now-racing / results-reveal, auto-advance |
 | M5 | Voting and intermission | ballot tablet, tallies, undo, tie-break, winner declaration, automatic halfway pause |
+| M6 | Season points and auto-qualifiers | frozen race results, wildcard points, seeded qualifier list, substitutions, adjustments |
 
 ## Left to build
 
@@ -93,6 +94,9 @@ break should get a confirmation, not a silent restart of the race.
 
 </details>
 
+<details>
+<summary>M6 — Season points and auto-qualifiers (built; kept for the reasoning)</summary>
+
 ### M6 — Season points and auto-qualifiers
 
 No CSV round-trip: this reads race results from the same database. The separate
@@ -102,7 +106,7 @@ tracker app existed only because DerbyNet and it had different databases.
 
 ```
 points = max(0, total_racers − (place − (auto_qual_places + 1)))
-       = 0  if place <= auto_qual_places        (top 3 already auto-qualified)
+       = 0  if the racer's best place <= auto_qual_places   (already qualified)
        = 0  if not the racer's best-placed car in that race
        = 0  for the CONTROL car
 ```
@@ -111,14 +115,22 @@ points = max(0, total_racers − (place − (auto_qual_places + 1)))
 value and the next distinct place skips, which falls out of using the raw place
 number.
 
-> **A correction to carry forward.** The old tracker excluded the CONTROL car
+Note the second line carefully: it is the racer's **best** place that is tested,
+not each car's. A racer who wins the race earns nothing for their second car
+finishing 7th either. They have their championship slot; the wildcard list
+exists to give one to somebody who does not.
+
+> **Two corrections carried forward.** The old tracker excluded the CONTROL car
 > from scoring but still counted it in `total_racers`, inflating everyone's
-> points by one. That contradicts the club's own published rule ("points equal
-> to the number of racers at the race"). The setting `points_count_control`
-> defaults to the corrected behaviour. Flag it in the UI on first run.
+> points by one — contradicting the club's own published rule ("points equal to
+> the number of racers at the race"). It also treated the pace car's driver as a
+> racer, which is why "Derby Ales" is ranked 36th on zero points in the
+> published 2026 standings. Both are fixed; `points_count_control` restores the
+> first, for reproducing an old year exactly.
 
 Points are **frozen at race completion** so changing settings later cannot
-silently rewrite history. A "recompute" action should exist and be audited.
+silently rewrite history. Recompute is an explicit action, audited, and takes a
+backup first.
 
 **Auto-qualifiers**: top `auto_qual_places` (3) from each race. Ordered per the
 club's published rule — race winners first by average time, then the remaining
@@ -130,6 +142,28 @@ top finishers by average time. The list index *is* the seed.
 - **Substitution**: replace an over-limit slot with any non-top-3 finisher from
   that race. Both sides unique, undo supported, CONTROL excluded.
 - **Adjustments**: signed points with a mandatory reason, individually removable.
+
+#### What building it settled
+
+- **Both lists were reproduced exactly** from the club's published 2026 files.
+  `internal/season/golden_test.go` rebuilds the 34-racer wildcard table and the
+  15-seed qualifier list from the five race `standings.csv` files, and asserts
+  every rank, name, points value, seed, car, race, finish and entry count. The
+  only two rows that differ are the two corrections above, and the test says so
+  rather than skipping them.
+- **The published `qualifiers.csv` carries a hand-added row seeded `9*`.** That
+  is a standby for an over-limit racer, shown *alongside* the slot rather than
+  replacing it, because mid-season the substitution had not been committed. The
+  app records substitutions properly, so it has no such row — something for M8's
+  publisher to decide how to render.
+- **`Avg Time` is published to 3 dp with trailing zeros trimmed** (`2.39`), not
+  the flat 3 dp the old exporter produced. `scoring.FormatAverage` already does
+  this.
+- **A substitute can themselves be at the cap.** Handing a slot to somebody who
+  already holds three immediately recreates the problem. It stays allowed — on a
+  thin night they may be the only person left — but the picker marks them.
+
+</details>
 
 ### M7 — Championship bracket
 
@@ -275,4 +309,6 @@ voting, rather than relying on the coordinator to remember both.
   before anyone else installs the app.
 - **Awards must skip the CONTROL car.** It is ranked in the standings and can
   place first on times, but it takes no trophy. `Entry.EarnsPoints()` encodes
-  this; it is not yet used anywhere, and it will matter in M5 and M8.
+  this. The season side now honours it; the awards side still has to, in M8.
+- **The `9*` standby row** in the published qualifiers list — see M6 above.
+  M8 has to decide whether to reproduce it or publish the committed list only.

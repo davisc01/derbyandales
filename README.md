@@ -22,8 +22,9 @@ rules natively.
 
 Under construction, targeting the **2027 season**. The run-of-show is
 continuous end to end: create a season, check cars in, close check-in, race
-every heat, reveal the results. [docs/ROADMAP.md](docs/ROADMAP.md) has the
-detail for what is left.
+every heat, pause for the intermission, vote, reveal the results — and the
+night lands in the season standings by itself. [docs/ROADMAP.md](docs/ROADMAP.md)
+has the detail for what is left.
 
 | Milestone | | |
 |---|---|---|
@@ -33,7 +34,7 @@ detail for what is left.
 | M3 | Timer — FastTrack driver, simulator, Timer Test Bench | **done** |
 | M4 | Displays and race control — roster, now-racing, results reveal | **done** (slideshow, awards, bracket with later milestones) |
 | M5 | Voting and intermission — ballot, tallies, undo, winner declaration | **done** |
-| M6 | Season — auto-qualifiers, wildcard points, substitutions | |
+| M6 | Season — auto-qualifiers, wildcard points, substitutions, adjustments | **done** |
 | M7 | Bracket — planner, seeding, generation, advance | |
 | M8 | Publishing — website CSV writers, run-of-show screen | |
 | M9 | Dress rehearsal on real hardware | |
@@ -56,8 +57,10 @@ To try it without a timer or any real data:
 go run ./cmd/derbyandales -demo
 ```
 
-That creates a clearly-labelled demo season, and the Timer page offers a
-simulated timer with buttons that stand in for the person at the track. The
+That creates a clearly-labelled demo season with **five nights already raced
+and scored** and a sixth waiting at check-in, so the season and championship
+screens have something real on them from the first launch. The Timer page offers
+a simulated timer with buttons that stand in for the person at the track, so the
 whole race night can be rehearsed on a laptop.
 
 The app starts a web server and opens a browser. Everything happens there.
@@ -93,9 +96,10 @@ Everything is under one folder, so backing up the club's data is a folder copy:
   traces/           recorded timer serial sessions
 ```
 
-Snapshots are taken at startup, when a race opens, when check-in closes, and
-when a race completes, via SQLite's `VACUUM INTO` — which never blocks a write,
-so a backup can't stall a heat.
+Snapshots are taken at startup, when a race opens, when check-in closes, at the
+intermission, when a race completes, and before a season's points are recomputed
+— via SQLite's `VACUUM INTO`, which never blocks a write, so a backup can't stall
+a heat.
 
 ## Layout
 
@@ -109,7 +113,7 @@ internal/
   publish/          website CSV writers
   schedule/         heat generation and ordering
   scoring/          drop-slowest averaging, placement, scale MPH
-  season/           auto-qualifiers, wildcard points
+  season/           wildcard points, auto-qualifiers, substitutions
   store/            SQLite, migrations, queries
   timer/            FastTrack driver, simulator, state machine
   web/              HTTP handlers, templates, static assets
@@ -121,6 +125,17 @@ packaging/          .app bundle build
 **One database, no CSV round-trip.** Season points read race results directly.
 The separate tracker app existed only because DerbyNet and it had different
 databases.
+
+**A finished race is frozen.** When the last heat lands, the night's places and
+the wildcard points that follow from them are written down and stop moving.
+Correcting a result or changing a setting afterwards does not silently rewrite
+history — recomputing is an action somebody takes, it is audited, and it takes a
+backup first.
+
+**The pace car is equipment, not a competitor.** It races and it is ranked, but
+it takes no trophy, earns no points, and is not counted in the field size. The
+old tracker counted it, which added a point to everyone's total and put "Derby
+Ales" in the published standings as though it were a person.
 
 **Server-sent events, not polling.** DerbyNet runs three pollers (a 500 ms timer
 heartbeat, a 500 ms content poll, a 5 s kiosk poll). Here every browser holds one

@@ -73,7 +73,7 @@ func run(log *slog.Logger, dataDir string, httpPort, httpsPort int, noTLS, noOpe
 	defer a.Close()
 
 	if demo && !a.HasDemoData(ctx) {
-		if _, err := a.SeedDemoRace(ctx, time.Now().Year()); err != nil {
+		if _, err := a.SeedDemoSeason(ctx, time.Now().Year()); err != nil {
 			log.Warn("could not create demo data", "err", err)
 		} else {
 			// The startup load already ran against an empty database.
