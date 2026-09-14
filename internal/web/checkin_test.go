@@ -1,14 +1,19 @@
 package web
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/davisc01/derbyandales/internal/store"
 )
 
 // postForm posts a form and returns the status and decoded body.
@@ -258,5 +263,83 @@ func TestSecureContextDetection(t *testing.T) {
 		if got := isSecureContext(req); got != c.want {
 			t.Errorf("isSecureContext(%s, tls=%v) = %v, want %v", c.host, c.tls, got, c.want)
 		}
+	}
+}
+
+// A car gets one championship. The check-in table should be told, and should
+// not have anything decided for it.
+func TestCheckingInACarThatRacedAChampionshipWarns(t *testing.T) {
+	s, a := testServerPair(t)
+	ctx := context.Background()
+
+	// The club's own 2025 championship, read in the way the app reads it.
+	site := t.TempDir()
+	dir := filepath.Join(site, "content", "races", "2025", "championship")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join("..", "..", "testdata", "championships", "2025-standings.csv"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "standings.csv"), body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.DB.SetSetting(ctx, store.KeyDerbySitePath, site); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.ImportChampionships(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	race, err := a.SeedDemoRace(ctx, 2027)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	add := func(first, last, car string, number int) map[string]any {
+		t.Helper()
+		form := url.Values{
+			"race_id": {itoa(race.ID)}, "first_name": {first}, "last_name": {last},
+			"car_name": {car}, "car_number": {itoa(int64(number))},
+		}
+		req := httptest.NewRequest("POST", "/api/entry", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+		handler(t, s).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("checking in %s: %d %s", car, rec.Code, rec.Body.String())
+		}
+		var out map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+
+	// Michael Sanders won the 2025 championship with "The Pelvinator".
+	out := add("Michael", "Sanders", "The Pelvinator", 501)
+	warning, _ := out["warning"].(string)
+	if warning == "" {
+		t.Fatal("a car that won a previous championship was checked in with no warning")
+	}
+	for _, want := range []string{"The Pelvinator", "2025", "one championship"} {
+		if !strings.Contains(warning, want) {
+			t.Errorf("warning does not mention %q: %s", want, warning)
+		}
+	}
+
+	// It warns; it does not decide. The car is checked in and eligible until a
+	// person says otherwise, with a reason.
+	entries, _ := a.DB.Entries(ctx, race.ID)
+	for _, e := range entries {
+		if e.CarNumber == 501 && e.Excluded {
+			t.Error("the car was excluded automatically; that is a person's decision")
+		}
+	}
+
+	// A car nobody has raced before goes in quietly.
+	if out := add("Ada", "Fairweather", "Brand New Thing", 502); out["warning"] != nil {
+		t.Errorf("a new car was warned about: %v", out["warning"])
 	}
 }

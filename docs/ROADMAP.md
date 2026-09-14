@@ -339,17 +339,28 @@ timer. Nothing is ticked off by being pressed.
 - **The speed trophies are `1st`, `2nd`, `3rd`**, at the club's request, rather
   than "Fastest in Event" as published up to 2026.
 
+## Settled
+
+- **"Raced in a previous championship" is checked from the archive.** The club's
+  published championship results are imported from the website folder — six
+  years, 130 cars — and a car that matches one is flagged at check-in. It only
+  ever flags: excluding a car is a decision and it needs a reason.
+- **The Outlaw division** is out of scope for now.
+- **The `9*` standby row** in 2026's qualifiers is temporary and is being
+  removed from the site, so the publisher writing the committed list only is
+  correct. Note that `internal/publish/golden_test.go` and
+  `internal/season/golden_test.go` both *assert the fixture still contains it* —
+  so if `testdata/2026-qualifiers.csv` is ever refreshed from the corrected
+  site, those tests fail loudly with a message saying why, rather than silently
+  testing nothing.
+
 ## Open questions
 
-- **"Raced in a previous championship"** is a season-spanning eligibility rule.
-  Starting fresh at 2027 means there is no prior championship to check against
-  in year one, so that call stays manual at check-in. From 2028 the app could
-  flag candidates automatically.
-- **The Outlaw division** appears in the club's written rules but in no CSV and
-  no schema. Modelled as nothing so far. Needs a decision before it matters.
-- **Code signing and notarization** — see `packaging/NOTARIZING.md`. Worth doing
+- **Code signing and notarization** — see `packaging/NOTARIZING.md`. Last job
   before anyone else installs the app.
-- **The `9*` standby row** in the published qualifiers list — see M6 above. The
-  publisher writes the committed list only. If the club wants the standby shown
-  alongside an over-limit slot the way it was in 2026, that is a change to
-  `QualifiersCSV` and a decision about what the extra row should say.
+- **The PINs are settable but enforce nothing.** Settings offers a coordinator
+  and a crew PIN and says "blank means no prompt", which implies a non-blank one
+  prompts. Nothing checks them. Either wire them up or take the fields out; as
+  it stands the page makes a promise the app does not keep.
+- **Two display scenes are still unbuilt**: the championship bracket, and the
+  car-photo slideshow. The bracket is the one that would be noticed.

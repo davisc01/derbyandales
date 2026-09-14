@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -297,7 +298,40 @@ func (s *Server) handleCreateEntry(w http.ResponseWriter, r *http.Request) {
 	s.app.Bus.Publish(bus.TopicRace, "checkin", map[string]any{
 		"race_id": raceID, "car_number": carNumber, "driver": racer.FullName(),
 	})
-	writeJSON(w, http.StatusOK, map[string]any{"id": created.ID})
+
+	out := map[string]any{"id": created.ID}
+	// A car gets one championship. Checking that has always been somebody
+	// remembering, so say it here rather than let it be found out afterwards —
+	// but only say it. Excluding a car is a decision, and it needs a reason.
+	if seen, err := s.app.DB.RacedBefore(ctx, racer.LastName, entry.CarName); err == nil && len(seen) > 0 {
+		out["raced_before"] = pastCarsJSON(seen)
+		out["warning"] = racedBeforeMessage(entry.CarName, seen)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// racedBeforeMessage is what the person at the table reads.
+func racedBeforeMessage(carName string, seen []store.PastCar) string {
+	first := seen[0]
+	if first.SameDriver {
+		return fmt.Sprintf("%s raced the %d championship — same car name, same driver. "+
+			"A car gets one championship, so this may not be eligible.",
+			carName, first.Year)
+	}
+	return fmt.Sprintf("A car called %s raced the %d championship, driven by %s. "+
+		"Probably a different car, but worth a look.",
+		carName, first.Year, first.Driver())
+}
+
+func pastCarsJSON(seen []store.PastCar) []map[string]any {
+	out := make([]map[string]any, 0, len(seen))
+	for _, c := range seen {
+		out = append(out, map[string]any{
+			"year": c.Year, "car_name": c.CarName, "driver": c.Driver(),
+			"car_number": c.CarNumber, "place": c.Place, "same_driver": c.SameDriver,
+		})
+	}
+	return out
 }
 
 // checkinError turns a constraint violation into something a person can act on.

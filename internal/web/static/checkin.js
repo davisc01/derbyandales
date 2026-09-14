@@ -246,7 +246,42 @@
       if (photoID) params.photo_id = photoID;
 
       try {
-        await post("/api/entry", params);
+        const result = await post("/api/entry", params);
+
+        // A car gets one championship. The server checks the club's archive
+        // and says so here; it does not exclude anything, because excluding a
+        // car is a decision and it needs a reason. The page stops rather than
+        // reloading, so the warning is actually read.
+        if (result.warning) {
+          say("checkin-status", result.warning, true);
+          const status = $("checkin-status");
+          const act = document.createElement("button");
+          act.className = "btn small";
+          act.textContent = "Mark ineligible";
+          act.style.marginLeft = "10px";
+          act.addEventListener("click", async function () {
+            try {
+              await post("/api/entry/update", {
+                id: result.id,
+                excluded: "true",
+                reason: "raced in a previous championship",
+              });
+              location.reload();
+            } catch (err) {
+              say("checkin-status", err.message, true);
+            }
+          });
+          const ok = document.createElement("button");
+          ok.className = "btn small";
+          ok.textContent = "Different car, carry on";
+          ok.style.marginLeft = "6px";
+          ok.addEventListener("click", function () { location.reload(); });
+          status.appendChild(act);
+          status.appendChild(ok);
+          btn.disabled = false;
+          return;
+        }
+
         say("checkin-status", "Checked in.");
         // Keep the driver's name: the commonest next action is a second car
         // for the same person.

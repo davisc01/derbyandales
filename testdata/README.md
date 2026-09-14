@@ -71,3 +71,22 @@ per race they scored in, and the test asserts precisely that difference.
 
 Note these two files carry **no BOM** — they came from the Python tracker, not
 the DerbyNet export.
+
+
+## `championships/`
+
+The club's published championship standings for 2019 and 2021-2025, copied from
+`derby-site/content/races/{year}/championship/standings.csv`. They are the
+evidence for the rule that a car gets one championship.
+
+They are also a fair sample of what the archive actually looks like. Four
+different exporters over seven years:
+
+- **2019** wrapped two header cells across lines, so `Average\nTime` is one
+  column name. Folding whitespace is what makes the rest of the row findable.
+- **2021-2024** use `Last Name,First Name`; **2025** uses one `Name` column.
+- **2021** appended the qualifying origin to every car name — `-1` through `-4`
+  for the race it qualified from, `-W` for a wildcard. That is not part of the
+  name and is stripped. The stripping has to be narrow: 2024 has a car called
+  **Drive-By**.
+- 2020 is absent, and 2026's championship has not been run.

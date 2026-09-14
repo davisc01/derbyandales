@@ -64,6 +64,34 @@
 </section>
 
 <section class="card">
+  <h1>Past championships</h1>
+  <p class="sub">
+    A car gets one championship. This reads the club's own published results out
+    of the website folder, so the rule can be checked at the check-in table
+    instead of remembered.
+  </p>
+
+  {{if $d.HistoryYears}}
+  <p class="note ok">
+    {{len $d.HistoryYears}} championship{{if ne (len $d.HistoryYears) 1}}s{{end}}
+    on record &mdash; {{$d.HistoryCars}} cars.
+    <span class="mono">{{range $d.HistoryYears}}{{.}} {{end}}</span>
+  </p>
+  {{else}}
+  <p class="note">
+    Nothing imported yet, so no car will be flagged at check-in.
+  </p>
+  {{end}}
+
+  <div class="console-row">
+    <button class="btn" id="import-history">Read them from the website folder</button>
+    <span class="note" id="import-status">
+      It only reads. Run it again whenever the archive changes.
+    </span>
+  </div>
+</section>
+
+<section class="card">
   <h1>Where things live</h1>
   <table class="urls">
     <tr><th>Database</th><td><code>{{$d.Paths.DB}}</code></td></tr>

@@ -195,6 +195,14 @@ Each of these has already caused a bug here.
   several steps are genuinely available at once, and the screen exists to answer
   one question. The intermission overrides the order, because it is a hard stop
   rather than a step in a queue.
+- **A car gets one championship**, and that is checked against the club's own
+  published archive rather than from memory. `internal/history` parses six years
+  of championship standings across four different exporters — one year's header
+  wraps across lines, one year baked the qualifying origin into every car name
+  as a `-1`..`-4`/`-W` suffix, and "Drive-By" proves the stripping has to be
+  narrow. Cars are matched by name folded for case and spacing; a surname match
+  as well is the strong case. It **flags, never excludes** — excluding a car is
+  a decision and it needs a reason.
 - **Everything runs offline.** The venue has private wifi and no internet. No
   CDNs, no web fonts, no outbound HTTP: every asset is `go:embed`ed and served
   from the app itself, and the whole page set is verified to reference only

@@ -181,6 +181,13 @@ wifi network and no uplink. Every asset is compiled into the binary and served
 from it — no CDNs, no web fonts, no outbound requests of any kind. Started up,
 the process holds two listening sockets and opens nothing.
 
+**A car gets one championship, and the software remembers which.** The club's
+own published championship results — six years of them — are read back out of
+the website folder, and a car that matches one is flagged at the check-in table.
+It flags and stops there: excluding a car is a decision, and it needs a reason.
+This was checked from memory before, which worked right up until the person who
+remembered was not there.
+
 **The end of the night is a ceremony, and the software knows the order.** The
 two voted trophies first, on their own, with the car on the screen. Then the
 results slowest to fastest, with 1st, 2nd and 3rd handed over as those cars come

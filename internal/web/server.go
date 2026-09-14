@@ -78,6 +78,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", s.handleHome)
 	mux.HandleFunc("GET /settings", s.handleSettings)
 	mux.HandleFunc("POST /settings", s.handleSaveSettings)
+	mux.HandleFunc("POST /api/history/import", s.handleImportChampionships)
 
 	mux.HandleFunc("GET /events", s.handleEvents)
 
@@ -274,14 +275,19 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	historyYears, _ := s.app.DB.ChampionshipYears(r.Context())
+	historyCars, _ := s.app.DB.PastChampionshipCars(r.Context())
+
 	s.render(w, r, "settings.html", pageData{
 		Title:  "Settings",
 		Active: "settings",
 		Data: map[string]any{
-			"Settings":  settings,
-			"HTTPPort":  s.app.HTTPPort,
-			"HTTPSPort": s.app.HTTPSPort,
-			"Paths":     s.app.Paths,
+			"Settings":     settings,
+			"HistoryYears": historyYears,
+			"HistoryCars":  historyCars,
+			"HTTPPort":     s.app.HTTPPort,
+			"HTTPSPort":    s.app.HTTPSPort,
+			"Paths":        s.app.Paths,
 		},
 	})
 }
@@ -438,4 +444,26 @@ func funcMap() template.FuncMap {
 			return def
 		},
 	}
+}
+
+// handleImportChampionships reads the club's published archive back in, so the
+// previous-championship rule can be checked at the table rather than recalled.
+func (s *Server) handleImportChampionships(w http.ResponseWriter, r *http.Request) {
+	years, err := s.app.ImportChampionships(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+
+	out := make([]map[string]any, 0, len(years))
+	cars := 0
+	for _, y := range years {
+		row := map[string]any{"year": y.Year, "cars": y.Cars}
+		if y.Problem != "" {
+			row["problem"] = y.Problem
+		}
+		cars += y.Cars
+		out = append(out, row)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"years": out, "cars": cars})
 }
