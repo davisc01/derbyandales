@@ -25,7 +25,7 @@ Under construction, targeting the **2027 season**.
 | Milestone | | |
 |---|---|---|
 | M0 | Skeleton — app bundle, database, HTTP/HTTPS, event bus, settings, preflight, backups | **done** |
-| M1 | Check-in — seasons, races, racers, entries, photo capture | |
+| M1 | Check-in — seasons, races, racers, entries, photo capture | **done** |
 | M2 | Schedule and scoring — generator search, drop-slowest standings, scale MPH | **done** |
 | M3 | Timer — FastTrack driver, simulator, Timer Test Bench | **done** |
 | M4 | Displays and race control — roster, now-racing, results reveal | **done** (slideshow, awards, bracket with later milestones) |
@@ -139,6 +139,11 @@ genuine unterminated result line. A simulator that shortcut to "here are four
 times" would never exercise line assembly, detector excision, masking or the
 gate debounce — which is exactly where the bugs are. It also means the Timer
 Test Bench can be rehearsed with no hardware present.
+
+**Photos are stored once and resized on demand.** Images are addressed by the
+hash of their contents, so a retake of an identical frame costs one file and
+re-uploading is free. Derived sizes are a cache — deleting the renders folder
+costs nothing but time.
 
 **Displays register themselves.** A screen opens the display address, is given
 a name, and appears in the coordinator's list. Scene changes arrive over the

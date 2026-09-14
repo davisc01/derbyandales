@@ -416,3 +416,61 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 .heat-no { font-weight: 700; font-variant-numeric: tabular-nums; }
 .hl-driver { font-weight: 500; }
 .hl-time { font-variant-numeric: tabular-nums; color: var(--green); margin-top: 2px; }
+
+/* --- check-in -------------------------------------------------------------- */
+
+.warn-card { border-color: var(--amber); }
+.warn-card h1 { color: var(--amber); }
+
+.checkin-form { display: flex; flex-direction: column; gap: 16px; max-width: 680px; }
+.checkin-form label { display: flex; flex-direction: column; gap: 5px; }
+.checkin-form input, .checkin-form select {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 9px 11px;
+  font: 15px var(--sans);
+}
+.checkin-form input:focus { outline: 2px solid var(--blue); outline-offset: -1px; }
+
+.field-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.field-row > label { flex: 1 1 200px; }
+.field-row > label.narrow { flex: 0 0 130px; }
+
+/* Camera capture. The preview is a fixed aspect so the layout does not jump
+   when the stream starts. */
+.capture {
+  background: var(--panel-2);
+  border-radius: 9px;
+  padding: 14px;
+}
+.capture-view {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  border-radius: 7px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.capture-view video, .capture-view img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.capture-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.capture-controls select { max-width: 200px; }
+
+.extra { border-top: 1px solid var(--line); padding-top: 12px; }
+.extra summary { cursor: pointer; color: var(--ink-dim); font-size: 13.5px; }
+.extra > *:not(summary) { margin-top: 12px; }
+
+.check-line { flex-direction: row !important; align-items: flex-start; gap: 10px !important; font-size: 13.5px; }
+.check-line input { flex: 0 0 auto; margin-top: 2px; }
+
+.entries td { padding: 8px 10px 8px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+.entries tr.excluded { opacity: .6; }
+.entry-photo { width: 56px; }
+.entry-photo img { width: 48px; height: 36px; object-fit: cover; border-radius: 4px; display: block; }
+.no-photo { color: var(--ink-faint); }

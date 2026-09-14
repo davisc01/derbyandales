@@ -241,9 +241,23 @@
     const size = Math.max(1.6, Math.min(3.4, 78 / rows));
     grid.style.fontSize = size + "vh";
 
+    const withPhotos = entries.some(function (e) { return e.photo_id; });
+    if (withPhotos) grid.classList.add("with-photos");
+
     entries.forEach(function (e) {
       const row = el("div", "roster-row");
       if (e.excluded) row.classList.add("excluded");
+      if (withPhotos) {
+        const cell = el("div", "roster-pic");
+        if (e.photo_id) {
+          const img = document.createElement("img");
+          img.src = "/photo/" + e.photo_id + "?size=thumb";
+          img.alt = "";
+          img.loading = "lazy";
+          cell.appendChild(img);
+        }
+        row.appendChild(cell);
+      }
       row.appendChild(el("div", "roster-no", "#" + e.car_number));
       const who = el("div");
       who.appendChild(el("span", "roster-driver", e.driver));

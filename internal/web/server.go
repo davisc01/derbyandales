@@ -89,6 +89,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	s.timerRoutes(mux)
 	s.displayRoutes(mux)
 	s.raceRoutes(mux)
+	s.checkinRoutes(mux)
 }
 
 // StartTLS brings up the HTTPS listener, which exists so remote check-in

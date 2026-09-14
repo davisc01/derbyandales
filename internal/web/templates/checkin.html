@@ -1,0 +1,210 @@
+{{define "content"}}
+{{$d := .Data}}
+{{$race := $d.Race}}
+
+{{if not $d.SecureHost}}
+<section class="card warn-card">
+  <h1>No camera on this address</h1>
+  <p class="sub">Browsers only allow the camera on a secure address. This page
+     was opened over plain HTTP, so photo capture is switched off — everything
+     else on this page works.</p>
+  <p class="note">Use <code>{{.App.URLs.Local}}/checkin</code> on the race Mac,
+     or one of the <code>https://</code> addresses on a tablet (you will be asked
+     to trust the certificate once).</p>
+</section>
+{{end}}
+
+<section class="card">
+  <h1>Check-in</h1>
+  {{if $race.ID}}
+  <p class="sub"><strong>{{$d.Season.Name}} · {{$race.Name}}</strong>{{if $race.Venue}} at {{$race.Venue}}{{end}}
+     — <span id="entry-count">{{len $d.Entries}}</span> checked in</p>
+  {{else}}
+  <p class="sub">No race is open. Create one below, or pick an existing one on the
+     <a href="/race">race page</a>.</p>
+  {{end}}
+
+  {{if $d.Races}}
+  <div class="console-row">
+    <select id="race-picker">
+      {{range $d.Races}}
+      <option value="{{.ID}}" {{if eq .ID $race.ID}}selected{{end}}>{{.Label}} ({{.Status}})</option>
+      {{end}}
+    </select>
+    <button class="btn" id="load-race">Open for check-in</button>
+    <span class="note" id="race-status"></span>
+  </div>
+  {{end}}
+</section>
+
+{{if $race.ID}}
+<section class="card">
+  <h1>Add a car</h1>
+  <form class="checkin-form" id="checkin-form" autocomplete="off">
+    <div class="field-row">
+      <label>
+        <span class="lbl">Driver first name</span>
+        <input type="text" name="first_name" id="first-name" list="racer-names" required>
+      </label>
+      <label>
+        <span class="lbl">Last name</span>
+        <input type="text" name="last_name" id="last-name" required>
+      </label>
+    </div>
+
+    <datalist id="racer-names">
+      {{range $d.Racers}}<option value="{{.FirstName}}" label="{{.FullName}}">{{end}}
+    </datalist>
+
+    <div class="field-row">
+      <label class="narrow">
+        <span class="lbl">Car number</span>
+        <input type="number" name="car_number" id="car-number" min="1" required
+               inputmode="numeric">
+        <span class="hint" id="car-number-hint"></span>
+      </label>
+      <label>
+        <span class="lbl">Car name</span>
+        <input type="text" name="car_name" id="car-name" placeholder="Loose Moose">
+      </label>
+    </div>
+
+    <div class="capture" id="capture" {{if not $d.SecureHost}}hidden{{end}}>
+      <div class="capture-view">
+        <video id="camera" autoplay playsinline muted></video>
+        <img id="shot" alt="" hidden>
+        <canvas id="canvas" hidden></canvas>
+      </div>
+      <div class="capture-controls">
+        <select id="camera-picker" aria-label="Camera"></select>
+        <button type="button" class="btn" id="start-camera">Turn on the camera</button>
+        <button type="button" class="btn primary" id="take-photo" hidden>Take the photo</button>
+        <button type="button" class="btn" id="retake" hidden>Retake</button>
+        <span class="note" id="capture-status"></span>
+      </div>
+    </div>
+
+    {{if not $d.SecureHost}}
+    <label>
+      <span class="lbl">Car photo</span>
+      <input type="file" id="photo-file" accept="image/*">
+      <span class="hint">The camera is unavailable on this address, but a photo
+        can still be chosen from the device.</span>
+    </label>
+    {{end}}
+
+    <details class="extra">
+      <summary>Not a normal entry</summary>
+      <label class="check-line">
+        <input type="checkbox" id="is-control">
+        <span>This is the CONTROL pace car — it races and is ranked, but takes no
+          award and earns no points.</span>
+      </label>
+      <label class="check-line">
+        <input type="checkbox" id="excluded">
+        <span>Not eligible — it races, but is left out of the standings entirely.</span>
+      </label>
+      <label id="reason-field" hidden>
+        <span class="lbl">Why not eligible</span>
+        <input type="text" id="reason" placeholder="Raced in a previous championship">
+      </label>
+    </details>
+
+    <p>
+      <button class="btn primary" type="submit" id="add-entry">Check this car in</button>
+      <span class="note" id="checkin-status"></span>
+    </p>
+  </form>
+</section>
+
+<section class="card">
+  <h1>Checked in</h1>
+  <div id="entry-list">
+    {{if $d.Entries}}
+    <table class="entries">
+      <tr><th></th><th>Car</th><th>Driver</th><th>Name</th><th></th><th></th></tr>
+      {{range $d.Entries}}
+      <tr data-entry="{{.ID}}" class="{{if .Excluded}}excluded{{end}}">
+        <td class="entry-photo">
+          {{if .PhotoID}}<img src="/photo/{{.PhotoID}}?size=thumb" alt="">{{else}}<span class="no-photo">—</span>{{end}}
+        </td>
+        <td class="mono">#{{.CarNumber}}</td>
+        <td>{{.FullName}}</td>
+        <td>{{.CarName}}
+          {{if .IsControl}}<span class="badge warn">CONTROL</span>{{end}}
+          {{if .Excluded}}<span class="badge off">not eligible</span>{{end}}
+        </td>
+        <td class="note">{{.ExclusionReason}}</td>
+        <td><button class="btn small remove-entry" data-id="{{.ID}}">Remove</button></td>
+      </tr>
+      {{end}}
+    </table>
+    {{else}}
+    <p class="empty">Nobody has checked in yet.</p>
+    {{end}}
+  </div>
+  <p class="hint">Once check-in closes the schedule is built and cars can no
+     longer be removed — a car that withdraws after that is marked not eligible
+     instead, so the heats stay intact.</p>
+  <p><a class="btn" href="/race">Close check-in on the race page →</a></p>
+</section>
+{{end}}
+
+<section class="card">
+  <h1>Seasons and races</h1>
+  <details class="extra" {{if not $d.Races}}open{{end}}>
+    <summary>Create a season</summary>
+    <form class="form" id="season-form">
+      <div class="field-row">
+        <label class="narrow"><span class="lbl">Year</span>
+          <input type="number" id="season-year" value="{{$d.NextYear}}" min="2000" max="2200"></label>
+        <label><span class="lbl">Name</span>
+          <input type="text" id="season-name" placeholder="{{$d.NextYear}} Season"></label>
+      </div>
+      <div class="field-row">
+        <label class="narrow"><span class="lbl">Lanes</span>
+          <input type="number" id="season-lanes" value="4" min="1" max="8"></label>
+        <label class="narrow"><span class="lbl">Track length (ft)</span>
+          <input type="number" id="season-track" value="28" step="0.1" min="1"></label>
+        <label class="narrow"><span class="lbl">Races</span>
+          <input type="number" id="season-races" value="6" min="1" max="20"></label>
+      </div>
+      <p><button class="btn" type="submit">Create season</button>
+         <span class="note" id="season-status"></span></p>
+    </form>
+  </details>
+
+  {{if $d.Seasons}}
+  <details class="extra" open>
+    <summary>Create a race</summary>
+    <form class="form" id="race-form">
+      <div class="field-row">
+        <label><span class="lbl">Season</span>
+          <select id="race-season">
+            {{range $d.Seasons}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          </select></label>
+        <label class="narrow"><span class="lbl">Number</span>
+          <input type="number" id="race-number" value="1" min="1"></label>
+      </div>
+      <div class="field-row">
+        <label><span class="lbl">Name</span>
+          <input type="text" id="race-name" placeholder="Race 1"></label>
+        <label><span class="lbl">Venue</span>
+          <input type="text" id="race-venue" placeholder="Hampline Brewing Co."></label>
+      </div>
+      <div class="field-row">
+        <label class="narrow"><span class="lbl">Date</span>
+          <input type="date" id="race-date"></label>
+        <label class="narrow"><span class="lbl">Kind</span>
+          <select id="race-kind">
+            <option value="points">Season race</option>
+            <option value="championship">Championship</option>
+          </select></label>
+      </div>
+      <p><button class="btn" type="submit">Create race</button>
+         <span class="note" id="race-create-status"></span></p>
+    </form>
+  </details>
+  {{end}}
+</section>
+{{end}}

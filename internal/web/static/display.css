@@ -286,3 +286,16 @@ html, body { height: 100%; }
   padding: .8vh;
   z-index: 50;
 }
+
+/* Roster with car photos. Without photos the rows stay compact; with them the
+   grid gains a picture column and the type shrinks to keep the field on one
+   screen. */
+.roster.with-photos .roster-row { grid-template-columns: 6vh 5vw 1fr; }
+.roster-pic {
+  width: 6vh;
+  height: 4.5vh;
+  border-radius: .5vh;
+  overflow: hidden;
+  background: var(--line);
+}
+.roster-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
