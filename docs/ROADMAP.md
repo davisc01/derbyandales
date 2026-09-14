@@ -54,27 +54,38 @@ run it rather than leave the coordinator to remember.
   scheduled heats rounded down — heat 10 of 20, heat 12 of 25. Zero disables it.
 - When that heat's results land, the race controller **does not arm the next
   heat**. It publishes an intermission event and waits.
-- Voting opens automatically at that moment. The coordinator should not have to
-  open it separately; forgetting is the failure this prevents.
+- **Voting opens when the intermission starts and closes when it ends.** The
+  window is exactly the intermission, so the coordinator never opens or closes
+  voting separately — forgetting either is the failure this prevents.
+- Take a **backup** on entering the intermission. It is a known-quiet moment
+  halfway through the night, which is when a snapshot is cheapest and most
+  useful.
 - Displays switch to a voting scene — what to vote for, where the tablet is, and
   a live count of votes cast so the coordinator can see it is being used.
 - The race screen shows **Intermission** with a prominent *Resume racing*
   button, the vote tallies, and how many heats remain.
-- Resuming arms the next heat and carries on as before.
+- Resuming closes voting, arms the next heat, and carries on as before.
+
+**There is no set length.** The venue is a bar or a brewery and the intermission
+is also when people refuel, so it ends when the coordinator says it ends.
+Nothing should show a countdown or a remaining time — not the race screen and
+certainly not the TV. The only thing that ends an intermission is someone
+pressing *Resume racing*.
+
+Consequences worth building deliberately:
+
+- A ballot loaded outside the voting window should say **voting is closed**
+  rather than silently accepting taps that go nowhere. The tablet will be
+  sitting on the table the whole night.
+- Resuming ends voting, so the coordinator should see the tallies **on the same
+  screen as the resume button** — not have to go looking for them first.
+- Closing must be reversible. Someone will resume racing a minute before the
+  last person votes, and reopening should be one button, not a database edit.
 
 This interacts with auto-advance: the pause has to survive it. Treat the
 intermission as a hard stop that auto-advance cannot step over, rather than as a
 very long advance delay — a coordinator who nudges *Arm next heat* during the
 break should get a confirmation, not a silent restart of the race.
-
-Open questions for the club:
-
-- Does voting **close** when racing resumes, or stay open until winners are
-  declared? Staying open is more forgiving; closing makes the tally final at a
-  known moment.
-- Should the intermission also be a natural point to take a backup? It is a
-  known-quiet moment halfway through the night, which is exactly when a snapshot
-  is cheap and most useful.
 
 ### M6 — Season points and auto-qualifiers
 

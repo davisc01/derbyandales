@@ -42,9 +42,10 @@ These are the domain, and getting them wrong changes published results.
   decided the winner of record.
 
 - **Racing pauses for an intermission halfway through the heats**, and that is
-  when people vote for the design and theme trophies. It is part of the run of
-  the night, not an incidental break — the software should run it. Not built
-  yet; see `docs/ROADMAP.md`.
+  when people vote for the design and theme trophies. Voting opens when the
+  intermission starts and closes when it ends. It has **no set length** — the
+  venue is a bar, people are refuelling, and it ends when the coordinator says
+  so. Never show a countdown. Not built yet; see `docs/ROADMAP.md`.
 - **Championship field size is derived**, never hardcoded:
   `entrants = races × auto_qual_places + wildcards`, `capacity = next power of 2`,
   `byes = capacity − entrants`. The club's 24/32/8/5-rounds falls out of that.
