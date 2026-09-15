@@ -200,6 +200,24 @@
   let racingPhase = "";
   let racingHeat = 0;
 
+  // Who is in a lane: the car's name large, its number and driver beneath.
+  // The car is what the room is watching go down the track, and a car name is
+  // what people shout; the driver is the smaller print. Both phases of the heat
+  // use this, so the names never change size between staging and the result.
+  function laneWho(l) {
+    const car = el("div", "lane-car");
+    if (l.bye) {
+      car.appendChild(el("div", "lane-title", "empty lane"));
+      return car;
+    }
+    car.appendChild(el("div", "lane-title", l.car_name || l.driver));
+    const sub = el("div", "lane-sub");
+    sub.appendChild(el("span", "lane-carno", "#" + l.car_number));
+    if (l.car_name) sub.appendChild(document.createTextNode(l.driver));
+    car.appendChild(sub);
+    return car;
+  }
+
   async function renderRacing() {
     const state = await getJSON("/api/race/state");
 
@@ -245,13 +263,7 @@
         const row = el("div", "lane-row running");
         row.style.setProperty("--depart", i * 60 + "ms");
         row.appendChild(el("div", "lane-no", l.lane));
-        const car = el("div", "lane-car");
-        car.appendChild(el("div", "lane-driver", l.driver));
-        const name = el("div", "lane-carname");
-        name.appendChild(el("span", "lane-carno", "#" + l.car_number));
-        name.appendChild(document.createTextNode(l.car_name || ""));
-        car.appendChild(name);
-        row.appendChild(car);
+        row.appendChild(laneWho(l));
         gone.appendChild(row);
       });
       body.appendChild(gone);
@@ -289,17 +301,7 @@
 
       row.appendChild(el("div", "lane-no", l.lane));
 
-      const car = el("div", "lane-car");
-      if (l.bye) {
-        car.appendChild(el("div", "lane-driver", "empty lane"));
-      } else {
-        car.appendChild(el("div", "lane-driver", l.driver));
-        const name = el("div", "lane-carname");
-        name.appendChild(el("span", "lane-carno", "#" + l.car_number));
-        name.appendChild(document.createTextNode(l.car_name || ""));
-        car.appendChild(name);
-      }
-      row.appendChild(car);
+      row.appendChild(laneWho(l));
 
       const result = el("div", "lane-result");
       if (l.time !== undefined) {

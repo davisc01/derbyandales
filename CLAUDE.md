@@ -273,7 +273,8 @@ Each of these has already caused a bug here.
   is nothing to report for two seconds and a frozen table reads as a broken one.
   The results come back in finish order, not lane order. Gold for the heat
   winner, red for a car that did not finish, showing the 9.999 that goes into
-  the results.
+  the results. Each lane leads with the **car's name**, with its number and the
+  driver beneath — the club asked for the car to be the prominent one.
 - **The impound screen shows two heats — on the track, and to load next — as
   lanes, pictures and car numbers only.** The official reading it is loading a
   tray, not watching the racing, so a driver's name is noise. A display can be

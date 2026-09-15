@@ -107,7 +107,9 @@ html, body { height: 100%; }
 
 .lane-row {
   display: grid;
-  grid-template-columns: 9vw 1fr auto;
+  /* Lane, car, time, and the finishing place once there is one. The place
+     had no column of its own and wrapped under the row. */
+  grid-template-columns: 9vw 1fr auto 7vw;
   align-items: center;
   gap: 2vw;
   background: var(--panel);
@@ -135,7 +137,7 @@ html, body { height: 100%; }
 
 .lane-car { min-width: 0; }
 
-.lane-driver {
+.lane-title {
   font-size: 4.6vh;
   font-weight: 700;
   white-space: nowrap;
@@ -143,7 +145,7 @@ html, body { height: 100%; }
   text-overflow: ellipsis;
 }
 
-.lane-carname {
+.lane-sub {
   font-size: 2.9vh;
   color: var(--ink-dim);
   white-space: nowrap;
@@ -178,11 +180,11 @@ html, body { height: 100%; }
 }
 .lane-row.p1 .lane-place,
 .lane-row.p1 .lane-time { color: var(--gold); }
-.lane-row.p1 .lane-driver { font-weight: 800; }
+.lane-row.p1 .lane-title { font-weight: 800; }
 .lane-row.p2 .lane-place { color: var(--ink-dim); }
 
 .lane-row.bye { opacity: .3; }
-.lane-row.bye .lane-driver { font-style: italic; color: var(--ink-dim); font-weight: 400; }
+.lane-row.bye .lane-title { font-style: italic; color: var(--ink-dim); font-weight: 400; }
 /* A car that did not finish, in red. The timer reports 9.999 for it, which is
    shown rather than hidden: it is what goes into the results. */
 .lane-row.dnf {
