@@ -7,9 +7,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -48,15 +51,16 @@ func main() {
 	if *debug {
 		level = slog.LevelDebug
 	}
-	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+	opts := &slog.HandlerOptions{Level: level}
+	log := slog.New(slog.NewTextHandler(os.Stderr, opts))
 
-	if err := run(log, *dataDir, *httpPort, *httpsPort, *noTLS, *noOpen, *demo, *demoChamp); err != nil {
+	if err := run(log, opts, *dataDir, *httpPort, *httpsPort, *noTLS, *noOpen, *demo, *demoChamp); err != nil {
 		log.Error("fatal", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(log *slog.Logger, dataDir string, httpPort, httpsPort int, noTLS, noOpen, demo, demoChamp bool) error {
+func run(log *slog.Logger, opts *slog.HandlerOptions, dataDir string, httpPort, httpsPort int, noTLS, noOpen, demo, demoChamp bool) error {
 	// Interrupts are caught so the database gets a clean close and connected
 	// displays are told the server is going away.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -65,6 +69,30 @@ func run(log *slog.Logger, dataDir string, httpPort, httpsPort int, noTLS, noOpe
 	paths, err := app.DefaultPaths(dataDir)
 	if err != nil {
 		return err
+	}
+
+	// Double-clicking the app while it is already running is the normal way
+	// somebody gets back to it — there is no window to switch to. Opening the
+	// browser on the copy already running is what they meant; starting a second
+	// one would fight it for the ports and the database.
+	probe := httpPort
+	if probe == 0 {
+		probe = app.DefaultHTTPPort
+	}
+	if alreadyRunning(probe) {
+		log.Info("already running; opening it", "port", probe)
+		if !noOpen {
+			openBrowser(fmt.Sprintf("http://localhost:%d", probe), log)
+		}
+		return nil
+	}
+
+	if f, err := app.OpenLogFile(paths, app.DefaultLogKeep); err != nil {
+		log.Warn("could not open a log file; logging to the terminal only", "err", err)
+	} else {
+		defer f.Close()
+		log = slog.New(slog.NewTextHandler(io.MultiWriter(os.Stderr, f), opts))
+		log.Info("starting", "version", version, "log", f.Name())
 	}
 
 	a, err := app.Open(ctx, paths, log)
@@ -120,6 +148,15 @@ func run(log *slog.Logger, dataDir string, httpPort, httpsPort int, noTLS, noOpe
 	select {
 	case err := <-errCh:
 		if err != nil {
+			// A port saved in Settings is only known once the database is
+			// open, so a copy already running on it is caught here instead.
+			if alreadyRunning(a.HTTPPort) {
+				log.Info("already running; opening it", "port", a.HTTPPort)
+				if !noOpen {
+					openBrowser(a.URLs().Local, log)
+				}
+				return nil
+			}
 			return fmt.Errorf("http listener: %w", err)
 		}
 		return nil
@@ -161,4 +198,20 @@ func openBrowser(url string, log *slog.Logger) {
 	if err := exec.Command("open", url).Start(); err != nil {
 		log.Debug("could not open browser", "err", err)
 	}
+}
+
+// alreadyRunning reports whether Derby and Ales is already answering on the
+// port. It asks the health endpoint rather than just trying the port, so some
+// other program on 8080 is not mistaken for it.
+func alreadyRunning(port int) bool {
+	client := http.Client{Timeout: 500 * time.Millisecond}
+	resp, err := client.Get(fmt.Sprintf("http://localhost:%d/healthz", port))
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	var body struct {
+		App string `json:"app"`
+	}
+	return json.NewDecoder(resp.Body).Decode(&body) == nil && body.App == "derbyandales"
 }

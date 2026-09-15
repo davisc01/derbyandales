@@ -19,6 +19,7 @@ type Paths struct {
 	Backups string // backups/
 	Certs   string // certs/   (self-signed TLS for LAN camera access)
 	Traces  string // traces/  (recorded timer serial sessions)
+	Logs    string // logs/    (one file a day, since the .app has no Terminal)
 }
 
 // DefaultPaths resolves the standard macOS support directory. When root is
@@ -40,13 +41,14 @@ func DefaultPaths(root string) (Paths, error) {
 		Backups: filepath.Join(root, "backups"),
 		Certs:   filepath.Join(root, "certs"),
 		Traces:  filepath.Join(root, "traces"),
+		Logs:    filepath.Join(root, "logs"),
 	}
 	return p, nil
 }
 
 // EnsureDirs creates every directory the app needs.
 func (p Paths) EnsureDirs() error {
-	for _, dir := range []string{p.Root, p.Photos, p.Renders, p.Backups, p.Certs, p.Traces} {
+	for _, dir := range []string{p.Root, p.Photos, p.Renders, p.Backups, p.Certs, p.Traces, p.Logs} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("create %s: %w", dir, err)
 		}

@@ -410,6 +410,7 @@ func (s *Server) handleQuitAPI(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":          true,
+		"app":         "derbyandales",
 		"subscribers": s.app.Bus.Subscribers(),
 		"drops":       s.app.Bus.Drops(),
 	})

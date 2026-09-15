@@ -18,6 +18,13 @@
 	<string>__VERSION__</string>
 	<key>CFBundleVersion</key>
 	<string>__VERSION__</string>
+	<!-- No Dock icon. The app is a server with a browser for a face and no
+	     macOS event loop, so a Dock icon would sit there unable to quit and
+	     looking hung. It is stopped from the Status page, and opening the app
+	     again while it runs brings its page back up. -->
+	<key>LSUIElement</key>
+	<true/>
+
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
 

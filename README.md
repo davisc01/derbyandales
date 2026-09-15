@@ -75,7 +75,11 @@ build the bracket on the Championship page, then race it from the Race page —
 typing times in with **Enter times** works without a timer. A separate `-data`
 folder keeps it apart from the ordinary demo.
 
-The app starts a web server and opens a browser. Everything happens there.
+The app starts a web server and opens a browser. Everything happens there. It
+has no Dock icon: to get back to it, open the app again and it brings its page
+up; to stop it, use **Quit** on the Status page. Each day's log is written to
+`~/Library/Application Support/DerbyAndAles/logs`, which is where to look after
+a night that misbehaved.
 
 ```
   Coordinator:    http://localhost:8080
