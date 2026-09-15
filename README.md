@@ -76,8 +76,9 @@ typing times in with **Enter times** works without a timer. A separate `-data`
 folder keeps it apart from the ordinary demo.
 
 The app starts a web server and opens a browser. Everything happens there. It
-has no Dock icon: to get back to it, open the app again and it brings its page
-up; to stop it, use **Quit** on the Status page. Each day's log is written to
+sits in the Dock like any other app: click the icon to bring its page back up
+(the Dock menu also opens the devices page), and **Quit** it from the Dock, the
+menu bar or ⌘Q to stop the server. Quit on the Status page does the same. Each day's log is written to
 `~/Library/Application Support/DerbyAndAles/logs`, which is where to look after
 a night that misbehaved.
 

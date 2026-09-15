@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -40,7 +41,16 @@ func main() {
 		demoChamp = flag.Bool("demo-championship", false, "create a demo season that has finished, with its bracket championship at check-in")
 		showVer   = flag.Bool("version", false, "print version and exit")
 	)
-	flag.Parse()
+	// Older macOS versions pass a process serial number to a launched app. It
+	// is not a flag this program knows, and must not stop it starting.
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		if strings.HasPrefix(args[i], "-psn_") {
+			args = append(args[:i], args[i+1:]...)
+			i--
+		}
+	}
+	flag.CommandLine.Parse(args)
 
 	if *showVer {
 		fmt.Println("derbyandales", version)
@@ -54,10 +64,11 @@ func main() {
 	opts := &slog.HandlerOptions{Level: level}
 	log := slog.New(slog.NewTextHandler(os.Stderr, opts))
 
-	if err := run(log, opts, *dataDir, *httpPort, *httpsPort, *noTLS, *noOpen, *demo, *demoChamp); err != nil {
+	runApp(func() error {
+		return run(log, opts, *dataDir, *httpPort, *httpsPort, *noTLS, *noOpen, *demo, *demoChamp)
+	}, func(err error) {
 		log.Error("fatal", "err", err)
-		os.Exit(1)
-	}
+	})
 }
 
 func run(log *slog.Logger, opts *slog.HandlerOptions, dataDir string, httpPort, httpsPort int, noTLS, noOpen, demo, demoChamp bool) error {
@@ -128,6 +139,9 @@ func run(log *slog.Logger, opts *slog.HandlerOptions, dataDir string, httpPort, 
 	// The browser is the only UI, so it needs a way to stop the app. This runs
 	// the same shutdown path as Ctrl-C.
 	srv.OnQuit(stop)
+	// Quitting from the Dock or the menu bar takes the same path as Ctrl-C and
+	// the Status page's Quit.
+	dockHooks.quit = stop
 
 	if !noTLS {
 		cert, err := app.EnsureCert(paths)
@@ -165,6 +179,15 @@ func run(log *slog.Logger, opts *slog.HandlerOptions, dataDir string, httpPort, 
 
 	fmt.Fprint(os.Stderr, "\n"+a.Banner()+"\n")
 
+	dockHooks.coordinator = func() { openBrowser(a.URLs().Local, log) }
+	dockHooks.devices = func() {
+		base := a.URLs().Local
+		if lan := a.URLs().LAN(); len(lan) > 0 {
+			base = lan[0]
+		}
+		openBrowser(base+"/devices", log)
+	}
+
 	if !noOpen {
 		openBrowser(a.URLs().Local, log)
 	}
@@ -174,6 +197,12 @@ func run(log *slog.Logger, opts *slog.HandlerOptions, dataDir string, httpPort, 
 		return err
 	case <-ctx.Done():
 		log.Info("shutting down")
+	}
+
+	// A final snapshot on every way out — the Dock, ⌘Q, the Status page, Ctrl-C —
+	// so the night's work is never the thing that gets lost.
+	if _, err := a.Backup(context.Background(), app.BackupManual); err != nil {
+		log.Warn("snapshot on quit failed", "err", err)
 	}
 
 	// Tell displays the server is going away, so they show "server stopped"

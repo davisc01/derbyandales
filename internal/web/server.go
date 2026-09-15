@@ -398,9 +398,8 @@ func (s *Server) stopSoon(why string) {
 // the only way to stop the app would be Activity Monitor. Quitting takes a
 // final snapshot first, so the night's work is never the thing that gets lost.
 func (s *Server) handleQuitAPI(w http.ResponseWriter, r *http.Request) {
-	if _, err := s.app.Backup(r.Context(), app.BackupManual); err != nil {
-		s.app.Log.Warn("snapshot before quit failed", "err", err)
-	}
+	// The final snapshot is taken by the shutdown itself, which every way of
+	// quitting goes through.
 	_ = s.app.DB.Audit(r.Context(), "coordinator", "app.quit", "")
 	writeJSON(w, http.StatusOK, map[string]bool{"stopping": true})
 

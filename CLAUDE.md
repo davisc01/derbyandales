@@ -293,13 +293,19 @@ Each of these has already caused a bug here.
   (outside `backups/`, where pruning could delete it) and the app stops;
   `Open` swaps it in before the database is opened, and removes the old
   `-wal`/`-shm` so SQLite does not replay them over it.
-- **The .app has no Terminal and no Dock icon** (`LSUIElement`). Its output
-  would go nowhere, so logs are teed to `logs/derbyandales-DATE.log` in the data
-  folder, crash reports included (`debug.SetCrashOutput`). Opening the app while
-  it is already running opens the browser on that copy — `/healthz` answers
-  `"app": "derbyandales"` so another program on the port is not mistaken for
-  it. A plain Go binary has no macOS event loop, so a Dock icon could never
-  quit it and would look hung.
+- **The .app has no Terminal**, so logs are teed to `logs/derbyandales-DATE.log`
+  in the data folder, crash reports included (`debug.SetCrashOutput`).
+- **The Dock is a thin layer of Cocoa** (`cmd/derbyandales/dock_darwin.m`), and
+  the only cgo in the app. Cocoa owns the main thread (`runtime.LockOSThread` in
+  `init`) and the server runs on a goroutine; whichever stops first takes the
+  other with it. Quit from the Dock replies `NSTerminateLater`, cancels the same
+  context Ctrl-C does, and finishes quitting once the server has shut down —
+  so the database is closed and a final snapshot taken on every way out. Only
+  the `.app` gets the Dock (`inAppBundle`); `go run` stays a terminal program.
+  A build with cgo off (`dock_other.go`) simply has no Dock. `make app` needs the
+  Command Line Tools' clang for the two architectures. Opening the app while it
+  is already running opens the browser on that copy — `/healthz` answers
+  `"app": "derbyandales"` so another program on the port is not mistaken for it.
 - **Everything runs offline.** The venue has private wifi and no internet. No
   CDNs, no web fonts, no outbound HTTP: every asset is `go:embed`ed and served
   from the app itself, and the whole page set is verified to reference only

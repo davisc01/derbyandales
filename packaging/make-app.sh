@@ -23,16 +23,26 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 # Universal binary, so the same .app runs on Apple Silicon and Intel Macs.
-# modernc.org/sqlite and go.bug.st/serial are both cgo-free, so cross-compiling
-# needs no toolchain beyond Go itself.
+#
+# cgo is on for one reason: the Dock. A few dozen lines of Cocoa give the app a
+# Dock icon whose Quit stops the server. Everything else stays pure Go, and the
+# Command Line Tools' clang builds both architectures from either kind of Mac.
 LDFLAGS="-s -w -X main.version=$VERSION"
+export CGO_ENABLED=1
+export CGO_CFLAGS="-mmacosx-version-min=13.0"
+export CGO_LDFLAGS="-mmacosx-version-min=13.0"
+
+if ! xcrun --find clang >/dev/null 2>&1; then
+  echo "The Command Line Tools are needed to build the app: xcode-select --install" >&2
+  exit 1
+fi
 
 echo "    arm64..."
-GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 \
+GOOS=darwin GOARCH=arm64 CC="clang -arch arm64" \
   go build -trimpath -ldflags "$LDFLAGS" -o "$DIST/$BIN_NAME-arm64" "./cmd/$BIN_NAME"
 
 echo "    amd64..."
-GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 \
+GOOS=darwin GOARCH=amd64 CC="clang -arch x86_64" \
   go build -trimpath -ldflags "$LDFLAGS" -o "$DIST/$BIN_NAME-amd64" "./cmd/$BIN_NAME"
 
 echo "    merging..."
