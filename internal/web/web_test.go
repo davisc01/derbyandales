@@ -49,7 +49,7 @@ func TestAllTemplatesParse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parsePages: %v", err)
 	}
-	for _, want := range []string{"home.html", "settings.html", "todo.html"} {
+	for _, want := range []string{"home.html", "settings.html"} {
 		if _, ok := pages[want]; !ok {
 			t.Errorf("page %q was not parsed", want)
 		}

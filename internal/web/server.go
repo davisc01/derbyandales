@@ -84,6 +84,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/preflight", s.handlePreflightAPI)
 	mux.HandleFunc("POST /api/backup", s.handleBackupAPI)
+	mux.HandleFunc("POST /api/backup/restore", s.handleRestoreAPI)
+	mux.HandleFunc("POST /api/backup/restore/cancel", s.handleCancelRestoreAPI)
 	mux.HandleFunc("POST /api/quit", s.handleQuitAPI)
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 
@@ -263,6 +265,7 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 			"Checks":  s.app.Preflight(ctx),
 			"URLs":    s.app.URLs(),
 			"Backups": app.ListBackups(s.app.Paths.Backups),
+			"Restore": app.RestorePending(s.app.Paths),
 			"Seasons": seasons,
 			"DBPath":  s.app.Paths.DB,
 		},
@@ -321,15 +324,6 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings?saved=1", http.StatusSeeOther)
 }
 
-func (s *Server) handleTodo(name, milestone string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		s.render(w, r, "todo.html", pageData{
-			Title: name,
-			Data:  map[string]any{"Name": name, "Milestone": milestone},
-		})
-	}
-}
-
 // --- API handlers ------------------------------------------------------------
 
 func (s *Server) handlePreflightAPI(w http.ResponseWriter, r *http.Request) {
@@ -347,6 +341,53 @@ func (s *Server) handleBackupAPI(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleRestoreAPI stages a backup to replace the database and stops the app.
+// The swap happens on the next launch; see app.StageRestore for why.
+func (s *Server) handleRestoreAPI(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if err := r.ParseForm(); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	// Going back to an earlier state in the middle of a heat would throw away
+	// whatever the timer is about to record.
+	if s.app.Race.State(ctx).Running {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "racing is running — stop it before going back to a backup",
+		})
+		return
+	}
+	name := r.FormValue("name")
+	keep, _ := s.app.DB.SettingInt(ctx, store.KeyBackupKeep, app.DefaultBackupKeep)
+	if err := app.StageRestore(ctx, s.app.DB, s.app.Paths, name, keep); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	_ = s.app.DB.Audit(ctx, "coordinator", "backup.restore", "staged "+name+"; the app stops and restores on next launch")
+	writeJSON(w, http.StatusOK, map[string]bool{"stopping": true})
+	s.stopSoon("restore staged")
+}
+
+func (s *Server) handleCancelRestoreAPI(w http.ResponseWriter, r *http.Request) {
+	if err := app.CancelRestore(s.app.Paths); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	_ = s.app.DB.Audit(r.Context(), "coordinator", "backup.restore.cancel", "")
+	writeJSON(w, http.StatusOK, map[string]bool{"cancelled": true})
+}
+
+// stopSoon signals shutdown once the response has had a moment to flush.
+func (s *Server) stopSoon(why string) {
+	go func() {
+		time.Sleep(150 * time.Millisecond)
+		s.app.Log.Info("stopping", "why", why)
+		if s.quit != nil {
+			s.quit()
+		}
+	}()
+}
+
 // handleQuitAPI stops the server.
 //
 // Launched from the .app there is no Dock icon and no Terminal, so without this
@@ -359,14 +400,7 @@ func (s *Server) handleQuitAPI(w http.ResponseWriter, r *http.Request) {
 	_ = s.app.DB.Audit(r.Context(), "coordinator", "app.quit", "")
 	writeJSON(w, http.StatusOK, map[string]bool{"stopping": true})
 
-	// Let the response flush before signalling shutdown.
-	go func() {
-		time.Sleep(150 * time.Millisecond)
-		s.app.Log.Info("quit requested from the browser")
-		if s.quit != nil {
-			s.quit()
-		}
-	}()
+	s.stopSoon("quit requested from the browser")
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {

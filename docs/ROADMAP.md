@@ -403,6 +403,13 @@ the night was later split into five, so it is eleven now (see *Since M8*):
   them. The page had been telling people to change the pace-car setting "in
   Settings", where it never was.
 
+- **A backup can be restored from the Status page.** It is staged rather than
+  done in place — the chosen snapshot is copied aside, the current database is
+  saved as a `pre-restore` backup, and the app stops; on the next launch the
+  copy replaces the database before anything opens it. Swapping the live
+  database under a running heat is a race the software cannot win. Refused
+  while racing is running.
+
 ## Settled
 
 - **"Raced in a previous championship" is checked from the archive.** The club's

@@ -251,6 +251,12 @@ Each of these has already caused a bug here.
   `mdna-derbynet/images/mdna-circle-standard.png`) and `packaging/AppIcon.icns`
   is built from the same source. Regenerate both from that file rather than
   editing either.
+- **A backup is restored across a restart**, never in place. Every controller
+  reads the database through `a.DB`; swapping it under a heat being recorded is
+  a data race. `StageRestore` copies the snapshot to `restore-pending.sqlite3`
+  (outside `backups/`, where pruning could delete it) and the app stops;
+  `Open` swaps it in before the database is opened, and removes the old
+  `-wal`/`-shm` so SQLite does not replay them over it.
 - **Everything runs offline.** The venue has private wifi and no internet. No
   CDNs, no web fonts, no outbound HTTP: every asset is `go:embed`ed and served
   from the app itself, and the whole page set is verified to reference only

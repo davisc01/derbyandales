@@ -52,9 +52,20 @@ func Open(ctx context.Context, paths Paths, log *slog.Logger) (*App, error) {
 		return nil, err
 	}
 
+	// A restore chosen before the last shutdown happens now, while nothing has
+	// the database open.
+	restored, err := applyPendingRestore(paths)
+	if err != nil {
+		return nil, fmt.Errorf("restoring the chosen backup: %w", err)
+	}
+
 	db, err := store.Open(ctx, paths.DB)
 	if err != nil {
 		return nil, err
+	}
+	if restored {
+		log.Info("started from a restored backup")
+		_ = db.Audit(ctx, "system", "backup.restored", "database replaced by the chosen backup at startup")
 	}
 
 	a := &App{

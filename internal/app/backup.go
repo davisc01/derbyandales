@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,6 +37,9 @@ const (
 	// which is where a whole season's results become the night's running order.
 	BackupBracketSeed BackupReason = "bracket-seed"
 	BackupManual      BackupReason = "manual"
+	// BackupPreRestore is the database as it stood when somebody chose to go
+	// back to an older snapshot — so going back can itself be undone.
+	BackupPreRestore BackupReason = "pre-restore"
 )
 
 // Backup is one snapshot on disk.
@@ -44,6 +49,9 @@ type Backup struct {
 	Taken  time.Time
 	Size   int64
 }
+
+// Name is the snapshot's file name, which is how a restore refers to it.
+func (b Backup) Name() string { return filepath.Base(b.Path) }
 
 // Snapshot writes a consistent copy of the database and prunes old ones,
 // keeping the newest `keep`.
@@ -112,4 +120,125 @@ func pruneBackups(dir string, keep int) {
 	for i := keep; i < len(all); i++ {
 		os.Remove(all[i].Path)
 	}
+}
+
+// Restoring a backup.
+//
+// It happens across a restart rather than in place. Every controller reads the
+// database through one shared handle, and swapping that handle while a heat is
+// being recorded or a display is polling would be a race the software cannot
+// win. So a restore is staged: the chosen snapshot is copied aside, the current
+// database is snapshotted, and the app stops. On the next launch, before the
+// database is opened, the staged copy takes its place.
+
+// pendingRestoreName is the staged copy, kept in the data folder rather than in
+// backups/ so pruning cannot delete it before the restart.
+const pendingRestoreName = "restore-pending.sqlite3"
+
+// sqliteHeader is how every SQLite database file begins.
+const sqliteHeader = "SQLite format 3\x00"
+
+// StageRestore prepares a backup to replace the database on the next launch.
+// name is the snapshot's file name as listed; anything else is refused, so a
+// request cannot point the restore at an arbitrary file.
+func StageRestore(ctx context.Context, db *store.DB, paths Paths, name string, keep int) error {
+	var chosen *Backup
+	for _, b := range ListBackups(paths.Backups) {
+		if filepath.Base(b.Path) == name {
+			b := b
+			chosen = &b
+		}
+	}
+	if chosen == nil {
+		return fmt.Errorf("there is no backup called %s", name)
+	}
+	if err := checkSQLite(chosen.Path); err != nil {
+		return err
+	}
+
+	staged := filepath.Join(paths.Root, pendingRestoreName)
+	if err := copyFile(chosen.Path, staged); err != nil {
+		return fmt.Errorf("copying the backup: %w", err)
+	}
+	// Taken after the copy: a snapshot prunes the oldest backups, and the one
+	// chosen may well be among them.
+	if _, err := Snapshot(ctx, db, paths, BackupPreRestore, keep); err != nil {
+		os.Remove(staged)
+		return fmt.Errorf("could not save the current database first, so nothing was changed: %w", err)
+	}
+	return nil
+}
+
+// RestorePending reports whether a restore is waiting for the next launch.
+func RestorePending(paths Paths) bool {
+	_, err := os.Stat(filepath.Join(paths.Root, pendingRestoreName))
+	return err == nil
+}
+
+// CancelRestore throws a staged restore away.
+func CancelRestore(paths Paths) error {
+	err := os.Remove(filepath.Join(paths.Root, pendingRestoreName))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
+// applyPendingRestore swaps a staged backup in. It runs before the database is
+// opened, so nothing else can be holding it.
+func applyPendingRestore(paths Paths) (bool, error) {
+	staged := filepath.Join(paths.Root, pendingRestoreName)
+	if _, err := os.Stat(staged); errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err := checkSQLite(staged); err != nil {
+		return false, err
+	}
+	// The write-ahead log belongs to the database being replaced. Left behind,
+	// SQLite would replay it over the restored file.
+	for _, suffix := range []string{"-wal", "-shm"} {
+		if err := os.Remove(paths.DB + suffix); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return false, err
+		}
+	}
+	if err := os.Rename(staged, paths.DB); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func checkSQLite(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	head := make([]byte, len(sqliteHeader))
+	if _, err := io.ReadFull(f, head); err != nil || string(head) != sqliteHeader {
+		return fmt.Errorf("%s is not a database backup", filepath.Base(path))
+	}
+	return nil
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	tmp := dst + ".partial"
+	out, err := os.Create(tmp)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return os.Rename(tmp, dst)
 }

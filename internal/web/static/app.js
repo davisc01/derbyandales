@@ -76,6 +76,41 @@
     });
   }
 
+  // Going back to a backup. It stops the app, so it says so plainly first.
+  document.querySelectorAll("button.restore").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      if (!confirm("Go back to the backup from " + btn.dataset.when + "?\n\n" +
+                   "Everything since then is replaced. The database as it is now is " +
+                   "saved as a backup first. The app stops — open it again to carry on.")) {
+        return;
+      }
+      btn.disabled = true;
+      note("Saving the current database and staging the restore…");
+      try {
+        const res = await fetch("/api/backup/restore", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "name=" + encodeURIComponent(btn.dataset.name),
+        });
+        const body = await res.json().catch(function () { return {}; });
+        if (!res.ok) throw new Error(body.error || res.statusText);
+        setConn("lost", "server stopped");
+        note("Stopped. Open Derby and Ales again and it starts from that backup.");
+      } catch (err) {
+        note("Could not restore: " + err.message);
+        btn.disabled = false;
+      }
+    });
+  });
+
+  const cancelRestore = document.getElementById("restore-cancel");
+  if (cancelRestore) {
+    cancelRestore.addEventListener("click", async function () {
+      await fetch("/api/backup/restore/cancel", { method: "POST" });
+      location.reload();
+    });
+  }
+
   // "Quit" on the status page. Launched from the .app there is no Dock icon,
   // so this is the normal way to stop the server.
   const quitBtn = document.getElementById("quit");

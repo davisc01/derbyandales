@@ -67,17 +67,30 @@
      closes, and when a race completes.</p>
   <p><button class="btn" id="backup-now">Back up now</button>
      <span id="backup-status" class="note"></span></p>
+  {{if $d.Restore}}
+  <div class="console-row">
+    <span class="badge warn">Restore waiting</span>
+    <span class="note">A backup will replace the database the next time the app starts.</span>
+    <button class="btn small" id="restore-cancel">Cancel it</button>
+  </div>
+  {{end}}
   {{if $d.Backups}}
   <table class="backups">
-    <tr><th>When</th><th>Reason</th><th>Size</th></tr>
+    <tr><th>When</th><th>Reason</th><th>Size</th><th></th></tr>
     {{range $d.Backups}}
     <tr>
       <td title="{{datetime .Taken}}">{{ago .Taken}}</td>
       <td><code>{{.Reason}}</code></td>
       <td>{{bytes .Size}}</td>
+      <td><button class="btn small restore" data-name="{{.Name}}" data-when="{{datetime .Taken}}">Go back to this</button></td>
     </tr>
     {{end}}
   </table>
+  <p class="hint">
+    Going back stops the app. Open it again and it starts from that backup. The
+    database as it is now is saved as a <code>pre-restore</code> backup first, so
+    going back can be undone the same way.
+  </p>
   {{end}}
   <p class="note">Database: <code>{{$d.DBPath}}</code></p>
 </section>
