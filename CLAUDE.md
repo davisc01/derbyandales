@@ -226,6 +226,15 @@ Each of these has already caused a bug here.
   The results come back in finish order, not lane order. Gold for the heat
   winner, red for a car that did not finish, showing the 9.999 that goes into
   the results.
+- **The impound screen shows two heats — on the track, and to load next — as
+  lanes, pictures and car numbers only.** The official reading it is loading a
+  tray, not watching the racing, so a driver's name is noise. A display can be
+  pinned to one scene with `/display?scene=impound`; a pinned screen ignores
+  scene changes from the coordinator, which is the point.
+- **The club's logo is `internal/web/static/logo.png`** (256 px, from
+  `mdna-derbynet/images/mdna-circle-standard.png`) and `packaging/AppIcon.icns`
+  is built from the same source. Regenerate both from that file rather than
+  editing either.
 - **Everything runs offline.** The venue has private wifi and no internet. No
   CDNs, no web fonts, no outbound HTTP: every asset is `go:embed`ed and served
   from the app itself, and the whole page set is verified to reference only

@@ -276,13 +276,15 @@ UTF-8 **without BOM**, LF, comma-delimited. Exact headers:
 
 #### The run of show
 
-One screen, nine steps, derived entirely from the state of the database and the
-timer. Nothing is ticked off by being pressed.
+One screen, derived entirely from the state of the database and the timer.
+Nothing is ticked off by being pressed. It shipped with nine steps; the end of
+the night was later split into five, so it is eleven now (see *Since M8*):
 
 ```
-1. Open the race    2. Test the timer     3. Check the cars in
-4. Introduce        5. Race               6. Intermission and voting
-7. Reveal           8. Awards             9. Publish
+1. Open the race       2. Test the timer        3. Check the cars in
+4. Introduce           5. Race                  6. Intermission and voting
+7. Design & theme      8. Reveal (1st/2nd/3rd)  9. Run off any tie
+10. Final standings    11. Publish
 ```
 
 - **Exactly one step is ever "next".** Several are genuinely available at once —
@@ -304,12 +306,19 @@ timer. Nothing is ticked off by being pressed.
    gate half-open, and confirm each is caught with a useful message.
 3. Check in cars on the Mac with the USB camera; check a few in from an iPad
    over HTTPS to confirm remote capture works after trusting the certificate.
-4. HDMI a TV; confirm the scenes are readable from across a room.
+4. HDMI a TV; confirm the scenes are readable from across a room. **Watch the
+   now-racing animation on it** — the cars leaving on the gate and returning in
+   finish order has only ever been checked as markup, never seen.
 5. Race a real heat; confirm arming, capture, auto-advance and a manual re-run.
-6. Vote from the tablet; confirm tallies, an undo and a forced tie-break.
-7. Publish into a scratch branch of derby-site; run `hugo server` and confirm a
+   **Then provoke a bad read** — block a finish sensor, or pull a car before the
+   line — and confirm closing the start gate ends the heat with that lane at
+   9.999, and that racing carries on.
+6. Put the impound screen on a second display and load trays from it for a few
+   heats; confirm it advances in step with the track.
+7. Vote from the tablet; confirm tallies, an undo and a forced tie-break.
+8. Publish into a scratch branch of derby-site; run `hugo server` and confirm a
    race page renders identically to a 2026 one.
-8. **Hand the run-of-show screen to someone who has never run a race, and have
+9. **Hand the run-of-show screen to someone who has never run a race, and have
    them run one.** That is the real acceptance test for this project.
 
 ## Since M8
@@ -338,6 +347,32 @@ timer. Nothing is ticked off by being pressed.
   button being pressed.
 - **The speed trophies are `1st`, `2nd`, `3rd`**, at the club's request, rather
   than "Fastest in Event" as published up to 2026.
+- **A heat ends on whichever comes first: every lane reporting, or the start
+  gate being closed again.** The club's FastTrack sometimes reports nothing back.
+  Any lane the timer never mentioned is recorded as 9.999 rather than dropped,
+  and the coordinator is told which lanes were silent. This had to be kept apart
+  from the phantom-trigger guard — every lane 9.999 *reported by the timer* still
+  stops racing, every lane 9.999 *because nothing was reported* is a bad read and
+  is recorded. The simulator can drop a result or a lane to rehearse it.
+- **Times can be entered by hand**, on every heat row of the race screen. It is
+  how the software is demonstrated with no timer and how a bad reading is
+  corrected, and it takes the same path a timer's times do.
+- **The now-racing screen animates the heat.** The gate opening clears the
+  screen as the cars leave to the right; the results come back in from the left
+  in finish order, gold for the winner and red for a non-finish showing its
+  9.999. The return is driven by the results arriving rather than literally by
+  the gate closing, because the gate is closed to stage the *next* heat, several
+  seconds after the times land. Not yet seen on a real TV.
+- **An impound screen** for the loading table: the heat on the track and the heat
+  to load next, as lanes, pictures and car numbers only. It advances as the race
+  does, and `/display?scene=impound` pins a screen to it.
+- **Club branding.** The logo is in the coordinator header, top-left of every
+  display scene, the favicon, and the `.app` icon — which `make-app.sh` had been
+  looking for since M0 without the file ever existing.
+- **The Displays page lists each address once**, numeric only, as links with the
+  endpoint.
+- **Auto-advance is 7 seconds**, at the club's request. The screens follow the
+  race, so that one setting is how long the finish order stays up.
 
 ## Settled
 

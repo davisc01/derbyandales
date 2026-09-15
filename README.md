@@ -66,10 +66,15 @@ whole race night can be rehearsed on a laptop.
 The app starts a web server and opens a browser. Everything happens there.
 
 ```
-  Coordinator:  http://localhost:8080        camera works
-  Check-in:     https://race-mac.local:8443  camera works after trusting the certificate
-  Displays:     http://race-mac.local:8080   voting and screens; no camera
+  Coordinator:  http://localhost:8080                        camera works
+  Check-in:     https://192.168.1.42:8443/checkin            camera works after trusting the certificate
+  A TV:         http://192.168.1.42:8080/display             then pick its scene on the Displays page
+  Impound:      http://192.168.1.42:8080/display?scene=impound
+  Voting:       http://192.168.1.42:8080/vote
 ```
+
+The Displays and Tonight pages list the real addresses as links, so none of
+this needs typing. The machine's `.local` name works too.
 
 ### Why two ports
 
@@ -172,6 +177,9 @@ told which ones. The simulator can rehearse exactly that.
 night with no timer at all — which is how anybody learns the software. Typed
 times go through exactly the path a timer's do, so a hand-entered heat and a
 timed one are the same kind of thing afterwards.
+
+**The club's branding is throughout** — the logo in every header, on every TV
+scene, and as the app icon.
 
 **There is a screen for the impound table.** The official loading cars into a
 tray is not watching the racing, so that screen shows two heats — the one on the
