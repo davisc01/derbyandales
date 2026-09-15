@@ -367,3 +367,23 @@ func TestTheRacePageForABracketDoesNotOfferASchedule(t *testing.T) {
 		t.Error("the race page does not say the championship is a bracket")
 	}
 }
+
+// The reveal names the trophy due as each car comes up. At the championship
+// there is one, and it has a name.
+func TestTheChampionshipRevealNamesTheDAleCup(t *testing.T) {
+	s, a, _, champID := championshipFixture(t)
+	if err := a.Race.SetRace(context.Background(), champID); err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Trophies int      `json:"trophies"`
+		Names    []string `json:"trophy_names"`
+	}
+	rec := get(t, s, "/api/race/standings")
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Trophies != 1 || len(out.Names) != 1 || out.Names[0] != "The D'Ale Cup" {
+		t.Errorf("the championship reveal offers %d trophies named %v", out.Trophies, out.Names)
+	}
+}

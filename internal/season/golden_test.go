@@ -403,3 +403,66 @@ func atof(t *testing.T, s string) float64 {
 	}
 	return f
 }
+
+// When a winner's place passes down, so does the winner's seed: the car that
+// inherits it is seeded with the race winners, ahead of a faster runner-up.
+func TestAWinnersSeedPassesDownWithThePlace(t *testing.T) {
+	r := Rules{AutoQualPlaces: 2, MaxEntries: 1}
+	finishes := []Finish{
+		// Race 1: Capped wins it and takes their one place.
+		{EntryID: 1, RacerID: 1, RaceNumber: 1, Driver: "Capped", CarName: "One", Place: 1, Average: 2.30},
+		{EntryID: 2, RacerID: 2, RaceNumber: 1, Driver: "Quick", CarName: "Dart", Place: 2, Average: 2.31},
+		// Race 2: Capped wins again with a new car, but is at the cap.
+		{EntryID: 3, RacerID: 1, RaceNumber: 2, Driver: "Capped", CarName: "Two", Place: 1, Average: 2.40},
+		{EntryID: 4, RacerID: 3, RaceNumber: 2, Driver: "Heir", CarName: "Plod", Place: 2, Average: 2.60},
+		{EntryID: 5, RacerID: 4, RaceNumber: 2, Driver: "Third", CarName: "Snail", Place: 3, Average: 2.65},
+	}
+	got := Qualifiers(finishes, r)
+	seed := map[string]int{}
+	for _, s := range got {
+		seed[s.Driver] = s.Seed
+	}
+	// Heir ran 2.60 and Quick 2.31, but Heir holds race 2's winning place.
+	if seed["Heir"] == 0 || seed["Heir"] > 2 {
+		t.Errorf("the inherited winner's place is seeded %d, want among the two race winners", seed["Heir"])
+	}
+	if seed["Quick"] <= seed["Heir"] {
+		t.Errorf("a runner-up (seed %d) outseeds the inherited winner (seed %d)", seed["Quick"], seed["Heir"])
+	}
+}
+
+// A 4th who inherits a qualifying place still scores 4th-place wildcard points
+// for that race. The club confirmed it, and the published 2026 standings show
+// it: Greg Thrift took the race 5 place and kept the points.
+func TestAnInheritedPlaceStillEarnsItsWildcardPoints(t *testing.T) {
+	finishes := loadSeason(t)
+	var race5 []Finish
+	for _, f := range finishes {
+		if f.RaceNumber == 5 {
+			race5 = append(race5, f)
+		}
+	}
+	var greg Finish
+	for _, f := range race5 {
+		if f.Driver == "Greg Thrift" {
+			greg = f
+		}
+	}
+	if greg.Place != 4 {
+		t.Fatalf("the fixture has Greg Thrift %d in race 5, this test expects 4th", greg.Place)
+	}
+	qualified := false
+	for _, s := range Qualifiers(finishes, clubRules) {
+		if s.EntryID == greg.EntryID {
+			qualified = true
+		}
+	}
+	if !qualified {
+		t.Fatal("Greg Thrift did not inherit the race 5 place")
+	}
+	for _, a := range RacePoints(race5, clubRules) {
+		if a.EntryID == greg.EntryID && a.Points == 0 {
+			t.Error("inheriting the place cost Greg Thrift his 4th-place points")
+		}
+	}
+}

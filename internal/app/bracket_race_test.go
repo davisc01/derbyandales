@@ -436,6 +436,9 @@ func TestAChampionshipOnlyRunsOffATieForFirst(t *testing.T) {
 		t.Fatalf("SpeedAwards: %v", err)
 	}
 	if len(awards) != 1 {
-		t.Errorf("%d trophies at the championship, want 1", len(awards))
+		t.Fatalf("%d trophies at the championship, want 1", len(awards))
+	}
+	if awards[0].Name != "The D'Ale Cup" {
+		t.Errorf("the championship trophy is called %q", awards[0].Name)
 	}
 }

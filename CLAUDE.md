@@ -129,8 +129,11 @@ These are the domain, and getting them wrong changes published results.
   8 is where the byes stop. The byes land on the top seeds because that is what
   the bracket construction does, not because anything says so. "Race winner"
   is the best qualifier from each race (`Slot.RaceTop`), which is the winner
-  unless their place passed down.
-- **The championship decides one trophy: the season's.** No intermission, no
+  unless their place passed down — the seed passes down with the place.
+- **An inherited place still earns wildcard points by finishing place.** A 4th
+  who inherits a qualifying place scores 4th-place points for that race; the
+  club confirmed it, and it is what the published 2026 standings show.
+- **The championship decides one trophy: The D'Ale Cup.** No intermission, no
   third-place matchup, and only a tie for 1st is run off there
   (`store.TrophyPlaces`).
 - **A championship is a normal race unless flagged as a bracket.**

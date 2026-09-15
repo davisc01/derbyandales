@@ -22,6 +22,7 @@
   let revealRows = [];
   let revealTrophies = 3;
   let revealChampionship = false;
+  let revealTrophyNames = ["1st", "2nd", "3rd"];
 
   try {
     token = localStorage.getItem(TOKEN_KEY);
@@ -678,6 +679,7 @@
       revealTitle = data.race || "Results";
       revealTrophies = data.trophies || 3;
       revealChampionship = !!data.championship;
+      revealTrophyNames = data.trophy_names || ["1st", "2nd", "3rd"];
     }
 
     const shown = revealRows.slice(0, revealIndex);
@@ -781,9 +783,10 @@
 
   // The trophy due at a given place, in the club's words.
   function trophyFor(place) {
-    // The championship hands out one trophy, and it is not a "1st place" one.
-    if (revealChampionship) return "Season trophy";
-    return ["1st", "2nd", "3rd"][place - 1] + " place trophy";
+    // The names come from the server. The championship hands out one trophy,
+    // The D'Ale Cup, and it is not a "1st place" one.
+    const name = revealTrophyNames[place - 1] || "";
+    return revealChampionship ? name : name + " place trophy";
   }
 
   // The reveal is operator-paced: space or arrow advances, backspace steps back.

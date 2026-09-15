@@ -349,6 +349,7 @@ func (s *Server) handleStandings(w http.ResponseWriter, r *http.Request) {
 		"race":         race.Name,
 		"standings":    rows,
 		"trophies":     store.TrophyPlaces(race),
+		"trophy_names": store.TrophyNames(race),
 		"championship": race.Kind == model.RaceChampionship,
 	})
 }

@@ -22,18 +22,24 @@ import (
 // 2027 onwards will differ from the archive in that one column.
 var SpeedAwardNames = []string{"1st", "2nd", "3rd"}
 
+// ChampionshipTrophy is the one trophy the championship decides.
+const ChampionshipTrophy = "The D'Ale Cup"
+
+// TrophyNames are the trophies a race hands out, in finishing order.
+func TrophyNames(r model.Race) []string {
+	if r.Kind == model.RaceChampionship {
+		return []string{ChampionshipTrophy}
+	}
+	return SpeedAwardNames
+}
+
 // TrophyPlaces is how many places in a race are handed a trophy — and so how
 // far down a tie has to be run off.
 //
 // A race night gives 1st, 2nd and 3rd. The championship gives one: it exists to
 // decide the season trophy, so a tie for 2nd there is just a tie, and there is
 // no third-place matchup in a bracket.
-func TrophyPlaces(r model.Race) int {
-	if r.Kind == model.RaceChampionship {
-		return 1
-	}
-	return len(SpeedAwardNames)
-}
+func TrophyPlaces(r model.Race) int { return len(TrophyNames(r)) }
 
 // AwardTypeSpeed is the award type the old system used for these.
 const AwardTypeSpeed = "Speed Trophy"
@@ -92,7 +98,7 @@ func (db *DB) SpeedAwards(ctx context.Context, raceID int64) ([]AwardView, error
 		i := len(out)
 		a := AwardView{Entry: st.Entry}
 		a.RaceID = raceID
-		a.Name = SpeedAwardNames[i]
+		a.Name = TrophyNames(race)[i]
 		a.AwardType = AwardTypeSpeed
 		id := st.Entry.ID
 		a.EntryID = &id

@@ -436,7 +436,13 @@ the night was later split into five, so it is eleven now (see *Since M8*):
   passed-down place lands on is run off.
 - **The championship decides the season trophy only** (confirmed): no
   intermission, no third-place matchup, and only a tie for 1st is run off. The
-  reveal names it "Season trophy".
+  trophy is **The D'Ale Cup**, and that is what the reveal and the derived
+  award call it.
+- **An inherited place still earns the wildcard points for where the car
+  finished** (confirmed). Greg Thrift's 4th in 2026 race 5 scores 4th-place
+  points and takes the place.
+- **A race winner's seed passes down with the place** (confirmed). The car that
+  inherits a winner's place is seeded among the race winners.
 - **A run-off now reaches the season.** The race was recorded before its
   run-off, so a settled tie for 3rd stayed tied in the season's places. It is
   recorded again once the run-off lands.
