@@ -428,7 +428,12 @@
     row.appendChild(head);
 
     const cars = el("div", "impound-cars");
-    (heat.lanes || []).forEach(function (l) {
+    // Highest lane on the left. The lanes are numbered 1 to 4 left to right
+    // from behind the gate, but the official loading trays stands with their
+    // back to the track, and the trays are numbered the way they see them — so
+    // the screen is mirrored to match the tray, not the track. Only here: every
+    // other screen faces the room the way the track does.
+    (heat.lanes || []).slice().reverse().forEach(function (l) {
       const cell = el("div", "impound-car");
       if (l.car_number === undefined) {
         cell.classList.add("empty");

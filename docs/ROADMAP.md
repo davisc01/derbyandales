@@ -342,8 +342,9 @@ person can show. Run it as an actual evening, in order, with ~24 fake entries.
 9. **Provoke a bad read**: block a finish sensor, or lift a car before the line.
    Closing the start gate must end the heat with that lane at 9.999, say which
    lane was silent, and carry on racing.
-10. Load trays from the impound screen for several heats; confirm it stays in
-    step with the track.
+10. Load trays from the impound screen for several heats, standing with your back
+    to the track as the official will; confirm the lanes read 4 to 1 left to
+    right to match the trays, and that it stays in step with the track.
 11. At halfway, racing stops by itself. Vote from the tablet, undo a misclick,
     force a tie in one question and settle it, then resume.
 

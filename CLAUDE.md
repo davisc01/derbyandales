@@ -277,7 +277,10 @@ Each of these has already caused a bug here.
   driver beneath — the club asked for the car to be the prominent one.
 - **The impound screen shows two heats — on the track, and to load next — as
   lanes, pictures and car numbers only.** The official reading it is loading a
-  tray, not watching the racing, so a driver's name is noise. A display can be
+  tray, not watching the racing, so a driver's name is noise. **Its lanes run
+  highest to lowest, left to right** — the official stands with their back to
+  the track and the trays are numbered from that side. Only the impound screen
+  is mirrored. A display can be
   pinned to one scene with `/display?scene=impound`; a pinned screen ignores
   scene changes from the coordinator, which is the point.
 - **The club's logo is `internal/web/static/logo.png`** (256 px, from
