@@ -79,6 +79,13 @@ type Simulator struct {
 	gateClosed bool
 	running    bool
 
+	// dropLanes are lanes whose next result is thrown away, and dropAll drops
+	// the whole heat. This is how a bad read is rehearsed: the club's timer
+	// does sometimes report nothing, and the recovery — resetting the gate to
+	// end the heat — is worth practising before the night it matters.
+	dropLanes map[int]bool
+	dropAll   bool
+
 	// Log records everything written to the device, for assertions.
 	Log []string
 }
@@ -223,10 +230,35 @@ func (s *Simulator) setGate(closed bool) {
 	}
 }
 
+// DropNextResult makes the next heat report nothing at all, the way a bad read
+// looks from the software's side.
+func (s *Simulator) DropNextResult() {
+	s.mu.Lock()
+	s.dropAll = true
+	s.mu.Unlock()
+}
+
+// DropNextLane makes the next heat report every lane but this one.
+func (s *Simulator) DropNextLane(lane int) {
+	s.mu.Lock()
+	if s.dropLanes == nil {
+		s.dropLanes = map[int]bool{}
+	}
+	s.dropLanes[lane] = true
+	s.mu.Unlock()
+}
+
 // EmitResults sends a heat result line for the unmasked lanes.
 func (s *Simulator) EmitResults() {
 	s.mu.Lock()
 	if s.closed {
+		s.mu.Unlock()
+		return
+	}
+	if s.dropAll {
+		// Nothing comes back at all. The heat ends when the gate is reset.
+		s.dropAll = false
+		s.running = false
 		s.mu.Unlock()
 		return
 	}
@@ -237,12 +269,13 @@ func (s *Simulator) EmitResults() {
 
 	times := make(map[int]float64, s.opts.Lanes)
 	for lane := 1; lane <= s.opts.Lanes; lane++ {
-		if s.masked[lane] || dnf[lane] {
+		if s.masked[lane] || dnf[lane] || s.dropLanes[lane] {
 			continue
 		}
 		spread := s.opts.Slowest - s.opts.Fastest
 		times[lane] = s.opts.Fastest + s.rng.Float64()*spread
 	}
+	s.dropLanes = nil
 	s.running = false
 	maxLanes := s.opts.Lanes
 	s.mu.Unlock()

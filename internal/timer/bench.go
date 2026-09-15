@@ -680,7 +680,7 @@ func (b *Bench) RunTestHeat(ctx context.Context, timeout time.Duration) Check {
 				continue
 			}
 
-			results := b.dev.Finish()
+			results, _ := b.dev.Finish()
 			var lines []string
 			finishers := 0
 			for _, r := range results {

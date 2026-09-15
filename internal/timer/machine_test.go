@@ -37,7 +37,7 @@ func TestGateBounceIsIgnored(t *testing.T) {
 	// A brief flicker to closed, well under the debounce window.
 	m.GateReading(true)
 	clock.advance(MinGateTime / 4)
-	if m.GateReading(true) {
+	if settled, _ := m.GateReading(true); settled {
 		t.Fatal("the gate changed state before the debounce window elapsed")
 	}
 	// It bounces back before the window is up.
@@ -59,7 +59,7 @@ func TestSustainedGateCloseStagesTheCars(t *testing.T) {
 
 	m.GateReading(true) // first sighting, starts the clock
 	clock.advance(MinGateTime + time.Millisecond)
-	if !m.GateReading(true) {
+	if settled, _ := m.GateReading(true); !settled {
 		t.Fatal("a sustained reading should have been believed")
 	}
 
@@ -160,7 +160,7 @@ func TestFinishExcludesByeLanes(t *testing.T) {
 	m.AddResult(LaneResult{Lane: 3, Time: 9.999}) // masked, reports anyway
 	m.AddResult(LaneResult{Lane: 4, Time: 2.60})
 
-	results := m.Finish()
+	results, _ := m.Finish()
 	if len(results) != 3 {
 		t.Fatalf("got %d results, want 3 — the bye lane should be dropped", len(results))
 	}

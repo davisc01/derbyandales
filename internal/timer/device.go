@@ -247,11 +247,17 @@ func (d *Device) dispatch(line Line) {
 func (d *Device) handle(ev Event) {
 	switch ev.Kind {
 	case EvGateClosed:
-		if d.machine.GateReading(true) {
+		settled, endsHeat := d.machine.GateReading(true)
+		if settled {
 			d.emit(ev)
 		}
+		// Resetting the gate ends a running heat, whether or not every lane
+		// reported. Lanes the timer never mentioned are recorded as 9.999.
+		if endsHeat {
+			d.emit(Event{Kind: EvRaceFinished, At: ev.At})
+		}
 	case EvGateOpen:
-		if d.machine.GateReading(false) {
+		if settled, _ := d.machine.GateReading(false); settled {
 			d.emit(ev)
 		}
 	case EvGateNotSupported:
@@ -453,7 +459,9 @@ func (d *Device) RemoteStart() error {
 }
 
 // Finish completes the armed heat and returns its results.
-func (d *Device) Finish() []LaneResult { return d.machine.Finish() }
+// Finish completes the heat, returning the lane results and the armed lanes the
+// timer never reported.
+func (d *Device) Finish() ([]LaneResult, []int) { return d.machine.Finish() }
 
 // Disarm abandons the armed heat.
 func (d *Device) Disarm() { d.machine.Disarm() }

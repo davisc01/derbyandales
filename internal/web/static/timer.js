@@ -19,6 +19,20 @@
     return body;
   }
 
+  // Rehearsing a bad read: the timer reports nothing, and the gate ends the
+  // heat instead.
+  document.querySelectorAll("#sim-drop-all, #sim-drop-lane").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      const params = btn.id === "sim-drop-lane" ? { lane: "2" } : {};
+      try {
+        const data = await post("/api/timer/sim/drop", params);
+        say("sim-status", data.note || "Ready.");
+      } catch (err) {
+        say("sim-status", err.message, true);
+      }
+    });
+  });
+
   // --- live status ----------------------------------------------------------
 
   const source = new EventSource("/events?topics=timer");

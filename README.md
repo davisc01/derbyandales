@@ -161,6 +161,13 @@ times" would never exercise line assembly, detector excision, masking or the
 gate debounce — which is exactly where the bugs are. It also means the Timer
 Test Bench can be rehearsed with no hardware present.
 
+**A heat ends on whichever comes first: every lane reporting, or the start gate
+being closed again.** The timer sometimes reports nothing back, and waiting for
+a result that is not coming is not a plan. Resetting the gate is what the
+operator does next anyway, so it is the signal — and any lane the timer never
+mentioned is recorded as 9.999 rather than quietly dropped, with the coordinator
+told which ones. The simulator can rehearse exactly that.
+
 **Times can be entered by hand.** A correction after a bad reading, or a whole
 night with no timer at all — which is how anybody learns the software. Typed
 times go through exactly the path a timer's do, so a hand-entered heat and a

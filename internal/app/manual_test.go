@@ -8,6 +8,7 @@ import (
 
 	"github.com/davisc01/derbyandales/internal/scoring"
 	"github.com/davisc01/derbyandales/internal/store"
+	"github.com/davisc01/derbyandales/internal/timer"
 )
 
 // Entering times by hand. It is how the whole night runs with no timer — which
@@ -207,4 +208,95 @@ func TestAWrongTimeCanBeCorrected(t *testing.T) {
 			}
 		}
 	}
+}
+
+// A bad read: the timer says nothing about a lane, the operator resets the gate
+// for the next heat, and that ends the heat. The silent lane is recorded at
+// 9.999, not dropped.
+func TestABadReadIsRecordedRatherThanLost(t *testing.T) {
+	a, raceID := raceFixture(t)
+	ctx := context.Background()
+
+	a.DB.SetSetting(ctx, store.KeyAutoAdvanceSecs, "0")
+	if _, err := a.Race.GenerateSchedule(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Race.Start(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(a.Race.Stop)
+
+	sim := a.Timer.Simulator()
+	if sim == nil {
+		t.Fatal("expected the simulated timer")
+	}
+
+	// Stage and release, with the timer set to report nothing at all — which is
+	// exactly what a bad read looks like from here.
+	waitFor(t, 5*time.Second, func() bool {
+		return a.Timer.Device().State() == timer.StateMark
+	}, "the heat never armed")
+
+	sim.DropNextResult()
+
+	// Wait for each transition rather than assuming a sleep is long enough.
+	// The gate is polled and debounced, so under load a fixed pause is a flake
+	// waiting to happen — which is exactly how this test first behaved.
+	sim.CloseGate()
+	waitFor(t, 5*time.Second, func() bool {
+		return a.Timer.Device().State() == timer.StateSet
+	}, "the cars never staged")
+
+	sim.OpenGate()
+	waitFor(t, 5*time.Second, func() bool {
+		return a.Timer.Device().State() == timer.StateRunning
+	}, "the cars never started")
+
+	// Nothing arrives. The heat is still open.
+	time.Sleep(600 * time.Millisecond)
+	if p, _ := a.DB.Progress(ctx, raceID); p.Completed != 0 {
+		t.Fatal("a heat completed with no result at all")
+	}
+
+	// The operator resets the gate to stage the next heat. That ends this one.
+	sim.CloseGate()
+
+	waitFor(t, 8*time.Second, func() bool {
+		p, err := a.DB.Progress(ctx, raceID)
+		return err == nil && p.Completed >= 1
+	}, "resetting the gate did not end the heat")
+
+	heats, _ := a.DB.Heats(ctx, raceID)
+	run := heats[0]
+	for _, l := range run.Lanes {
+		if l.EntryID == nil {
+			continue
+		}
+		if l.FinishTime == nil {
+			t.Errorf("lane %d has no time at all; a bad read must not drop a car", l.Lane)
+			continue
+		}
+		if *l.FinishTime != scoring.DNF {
+			t.Errorf("lane %d recorded %v, want %v", l.Lane, *l.FinishTime, scoring.DNF)
+		}
+	}
+
+	// Racing carried on rather than stopping dead: a heat nobody timed is a
+	// heat to re-run, not a reason to halt the night.
+	if !a.Race.State(ctx).Running {
+		t.Error("racing stopped after a bad read")
+	}
+}
+
+// waitFor polls until done() or the deadline.
+func waitFor(t *testing.T, limit time.Duration, done func() bool, msg string) {
+	t.Helper()
+	deadline := time.Now().Add(limit)
+	for time.Now().Before(deadline) {
+		if done() {
+			return
+		}
+		time.Sleep(60 * time.Millisecond)
+	}
+	t.Fatal(msg)
 }

@@ -135,25 +135,60 @@ func (h *HeatResult) Add(r LaneResult) (complete bool) {
 // Complete reports whether every expected lane has reported.
 func (h *HeatResult) Complete() bool { return h.pending == 0 }
 
-// Lanes returns the results for the expected lanes only, ordered by lane, with
+// Lanes returns a result for every lane that was armed, ordered by lane, with
 // places recomputed from the times.
+//
+// A lane the timer never reported is given DNFTime rather than left out. The
+// club sees bad reads — a car crosses the line and nothing comes back — and a
+// lane silently missing from the results is the worst of the available
+// outcomes: the heat looks complete, the car looks as though it never raced,
+// and nobody notices until the standings are wrong.
+//
+// 9.999 is honest about it. It is what the timer itself sends for a lane that
+// did not finish, it sorts last, and it is the run the drop-slowest rule throws
+// away — so one bad read costs a car almost nothing, which is right, because
+// the car did nothing wrong.
 func (h *HeatResult) Lanes(laneMask uint) []LaneResult {
 	times := make(map[int]float64)
-	for lane, r := range h.lanes {
-		if laneMask&(1<<uint(lane-1)) != 0 {
+	for lane := 1; lane <= 32; lane++ {
+		if laneMask&(1<<uint(lane-1)) == 0 {
+			continue
+		}
+		if r, ok := h.lanes[lane]; ok {
 			times[lane] = r.Time
+		} else {
+			times[lane] = DNFTime
 		}
 	}
 	places := scoring.PlaceInHeat(times)
 
 	out := make([]LaneResult, 0, len(times))
 	for lane := 1; lane <= 32; lane++ {
-		if _, ok := times[lane]; !ok {
+		t, ok := times[lane]
+		if !ok {
 			continue
 		}
-		r := h.lanes[lane]
+		r, reported := h.lanes[lane]
+		if !reported {
+			r = LaneResult{Lane: lane, Time: t}
+		}
 		r.TimerPlace = places[lane]
 		out = append(out, r)
+	}
+	return out
+}
+
+// Missing lists the armed lanes the timer never reported, which is what a bad
+// read looks like from here.
+func (h *HeatResult) Missing(laneMask uint) []int {
+	var out []int
+	for lane := 1; lane <= 32; lane++ {
+		if laneMask&(1<<uint(lane-1)) == 0 {
+			continue
+		}
+		if _, ok := h.lanes[lane]; !ok {
+			out = append(out, lane)
+		}
 	}
 	return out
 }

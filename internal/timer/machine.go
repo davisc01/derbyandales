@@ -117,25 +117,25 @@ func (m *Machine) Disarm() {
 //
 // A reading only counts once it has persisted for MinGateTime, so a bouncing
 // switch cannot start a race.
-func (m *Machine) GateReading(closed bool) bool {
+func (m *Machine) GateReading(closed bool) (settled, endsHeat bool) {
 	m.mu.Lock()
 
 	if closed == m.gateClosed {
 		// Agrees with what we believe; cancel any pending change.
 		m.gateChangeSince = time.Time{}
 		m.mu.Unlock()
-		return false
+		return false, false
 	}
 
 	now := m.now()
 	if m.gateChangeSince.IsZero() {
 		m.gateChangeSince = now
 		m.mu.Unlock()
-		return false
+		return false, false
 	}
 	if now.Sub(m.gateChangeSince) < MinGateTime {
 		m.mu.Unlock()
-		return false
+		return false, false
 	}
 
 	m.gateClosed = closed
@@ -151,6 +151,16 @@ func (m *Machine) GateReading(closed bool) bool {
 		// Gate dropped: they are running.
 		to = StateRunning
 		m.startedAt = now
+	case closed && m.state == StateRunning:
+		// Resetting the gate for the next heat is the operator saying this one
+		// is over. It is the club's rule, and it is the answer to a bad read:
+		// when the timer reports nothing at all, waiting for it is waiting for
+		// something that is not coming. Whichever happens first — every lane
+		// reporting, or the gate going back up — ends the heat.
+		//
+		// The state is left as it is; the caller finishes the heat, which is
+		// what moves it to idle.
+		endsHeat = true
 	}
 	m.state = to
 	m.mu.Unlock()
@@ -158,7 +168,7 @@ func (m *Machine) GateReading(closed bool) bool {
 	if from != to {
 		m.fire(from, to)
 	}
-	return true
+	return true, endsHeat
 }
 
 // GateNotSupported records that this timer cannot report the gate.
@@ -198,13 +208,18 @@ func (m *Machine) AddResult(r LaneResult) (complete, accepted bool) {
 
 // Finish completes the heat and returns the results, ordered by lane with
 // places recomputed from the times.
-func (m *Machine) Finish() []LaneResult {
+// missing names the armed lanes the timer never reported, which is what a bad
+// read looks like. Those lanes are in the results at 9.999; this says which
+// ones they are, so the heat can be reported honestly rather than just
+// recorded.
+func (m *Machine) Finish() (lanes []LaneResult, missing []int) {
 	m.mu.Lock()
 	if m.result == nil {
 		m.mu.Unlock()
-		return nil
+		return nil, nil
 	}
-	out := m.result.Lanes(m.laneMask)
+	lanes = m.result.Lanes(m.laneMask)
+	missing = m.result.Missing(m.laneMask)
 	from := m.state
 	m.state = StateIdle
 	m.result = nil
@@ -213,7 +228,7 @@ func (m *Machine) Finish() []LaneResult {
 	if from != StateIdle {
 		m.fire(from, StateIdle)
 	}
-	return out
+	return lanes, missing
 }
 
 // Overdue reports whether a running heat has waited too long for results.

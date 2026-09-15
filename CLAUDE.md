@@ -147,6 +147,19 @@ Each of these has already caused a bug here.
   report `0.000`. Both are load-bearing.
 - **`0.000` means "did not finish"** and is rewritten to `9.999` so it sorts
   last. Left alone it looks like the fastest run of the night.
+- **A heat ends on whichever comes first: every lane reporting, or the start
+  gate being closed again.** The club's FastTrack sometimes reports nothing at
+  all, and waiting for a result that is not coming is not a plan. Resetting the
+  gate is what the operator does next anyway, so it is the signal. Any lane the
+  timer never mentioned is recorded at **9.999** rather than left out — a lane
+  silently missing makes the heat look complete and the car look as though it
+  never raced.
+- **Do not confuse a bad read with a phantom trigger.** All lanes reading 9.999
+  *with the timer having reported every one of them* means it fired with no cars
+  on the track, and racing stops for a person. All lanes 9.999 *because nothing
+  was reported* is a bad read: the cars did run, it is recorded, and the
+  coordinator is told which lanes were silent. `HeatResult.Missing` is what
+  separates the two.
 - **Gate readings must persist 500 ms** before being believed. Real switches
   bounce, and a bounce would start a race with nothing to time.
 - **Camera needs a secure context.** `localhost` or HTTPS only. `isSecureContext`

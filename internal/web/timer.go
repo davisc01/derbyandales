@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -37,6 +38,7 @@ func (s *Server) timerRoutes(mux *http.ServeMux) {
 	// rehearsed with no hardware present.
 	mux.HandleFunc("POST /api/timer/sim/gate", s.handleSimGate)
 	mux.HandleFunc("POST /api/timer/sim/car", s.handleSimCar)
+	mux.HandleFunc("POST /api/timer/sim/drop", s.handleSimDrop)
 
 	mux.HandleFunc("GET /api/timer/trace", s.handleTimerTrace)
 	mux.HandleFunc("POST /api/timer/trace/save", s.handleTimerTraceSave)
@@ -251,4 +253,40 @@ func (s *Server) handleTimerSend(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.app.DB.Audit(r.Context(), "coordinator", "timer.send", cmd)
 	writeJSON(w, http.StatusOK, map[string]string{"sent": cmd})
+}
+
+// handleSimDrop makes the simulated timer report nothing for the next heat.
+//
+// The club's FastTrack does this for real, and the recovery — resetting the
+// start gate to end the heat, with the silent lanes recorded at 9.999 — is
+// worth practising on a laptop rather than discovering at a brewery.
+func (s *Server) handleSimDrop(w http.ResponseWriter, r *http.Request) {
+	sim := s.app.Timer.Simulator()
+	if sim == nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{
+			"error": "this only works with the simulated timer",
+		})
+		return
+	}
+	_ = r.ParseForm()
+
+	if v := r.Form.Get("lane"); v != "" {
+		lane, err := strconv.Atoi(v)
+		if err != nil || lane < 1 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "which lane?"})
+			return
+		}
+		sim.DropNextLane(lane)
+		writeJSON(w, http.StatusOK, map[string]string{
+			"note": fmt.Sprintf("The next heat will report nothing for lane %d. "+
+				"Run it, then close the gate to end the heat — lane %d should record 9.999.", lane, lane),
+		})
+		return
+	}
+
+	sim.DropNextResult()
+	writeJSON(w, http.StatusOK, map[string]string{
+		"note": "The next heat will report nothing at all. Run it, then close the " +
+			"gate to end the heat — every lane should record 9.999.",
+	})
 }

@@ -158,7 +158,7 @@ func TestFullHeatCycle(t *testing.T) {
 
 	waitOn(t, events, dev, 3*time.Second, EvRaceFinished)
 
-	results := dev.Finish()
+	results, _ := dev.Finish()
 	if len(results) != 4 {
 		t.Fatalf("got %d lane results, want 4", len(results))
 	}
@@ -200,8 +200,8 @@ func TestUnterminatedResultLineStillArrives(t *testing.T) {
 	sim.OpenGate()
 
 	waitOn(t, events, dev, 3*time.Second, EvRaceFinished)
-	if got := len(dev.Finish()); got != 4 {
-		t.Errorf("got %d results from an unterminated line, want 4", got)
+	if lanes, _ := dev.Finish(); len(lanes) != 4 {
+		t.Errorf("got %d results from an unterminated line, want 4", len(lanes))
 	}
 }
 
@@ -222,7 +222,7 @@ func TestNonFinishingLaneStillCompletesTheHeat(t *testing.T) {
 	sim.OpenGate()
 	waitOn(t, events, dev, 3*time.Second, EvRaceFinished)
 
-	results := dev.Finish()
+	results, _ := dev.Finish()
 	if len(results) != 4 {
 		t.Fatalf("got %d results, want 4", len(results))
 	}

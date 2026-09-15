@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -397,7 +399,7 @@ func (rc *RaceController) recordFinish(ctx context.Context) {
 		return
 	}
 
-	results := dev.Finish()
+	results, missing := dev.Finish()
 	if len(results) == 0 {
 		return
 	}
@@ -411,11 +413,15 @@ func (rc *RaceController) recordFinish(ctx context.Context) {
 		}
 	}
 
-	// Every lane reading as a non-finish nearly always means the timer was
-	// triggered with no cars on it — a hand through the beam, a knocked gate.
-	// Recording that as a heat would be worse than useless, so stop and let a
-	// person decide.
-	if allDNF {
+	// Every lane reading as a non-finish, with the timer having reported every
+	// one of them, nearly always means it was triggered with no cars on it — a
+	// hand through the beam, a knocked gate. Recording that as a heat would be
+	// worse than useless, so stop and let a person decide.
+	//
+	// A bad read is a different thing and must not be swallowed by this. There
+	// the timer said nothing about those lanes at all, the cars did run, and
+	// 9.999 is the honest record of what was timed.
+	if allDNF && len(missing) == 0 {
 		rc.app.Log.Warn("every lane read as a non-finish; racing paused",
 			"heat", heat.Number)
 		rc.app.Bus.Publish(bus.TopicRace, "suspect-result", map[string]any{
@@ -424,6 +430,24 @@ func (rc *RaceController) recordFinish(ctx context.Context) {
 		})
 		rc.SetAutoAdvance(false)
 		return
+	}
+
+	// A lane the timer never mentioned is recorded at 9.999 rather than left
+	// out, but it is said out loud: the coordinator may well want to re-run it,
+	// and finding out from the standings a week later would be worse.
+	if len(missing) > 0 {
+		lanes := make([]string, 0, len(missing))
+		for _, l := range missing {
+			lanes = append(lanes, strconv.Itoa(l))
+		}
+		rc.app.Log.Warn("the timer did not report every lane",
+			"heat", heat.Number, "lanes", strings.Join(lanes, ","))
+		rc.app.Bus.Publish(bus.TopicRace, "bad-read", map[string]any{
+			"heat":  heat.Number,
+			"lanes": missing,
+			"reason": fmt.Sprintf("the timer reported nothing for lane %s — recorded as 9.999. Re-run the heat if that is not right.",
+				strings.Join(lanes, " and ")),
+		})
 	}
 
 	if err := rc.app.DB.RecordHeatResults(ctx, heat.ID, times); err != nil {
