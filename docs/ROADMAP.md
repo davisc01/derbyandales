@@ -301,27 +301,76 @@ the night was later split into five, so it is eleven now (see *Since M8*):
 
 ### M9 — Dress rehearsal on real hardware
 
-1. Launch the `.app` on a clean Mac with no Go, Python or Homebrew.
+Everything here has passed in tests and `make e2e`, and on a laptop with the
+simulated timer. What is left is what only real hardware, a real room and a real
+person can show. Run it as an actual evening, in order, with ~24 fake entries.
+
+**Before anyone arrives**
+
+1. Launch the `.app` on a clean Mac with no Go, Python or Homebrew. It should
+   open a browser on the Status page with nothing else installed.
 2. **Run the Timer Test Bench end to end** with the real FastTrack — identify,
    features, gate open/close, per-lane mask, reset, lane mapping, test heat.
-   Then break things deliberately: unplug the USB cable mid-session, hold the
-   gate half-open, and confirm each is caught with a useful message.
-3. Check in cars on the Mac with the USB camera; check a few in from an iPad
-   over HTTPS to confirm remote capture works after trusting the certificate.
-4. HDMI a TV; confirm the scenes are readable from across a room. **Watch the
-   now-racing animation on it** — the cars leaving on the gate and returning in
-   finish order has only ever been checked as markup, never seen.
-5. Race a real heat; confirm arming, capture, auto-advance and a manual re-run.
-   **Then provoke a bad read** — block a finish sensor, or pull a car before the
-   line — and confirm closing the start gate ends the heat with that lane at
-   9.999, and that racing carries on.
-6. Put the impound screen on a second display and load trays from it for a few
-   heats; confirm it advances in step with the track.
-7. Vote from the tablet; confirm tallies, an undo and a forced tie-break.
-8. Publish into a scratch branch of derby-site; run `hugo server` and confirm a
-   race page renders identically to a 2026 one.
-9. **Hand the run-of-show screen to someone who has never run a race, and have
-   them run one.** That is the real acceptance test for this project.
+   Then break things on purpose: unplug the USB cable mid-session, hold the gate
+   half-open, and confirm each is caught with a useful message.
+3. On every other device, open the **devices page** from the address on the
+   Status page and bookmark it. From it:
+   - a tablet opens **Check-in & roster** — confirm it lands on the HTTPS
+     address, the certificate warning is accepted once, and the camera works;
+   - a second screen opens **Impound**;
+   - the voting tablet opens **Voting booth**;
+   - a TV (or a laptop on HDMI) opens **Main display**, full screen.
+4. Import the past championships in Settings, then open **Tonight** and follow
+   it from here on. Note anywhere it says something untrue or unhelpful.
+
+**Check-in**
+
+5. Check cars in from the tablet with photos. Check one in under a name that won
+   a past championship, and one under a car that already qualified this season:
+   both must warn, and "Mark ineligible" must work.
+6. Misspell a racer's name on purpose, then fix it from the Season page — once
+   by rename, once by merge.
+7. Put the roster and then the car slideshow on the TV; check both read from
+   the back of the room.
+
+**Racing**
+
+8. Race real heats. Confirm arming, capture, auto-advance and a manual re-run.
+   **Watch the now-racing animation on the TV** — cars leaving when the gate
+   opens, returning in finish order — which has only ever been seen in
+   screenshots.
+9. **Provoke a bad read**: block a finish sensor, or lift a car before the line.
+   Closing the start gate must end the heat with that lane at 9.999, say which
+   lane was silent, and carry on racing.
+10. Load trays from the impound screen for several heats; confirm it stays in
+    step with the track.
+11. At halfway, racing stops by itself. Vote from the tablet, undo a misclick,
+    force a tie in one question and settle it, then resume.
+
+**End of the night**
+
+12. Present the design and theme trophies, then run the reveal slowest to
+    fastest, handing over 1st, 2nd and 3rd as they come up.
+13. Stage a tie for a trophy (in a demo season, "Make it a tie for 1st") and run
+    it off after the reveal. Then the final standings, then publish.
+14. **Publish into a scratch copy of derby-site** and run `hugo server`; confirm
+    the race page and the season standings render like a 2026 page.
+15. Back up, change something, restore the backup from the Status page, relaunch
+    the app, and confirm it came back as it was.
+
+**Championship night** (`-demo-championship`, or a finished season)
+
+16. Review the seeding, build the bracket, and put the bracket scene on the TV.
+17. Race matchups from race control on the real timer. Force a dead heat (type
+    equal times) and confirm the matchup runs again; re-run a crashed matchup
+    before its winner races on.
+18. Race to a champion. The reveal names **The D'Ale Cup**; present it with the
+    finished bracket on screen; publish.
+
+**The acceptance test**
+
+19. **Hand the Tonight screen to someone who has never run a race, and have them
+    run one.** That is what this project is for.
 
 ## Since M8
 
