@@ -62,18 +62,12 @@
 
 <section class="card">
   <h1>Where things connect</h1>
+  <p class="sub">Every other device bookmarks one page, and opens check-in,
+     impound, voting or the main display from its buttons.</p>
   <table class="urls">
-    {{range $d.URLs.Insecure}}
-    <tr><th>Voting tablet</th><td><code>{{.}}/vote</code></td></tr>
-    <tr><th>A TV</th><td><code>{{.}}/display</code></td></tr>
-    {{end}}
-    {{range $d.URLs.Secure}}
-    <tr><th>Check-in on a tablet</th><td><code>{{.}}/checkin</code></td></tr>
+    {{range $d.URLs.LAN}}
+    <tr><th>Devices page</th><td><a href="{{.}}/devices" target="_blank" rel="noopener"><code>{{.}}/devices</code></a></td></tr>
     {{end}}
   </table>
-  <p class="hint">
-    Check-in needs one of the <code>https://</code> addresses for the camera to
-    work. Trust the certificate once on that device.
-  </p>
 </section>
 {{end}}

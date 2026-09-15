@@ -78,16 +78,15 @@ folder keeps it apart from the ordinary demo.
 The app starts a web server and opens a browser. Everything happens there.
 
 ```
-  Coordinator:  http://localhost:8080                        camera works
-  Check-in:     https://192.168.1.42:8443/checkin            camera works after trusting the certificate
-  A TV:         http://192.168.1.42:8080/display             then pick its scene on the Displays page
-  Impound:      http://192.168.1.42:8080/display?scene=impound
-  Bracket:      http://192.168.1.42:8080/display?scene=bracket
-  Voting:       http://192.168.1.42:8080/vote
+  Coordinator:    http://localhost:8080
+  Other devices:  http://192.168.1.42:8080/devices
 ```
 
-The Displays and Tonight pages list the real addresses as links, so none of
-this needs typing. The machine's `.local` name works too.
+Every other device — check-in tablets, the impound screen, the voting tablet, a
+TV — bookmarks the **devices page**, which has a button for each job and opens
+it in its own tab. Check-in is sent to the HTTPS address automatically, because
+the camera needs it. The Status, Tonight and Displays pages show the address as
+a link, so none of this needs typing. The machine's `.local` name works too.
 
 ### Why two ports
 

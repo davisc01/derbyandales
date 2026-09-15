@@ -233,9 +233,10 @@ func TestTheRunOfShowPageRenders(t *testing.T) {
 			t.Errorf("the page does not show %q", want)
 		}
 	}
-	// It tells people where to plug things in, which is half the job at a venue.
-	if !strings.Contains(body, "/vote") || !strings.Contains(body, "/display") {
-		t.Error("the page does not show the tablet and TV addresses")
+	// It tells people where to point the other devices, which is half the job
+	// at a venue. That is one page now, with a button for each job.
+	if !strings.Contains(body, "/devices") {
+		t.Error("the page does not give the devices page address")
 	}
 }
 

@@ -80,18 +80,19 @@ func TestPagesRender(t *testing.T) {
 	}
 }
 
-func TestHomeShowsConnectionURLs(t *testing.T) {
+// Every other device is pointed at one bookmarkable page, and the status page
+// is where the coordinator finds its address.
+func TestHomeShowsTheDevicesPageAddress(t *testing.T) {
 	s := mustServer(t)
 	rec := httptest.NewRecorder()
 	handler(t, s).ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
 
 	body := rec.Body.String()
-	// The whole point of the card is telling someone where the camera works.
-	if !strings.Contains(body, "http://localhost:") {
-		t.Error("home page does not show the local URL")
+	if !strings.Contains(body, "/devices") {
+		t.Error("home page does not give the devices page address")
 	}
-	if !strings.Contains(body, "camera works") {
-		t.Error("home page does not explain where the camera works")
+	if strings.Contains(body, "Connect a device") {
+		t.Error("home page still has the old list of addresses")
 	}
 }
 

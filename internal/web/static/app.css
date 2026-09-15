@@ -717,3 +717,33 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 /* Two short numbers side by side, such as a pair of lanes. */
 .inline-pair { display: flex; gap: 8px; align-items: center; }
 .inline-pair input { width: 5em; }
+
+/* --- the devices page ---------------------------------------------------------
+   Read on a tablet held in one hand, so the buttons are big and say what the
+   device is for, not what the URL is. */
+
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+}
+.device-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--ink);
+  text-decoration: none;
+  min-height: 150px;
+}
+.device-card:hover, .device-card:focus-visible { border-color: var(--green); }
+.device-title { font-size: 20px; font-weight: 700; }
+.device-what { color: var(--ink-dim); line-height: 1.4; }
+.device-note { font-size: 12px; color: var(--ink-faint); margin-top: auto; }
+@media (max-width: 560px) {
+  .device-grid { grid-template-columns: 1fr; }
+}

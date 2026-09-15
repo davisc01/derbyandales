@@ -8,6 +8,7 @@
 
   <table class="urls">
     {{range $d.URLs.LAN}}
+    <tr><th>Devices page</th><td><a href="{{.}}/devices" target="_blank" rel="noopener"><code>{{.}}/devices</code></a></td></tr>
     <tr><th>A TV</th><td><a href="{{.}}/display" target="_blank" rel="noopener"><code>{{.}}/display</code></a></td></tr>
     <tr><th>Impound</th><td><a href="{{.}}/display?scene=impound" target="_blank" rel="noopener"><code>{{.}}/display?scene=impound</code></a></td></tr>
     {{end}}

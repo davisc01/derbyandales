@@ -98,6 +98,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	s.bracketRoutes(mux)
 	s.publishRoutes(mux)
 	s.runRoutes(mux)
+	s.devicesRoutes(mux)
 }
 
 // StartTLS brings up the HTTPS listener, which exists so remote check-in
@@ -179,8 +180,11 @@ func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter 
 type pageData struct {
 	Title  string
 	Active string
-	App    *app.App
-	Data   any
+	// NoNav leaves the coordinator's navigation off, for a page handed to a
+	// device at a table rather than to the person running the night.
+	NoNav bool
+	App   *app.App
+	Data  any
 }
 
 // bareLayoutPages use the chrome-free layout. A TV showing the race has no

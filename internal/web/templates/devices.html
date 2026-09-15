@@ -1,0 +1,40 @@
+{{define "content"}}
+{{$d := .Data}}
+
+<section class="card devices">
+  <h1>Derby and Ales</h1>
+  <p class="sub">
+    Bookmark this page on every device used tonight. Each button opens what that
+    device is for in its own tab.
+    {{if $d.Race}}The race loaded now is <b>{{$d.Race}}</b>.{{end}}
+  </p>
+
+  <div class="device-grid">
+    <a class="device-card" href="{{$d.CheckinURL}}" target="_blank" rel="noopener" id="device-checkin">
+      <span class="device-title">Check-in &amp; roster</span>
+      <span class="device-what">Check cars in with a photo, and review who is racing before the start.</span>
+      {{if $d.CheckinSecure}}
+      <span class="device-note">The first time on a tablet, the browser warns about the certificate. Accept it once.</span>
+      {{else}}
+      <span class="device-note warn-text">The camera cannot work from this address. Photos can still be chosen from the device.</span>
+      {{end}}
+    </a>
+
+    <a class="device-card" href="/display?scene=impound" target="_blank" rel="noopener" id="device-impound">
+      <span class="device-title">Impound</span>
+      <span class="device-what">The heat on the track and the heat to load next — lanes, pictures and car numbers — for loading trays.</span>
+    </a>
+
+    <a class="device-card" href="/vote" target="_blank" rel="noopener" id="device-vote">
+      <span class="device-title">Voting booth</span>
+      <span class="device-what">The ballot tablet for the design and theme trophies. It opens when the intermission starts.</span>
+    </a>
+
+    <a class="device-card" href="/display" target="_blank" rel="noopener" id="device-display">
+      <span class="device-title">Main display</span>
+      <span class="device-what">The TV. What it shows is chosen from the coordinator's Displays page and follows the night.</span>
+      <span class="device-note">Put the tab full screen once it opens.</span>
+    </a>
+  </div>
+</section>
+{{end}}

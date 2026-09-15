@@ -17,28 +17,13 @@
 </section>
 
 <section class="card">
-  <h1>Connect a device</h1>
-  <p class="sub">Check-in needs a camera, and browsers only allow that on a secure
-     address. Displays and voting work on any of these.</p>
+  <h1>Other devices</h1>
+  <p class="sub">Bookmark this address on every other device used tonight —
+     check-in tablets, the impound screen, the voting tablet, a TV. It opens a
+     page with a button for each job.</p>
   <table class="urls">
-    <tr>
-      <th>Coordinator</th>
-      <td><code>{{$d.URLs.Local}}</code></td>
-      <td class="note ok">camera works</td>
-    </tr>
-    {{range $d.URLs.Secure}}
-    <tr>
-      <th>Check-in</th>
-      <td><code>{{.}}</code></td>
-      <td class="note ok">camera works after trusting the certificate once</td>
-    </tr>
-    {{end}}
-    {{range $d.URLs.Insecure}}
-    <tr>
-      <th>Displays</th>
-      <td><code>{{.}}</code></td>
-      <td class="note">voting and screens &middot; no camera</td>
-    </tr>
+    {{range $d.URLs.LAN}}
+    <tr><th>Devices page</th><td><a href="{{.}}/devices" target="_blank" rel="noopener"><code>{{.}}/devices</code></a></td></tr>
     {{end}}
   </table>
 </section>

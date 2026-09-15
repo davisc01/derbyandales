@@ -13,6 +13,7 @@
     <img class="mark" src="/static/logo.png" alt="MidSouth Derby and Ales">
     <span class="wordmark">Derby and Ales</span>
   </a>
+  {{if not .NoNav}}
   <nav>
     <a href="/run" class="{{if eq .Active "run"}}on{{end}}">Tonight</a>
     <a href="/" class="{{if eq .Active "home"}}on{{end}}">Status</a>
@@ -26,6 +27,7 @@
     <a href="/timer/test" class="{{if eq .Active "timer"}}on{{end}}">Timer</a>
     <a href="/settings" class="{{if eq .Active "settings"}}on{{end}}">Settings</a>
   </nav>
+  {{end}}
   <span class="conn" id="conn" title="Live connection">&bull; connecting</span>
 </header>
 
