@@ -7,10 +7,11 @@
      addresses to configure, nothing to edit in a file.</p>
 
   <table class="urls">
-    {{range $d.URLs.Insecure}}
-    <tr><th>Display address</th><td><code>{{.}}/display</code></td></tr>
+    {{range $d.URLs.LAN}}
+    <tr><th>A TV</th><td><a href="{{.}}/display" target="_blank" rel="noopener"><code>{{.}}/display</code></a></td></tr>
+    <tr><th>Impound</th><td><a href="{{.}}/display?scene=impound" target="_blank" rel="noopener"><code>{{.}}/display?scene=impound</code></a></td></tr>
     {{end}}
-    <tr><th>On this Mac</th><td><code>{{$d.URLs.Local}}/display</code></td></tr>
+    <tr><th>On this Mac</th><td><a href="{{$d.URLs.Local}}/display" target="_blank" rel="noopener"><code>{{$d.URLs.Local}}/display</code></a></td></tr>
   </table>
 </section>
 

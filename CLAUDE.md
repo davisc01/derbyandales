@@ -203,6 +203,16 @@ Each of these has already caused a bug here.
   narrow. Cars are matched by name folded for case and spacing; a surname match
   as well is the strong case. It **flags, never excludes** — excluding a car is
   a decision and it needs a reason.
+- **Times can be entered by hand**, and it is the same path a timer's take:
+  `RaceController.EnterTimes` derives the places rather than trusting them, and
+  a zero becomes 9.999 the way the driver rewrites a timer's. It is how the
+  software is demonstrated without hardware and how a bad reading is corrected.
+- **The now-racing screen has three phases**: staged, running, result. While the
+  gate is open the screen clears — the cars leave to the right — because there
+  is nothing to report for two seconds and a frozen table reads as a broken one.
+  The results come back in finish order, not lane order. Gold for the heat
+  winner, red for a car that did not finish, showing the 9.999 that goes into
+  the results.
 - **Everything runs offline.** The venue has private wifi and no internet. No
   CDNs, no web fonts, no outbound HTTP: every asset is `go:embed`ed and served
   from the app itself, and the whole page set is verified to reference only
@@ -218,6 +228,7 @@ internal/
   model/      domain types
   schedule/   heat generation (offset search) and running order
   bracket/    seed order, bracket construction, the Championship Planner
+  history/    reading the club's published archive back in
   publish/    website CSV writers, page skeletons, diff and write
   scoring/    drop-slowest averaging, placement, scale MPH, CSV formatting
   season/     wildcard points, auto-qualifier seeding, substitutions

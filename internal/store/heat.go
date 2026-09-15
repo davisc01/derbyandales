@@ -25,10 +25,13 @@ func (h HeatView) RunOff() bool { return h.RunoffPlace != nil }
 
 // LaneView is one lane of a heat, with the car in it.
 type LaneView struct {
-	Lane        int
-	EntryID     *int64
-	CarNumber   int
-	CarName     string
+	Lane      int
+	EntryID   *int64
+	CarNumber int
+	CarName   string
+	// PhotoID is the car's picture, which the impound screen needs: an official
+	// hunting for a car on a shelf recognises it far faster than a number.
+	PhotoID     *int64
 	DriverFirst string
 	DriverLast  string
 	FinishTime  *float64
@@ -113,7 +116,7 @@ func (db *DB) SaveSchedule(ctx context.Context, raceID int64, s *schedule.Schedu
 }
 
 const heatLaneCols = `hl.lane, hl.entry_id, hl.finish_time, hl.finish_place, hl.ignored,
-	e.car_number, e.car_name, r.first_name, r.last_name`
+	e.car_number, e.car_name, e.photo_id, r.first_name, r.last_name`
 
 // Heats lists a race's heats with their lanes, in running order.
 func (db *DB) Heats(ctx context.Context, raceID int64) ([]HeatView, error) {
@@ -180,13 +183,14 @@ func (db *DB) heatLanes(ctx context.Context, heatID int64) ([]LaneView, error) {
 		var finishTime sql.NullFloat64
 		var finishPlace sql.NullInt64
 		var ignored int
-		var carNumber sql.NullInt64
+		var carNumber, photoID sql.NullInt64
 		var carName, first, last sql.NullString
 
 		if err := rows.Scan(&l.Lane, &entryID, &finishTime, &finishPlace, &ignored,
-			&carNumber, &carName, &first, &last); err != nil {
+			&carNumber, &carName, &photoID, &first, &last); err != nil {
 			return nil, err
 		}
+		l.PhotoID = nullInt(photoID)
 		l.EntryID = nullInt(entryID)
 		l.FinishTime = nullFloat(finishTime)
 		l.FinishPlace = nullIntAsInt(finishPlace)

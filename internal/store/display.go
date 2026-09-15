@@ -30,6 +30,7 @@ const (
 	SceneAwards   Scene = "awards"
 	SceneSlides   Scene = "slideshow"
 	SceneBracket  Scene = "bracket"
+	SceneImpound  Scene = "impound"
 	SceneVotingQR Scene = "voting-qr"
 )
 
@@ -53,6 +54,7 @@ func Scenes() []SceneInfo {
 		{SceneSlides, "Car photos", "Slideshow of the cars.", false},
 		{SceneAwards, "Design & theme trophies", "The two voted trophies, one at a time, with the car.", true},
 		{SceneBracket, "Bracket", "The championship bracket.", false},
+		{SceneImpound, "Impound", "This heat and the next: numbers, lanes and pictures, for loading the tray.", true},
 		{SceneVotingQR, "Voting", "Points people at the tablet during the intermission.", true},
 	}
 }

@@ -33,6 +33,7 @@ func (s *Server) displayRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/race/roster", s.handleRoster)
 	mux.HandleFunc("GET /api/race/standings", s.handleStandings)
 	mux.HandleFunc("GET /api/race/awards", s.handleRaceAwards)
+	mux.HandleFunc("GET /api/race/impound", s.handleImpound)
 }
 
 // handleDisplay serves the display shell.
@@ -441,4 +442,89 @@ func (s *Server) handleRaceAwards(w http.ResponseWriter, r *http.Request) {
 		rows = append(rows, row)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"race": race.Name, "awards": rows})
+}
+
+// handleImpound is what the loading-tray screen reads.
+//
+// The official at the impound table is not watching the racing; they are
+// putting the next four cars into a tray while the current four are on the
+// track. So this shows two heats, and nothing but numbers, lanes and pictures —
+// a name is no use when you are looking for a car on a shelf.
+func (s *Server) handleImpound(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	raceID := s.raceIDParam(r)
+	out := map[string]any{"current": nil, "upcoming": nil}
+	if raceID == 0 {
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+
+	heats, err := s.app.DB.Heats(ctx, raceID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	race, _ := s.app.DB.Race(ctx, raceID)
+	out["race"] = race.Name
+
+	// The heat on the track is the armed one; failing that, the first one with
+	// no times against it.
+	current := -1
+	if state := s.app.Race.State(ctx); state.Heat != nil {
+		for i, h := range heats {
+			if h.ID == state.Heat.ID {
+				current = i
+			}
+		}
+	}
+	if current < 0 {
+		for i, h := range heats {
+			if !h.Complete() {
+				current = i
+				break
+			}
+		}
+	}
+	if current < 0 {
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+
+	// The next heat that still has to be loaded. A heat already run is not
+	// something anybody needs to fetch cars for.
+	upcoming := -1
+	for i := current + 1; i < len(heats); i++ {
+		if !heats[i].Complete() {
+			upcoming = i
+			break
+		}
+	}
+
+	out["current"] = impoundHeat(heats[current])
+	if upcoming >= 0 {
+		out["upcoming"] = impoundHeat(heats[upcoming])
+	}
+	out["total"] = len(heats)
+	writeJSON(w, http.StatusOK, out)
+}
+
+func impoundHeat(h store.HeatView) map[string]any {
+	lanes := make([]map[string]any, 0, len(h.Lanes))
+	for _, l := range h.Lanes {
+		row := map[string]any{"lane": l.Lane}
+		if l.EntryID != nil {
+			row["car_number"] = l.CarNumber
+			row["car_name"] = l.CarName
+			row["driver"] = l.DriverName()
+			if l.PhotoID != nil {
+				row["photo_id"] = *l.PhotoID
+			}
+		}
+		lanes = append(lanes, row)
+	}
+	return map[string]any{
+		"heat":     h.Number,
+		"lanes":    lanes,
+		"complete": h.Complete(),
+	}
 }

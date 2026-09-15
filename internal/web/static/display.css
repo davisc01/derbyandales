@@ -37,6 +37,7 @@ html, body { height: 100%; }
 .display-root { height: 100vh; width: 100vw; }
 
 .scene {
+  position: relative;
   height: 100vh;
   width: 100vw;
   display: flex;
@@ -168,13 +169,26 @@ html, body { height: 100%; }
   min-width: 3.5vw;
   text-align: center;
 }
-.lane-row.p1 { background: #1e2a1f; }
-.lane-row.p1 .lane-place { color: var(--green); }
+/* Gold for the winner of the heat, so it is obvious across a room. */
+.lane-row.p1 {
+  background: rgba(232, 195, 74, .13);
+  box-shadow: inset 0 0 0 .3vh rgba(232, 195, 74, .45);
+}
+.lane-row.p1 .lane-place,
+.lane-row.p1 .lane-time { color: var(--gold); }
+.lane-row.p1 .lane-driver { font-weight: 800; }
 .lane-row.p2 .lane-place { color: var(--ink-dim); }
 
 .lane-row.bye { opacity: .3; }
 .lane-row.bye .lane-driver { font-style: italic; color: var(--ink-dim); font-weight: 400; }
-.lane-row.dnf .lane-time { color: var(--red); font-size: 4vh; }
+/* A car that did not finish, in red. The timer reports 9.999 for it, which is
+   shown rather than hidden: it is what goes into the results. */
+.lane-row.dnf {
+  background: rgba(229, 82, 74, .12);
+  box-shadow: inset 0 0 0 .3vh rgba(229, 82, 74, .4);
+}
+.lane-row.dnf .lane-time { color: var(--red); font-size: 3.6vh; }
+.lane-row.dnf .lane-dnf-time { color: var(--red); opacity: .8; font-size: 2.4vh; }
 
 /* --- roster ---------------------------------------------------------------- */
 
@@ -260,16 +274,12 @@ html, body { height: 100%; }
 .scene-blank { align-items: center; justify-content: center; }
 
 .blank-mark {
-  display: grid;
-  place-items: center;
-  width: 16vh;
-  height: 16vh;
-  border-radius: 50%;
-  background: var(--panel);
-  color: var(--ink-dim);
-  font-size: 4vh;
-  font-weight: 800;
-  letter-spacing: .02em;
+  width: 26vh;
+  height: 26vh;
+  object-fit: contain;
+  /* Dimmed: this is what a TV sits on between segments, sometimes for an hour,
+     and a bright logo burned into a borrowed screen would not be forgiven. */
+  opacity: .5;
 }
 
 /* --- connection trouble ---------------------------------------------------- */
@@ -417,4 +427,120 @@ html, body { height: 100%; }
   color: var(--amber);
   letter-spacing: .04em;
   text-transform: uppercase;
+}
+
+
+/* --- the club's mark on every scene ------------------------------------------
+   Top left, small and out of the way. A TV in a brewery is seen by plenty of
+   people who did not come for the racing. */
+
+.scene-logo {
+  position: absolute;
+  top: 2.2vh;
+  left: 2.2vh;
+  width: 7vh;
+  height: 7vh;
+  object-fit: contain;
+  opacity: .9;
+  pointer-events: none;
+}
+
+/* The scene heading clears the mark rather than running under it. */
+.scene-head { padding-left: 10vh; }
+.scene-blank .scene-logo { display: none; }
+
+/* --- impound: this heat and the next ----------------------------------------
+   Read by someone loading cars into a tray, standing at a table, not watching
+   the racing. Two rows, big pictures, numbers you can read from arm's length. */
+
+.impound { display: flex; flex-direction: column; gap: 2.5vh; height: 100%; }
+
+.impound-row {
+  display: flex;
+  align-items: center;
+  gap: 2.5vw;
+  flex: 1;
+  min-height: 0;
+  padding: 1.5vh 2vw;
+  border-radius: 1.2vh;
+  background: var(--panel);
+}
+/* The heat being loaded is the one that matters; the one on the track is
+   context. So the next heat is the brighter of the two. */
+.impound-row.now { opacity: .62; }
+.impound-row.next { background: var(--panel-2); box-shadow: inset 0 0 0 .4vh var(--green); }
+
+.impound-label { flex: 0 0 18vw; }
+.impound-label-text {
+  font-size: 2.6vh;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink-dim);
+}
+.impound-heat { font-size: 5vh; font-weight: 800; line-height: 1.1; }
+
+.impound-cars { display: flex; gap: 1.8vw; flex: 1; min-width: 0; height: 100%; }
+.impound-car {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .6vh;
+}
+.impound-lane {
+  font-size: 2vh;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.impound-pic {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  border-radius: .8vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+.impound-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.impound-pic.empty { background: repeating-linear-gradient(45deg, var(--bg) 0 1vh, var(--panel) 1vh 2vh); }
+.impound-number { font-family: var(--mono); font-size: 4.2vh; font-weight: 700; }
+.impound-car.empty { opacity: .35; }
+.impound-bye { font-size: 2.2vh; color: var(--ink-faint); font-style: italic; }
+
+/* --- the heat, as it happens -------------------------------------------------
+   Three phases. Staged: lane assignments, still. Running: the gate is open,
+   they are gone, and so is the screen — there is nothing to report for two
+   seconds and a frozen table reads as a broken one. Result: they come back in,
+   in the order they finished rather than by lane. */
+
+.lanes.leaving .lane-row.running {
+  animation: depart .55s cubic-bezier(.4, 0, .9, .3) forwards;
+  animation-delay: var(--depart, 0ms);
+}
+
+@keyframes depart {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(115vw); opacity: 0; }
+}
+
+.lanes.arriving .lane-row {
+  animation: arrive .5s cubic-bezier(.1, .7, .3, 1) backwards;
+  animation-delay: var(--arrive, 0ms);
+}
+
+@keyframes arrive {
+  from { transform: translateX(-115vw); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+/* Somebody watching a screen for three hours in a loud room did not ask for
+   this, and the results still have to arrive. */
+@media (prefers-reduced-motion: reduce) {
+  .lanes.leaving .lane-row.running,
+  .lanes.arriving .lane-row {
+    animation: none;
+  }
+  .lanes.leaving .lane-row.running { opacity: 0; }
 }

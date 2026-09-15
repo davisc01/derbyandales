@@ -91,7 +91,15 @@
 
   // --- scenes ---------------------------------------------------------------
 
+  // A screen can be pinned to one scene with ?scene= in its address. The
+  // impound screen does one job all night and should not be something anybody
+  // has to remember to set — or can change by accident from the coordinator.
+  const pinned = new URLSearchParams(location.search).get("scene");
+
   function setScene(next, rawParams) {
+    if (pinned) {
+      next = pinned;
+    }
     scene = next || "blank";
     params = typeof rawParams === "string" ? safeParse(rawParams) : rawParams || {};
     revealIndex = 0;
@@ -115,6 +123,13 @@
 
   function sceneShell(title, sub) {
     const wrap = el("div", "scene scene-" + scene);
+    // The club's mark, top left of every scene. A TV in a brewery is seen by
+    // people who did not come for the racing.
+    const badge = document.createElement("img");
+    badge.className = "scene-logo";
+    badge.src = "/static/logo.png";
+    badge.alt = "";
+    wrap.appendChild(badge);
     if (title) {
       const head = el("div", "scene-head");
       head.appendChild(el("h1", "scene-title", title));
@@ -141,6 +156,8 @@
           return await renderFinal();
         case "awards":
           return await renderAwards();
+        case "impound":
+          return await renderImpound();
         case "blank":
           return renderBlank();
         default:
@@ -155,7 +172,11 @@
 
   function renderBlank() {
     const wrap = el("div", "scene scene-blank");
-    wrap.appendChild(el("div", "blank-mark", "D&A"));
+    const mark = document.createElement("img");
+    mark.className = "blank-mark";
+    mark.src = "/static/logo.png";
+    mark.alt = "MidSouth Derby and Ales";
+    wrap.appendChild(mark);
     swap(wrap);
   }
 
@@ -166,6 +187,11 @@
   }
 
   // Lane assignments before the heat, finish order and times after it.
+  // What the now-racing screen was last showing, so a redraw can tell the
+  // difference between "nothing changed" and "they have just been released".
+  let racingPhase = "";
+  let racingHeat = 0;
+
   async function renderRacing() {
     const state = await getJSON("/api/race/state");
 
@@ -187,9 +213,67 @@
         : "Heat " + state.heat_no;
     const { wrap, body } = sceneShell(state.race_name || "Now racing", sub);
 
+    // Three phases, and the screen behaves differently in each.
+    //
+    //   staged   cars are on the track, gate shut, lane assignments showing
+    //   running  the gate is open and they are gone — the screen clears with
+    //            them, because there is nothing to report for two seconds and
+    //            a frozen table is worse than an empty one
+    //   result   they are back, in the order they finished
+    const finished = state.lanes.some(function (l) { return l.time !== undefined; });
+    let phase = "staged";
+    if (finished) {
+      phase = "result";
+    } else if (state.gate === "open" && state.running) {
+      phase = "running";
+    }
+
+    if (phase === "running") {
+      // Nothing to read while they are on the track. The cars leave to the
+      // right, staggered, and the screen is empty until the times land.
+      const gone = el("div", "lanes leaving");
+      state.lanes.forEach(function (l, i) {
+        if (l.bye) return;
+        const row = el("div", "lane-row running");
+        row.style.setProperty("--depart", i * 60 + "ms");
+        row.appendChild(el("div", "lane-no", l.lane));
+        const car = el("div", "lane-car");
+        car.appendChild(el("div", "lane-driver", l.driver));
+        const name = el("div", "lane-carname");
+        name.appendChild(el("span", "lane-carno", "#" + l.car_number));
+        name.appendChild(document.createTextNode(l.car_name || ""));
+        car.appendChild(name);
+        row.appendChild(car);
+        gone.appendChild(row);
+      });
+      body.appendChild(gone);
+      racingPhase = phase;
+      racingHeat = state.heat_no;
+      return swap(wrap);
+    }
+
     const lanes = el("div", "lanes");
-    state.lanes.forEach(function (l) {
+    // Coming back in, they are ordered by how they finished rather than by
+    // lane. Lane order is how they left; finish order is the thing being
+    // announced.
+    const rows = state.lanes.slice();
+    if (phase === "result") {
+      rows.sort(function (a, b) {
+        if (a.bye !== b.bye) return a.bye ? 1 : -1;
+        const pa = a.place || 99, pb = b.place || 99;
+        if (pa !== pb) return pa - pb;
+        return a.lane - b.lane;
+      });
+    }
+    // Only animate them back in on the transition, not on every redraw — a
+    // vote arriving should not send the whole table skating across the screen.
+    const arriving = phase === "result" &&
+      (racingPhase === "running" || racingHeat !== state.heat_no);
+    if (arriving) lanes.classList.add("arriving");
+
+    rows.forEach(function (l, i) {
       const row = el("div", "lane-row");
+      row.style.setProperty("--arrive", i * 90 + "ms");
       row.dataset.lane = l.lane;
       if (l.bye) row.classList.add("bye");
       if (l.place === 1) row.classList.add("p1");
@@ -215,7 +299,10 @@
         const dnf = parseFloat(l.time) >= 9.0;
         if (dnf) {
           row.classList.add("dnf");
+          // The recorded time is shown as well as the word, because 9.999 is
+          // what goes into the results and somebody will ask about it.
           result.appendChild(el("div", "lane-time", "did not finish"));
+          result.appendChild(el("div", "lane-dnf-time", l.time + "s"));
         } else {
           result.appendChild(el("div", "lane-time", l.time + "s"));
           result.appendChild(el("div", "lane-mph", l.mph + " mph scale"));
@@ -232,6 +319,8 @@
     });
 
     body.appendChild(lanes);
+    racingPhase = phase;
+    racingHeat = state.heat_no;
     swap(wrap);
   }
 
@@ -292,6 +381,75 @@
   }
 
   // Slowest first, one at a time, building up to the winner.
+  // The impound screen: what is on the track, and what to load next.
+  //
+  // The official reading this is not watching the racing — they are putting the
+  // next four cars into a tray while the current four run. So it is numbers,
+  // lanes and pictures, and nothing else. A driver's name is no help when you
+  // are looking along a shelf.
+  async function renderImpound() {
+    const data = await getJSON("/api/race/impound");
+    const { wrap, body } = sceneShell(data.race || "Impound", "Loading order");
+
+    if (!data.current) {
+      body.appendChild(el("p", "display-hint", "Nothing to load yet."));
+      return swap(wrap);
+    }
+
+    const rows = el("div", "impound");
+    rows.appendChild(impoundRow("On the track", data.current, "now"));
+    if (data.upcoming) {
+      rows.appendChild(impoundRow("Load next", data.upcoming, "next"));
+    } else {
+      const done = el("div", "impound-row");
+      done.appendChild(el("div", "impound-label", "Load next"));
+      done.appendChild(el("p", "display-hint", "That is the last heat."));
+      rows.appendChild(done);
+    }
+    body.appendChild(rows);
+    swap(wrap);
+  }
+
+  function impoundRow(label, heat, kind) {
+    const row = el("div", "impound-row " + kind);
+    const head = el("div", "impound-label");
+    head.appendChild(el("div", "impound-label-text", label));
+    head.appendChild(el("div", "impound-heat", "Heat " + heat.heat));
+    row.appendChild(head);
+
+    const cars = el("div", "impound-cars");
+    (heat.lanes || []).forEach(function (l) {
+      const cell = el("div", "impound-car");
+      if (l.car_number === undefined) {
+        cell.classList.add("empty");
+        cell.appendChild(el("div", "impound-lane", "Lane " + l.lane));
+        cell.appendChild(el("div", "impound-bye", "empty"));
+        cars.appendChild(cell);
+        return;
+      }
+      cell.appendChild(el("div", "impound-lane", "Lane " + l.lane));
+
+      const pic = el("div", "impound-pic");
+      if (l.photo_id) {
+        const img = document.createElement("img");
+        img.src = "/photo/" + l.photo_id + "?size=card";
+        img.alt = "";
+        img.addEventListener("error", function () {
+          pic.classList.add("empty");
+          img.remove();
+        });
+        pic.appendChild(img);
+      } else {
+        pic.classList.add("empty");
+      }
+      cell.appendChild(pic);
+      cell.appendChild(el("div", "impound-number", "#" + l.car_number));
+      cars.appendChild(cell);
+    });
+    row.appendChild(cars);
+    return row;
+  }
+
   // The two voted trophies, one at a time, with the car big on the screen.
   //
   // These are given for how a car looks, so the photo is the point — a list of
@@ -553,7 +711,7 @@
   // --- live updates ---------------------------------------------------------
 
   function connect() {
-    const source = new EventSource("/events?topics=race,display,system");
+    const source = new EventSource("/events?topics=race,timer,display,system");
 
     source.onopen = function () {
       showOffline(false);
@@ -576,7 +734,13 @@
       // Any race change redraws whatever this screen is showing. The reveal is
       // operator-paced, so it is left alone.
       if (scene === "now-racing" || scene === "roster" || scene === "voting-qr" ||
-          scene === "final-standings") render();
+          scene === "final-standings" || scene === "impound") render();
+    });
+
+    source.addEventListener("timer", function () {
+      // The gate opening is what starts the cars, and it is a timer event
+      // rather than a race one. The now-racing screen clears on it.
+      if (scene === "now-racing" || scene === "impound") render();
     });
 
     source.addEventListener("vote", function () {

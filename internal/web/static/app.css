@@ -54,17 +54,13 @@ body {
   color: var(--ink);
 }
 
+/* The club's mark. It is already a circle on a transparent background, so it
+   needs no plate behind it — a coloured disc would only fight with it. */
 .mark {
-  display: grid;
-  place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 50%;
-  background: var(--green);
-  color: #0d1a10;
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: .02em;
+  display: block;
+  object-fit: contain;
 }
 
 .wordmark { font-weight: 600; letter-spacing: .01em; }

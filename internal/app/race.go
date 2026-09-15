@@ -10,6 +10,7 @@ import (
 	"github.com/davisc01/derbyandales/internal/bus"
 	"github.com/davisc01/derbyandales/internal/model"
 	"github.com/davisc01/derbyandales/internal/schedule"
+	"github.com/davisc01/derbyandales/internal/scoring"
 	"github.com/davisc01/derbyandales/internal/store"
 	"github.com/davisc01/derbyandales/internal/timer"
 )
@@ -42,9 +43,11 @@ type RaceController struct {
 }
 
 // DefaultAutoAdvance is how long a finished heat stays on the screens before
-// the next one arms. Long enough to read the times, short enough to keep a
-// twenty-five heat race moving.
-const DefaultAutoAdvance = 8 * time.Second
+// the next one arms — which is also how long the finish order is up for, since
+// the screens follow the race rather than run a timer of their own. Long enough
+// to read four names and times, short enough to keep a twenty-five heat race
+// moving. The club asked for seven.
+const DefaultAutoAdvance = 7 * time.Second
 
 // NewRaceController returns an idle controller.
 func NewRaceController(a *App) *RaceController { return &RaceController{app: a} }
@@ -650,5 +653,72 @@ func (rc *RaceController) SetRace(ctx context.Context, raceID int64) error {
 		rc.mu.Unlock()
 	}
 	rc.app.Bus.Publish(bus.TopicRace, "race-loaded", rc.State(ctx))
+	return nil
+}
+
+// EnterTimes records a heat's times by hand.
+//
+// Two jobs, and they are the same job. A correction — a lane the timer missed,
+// a time typed off the printout — and running the whole night with no timer at
+// all, which is how anybody learns this software or tests a change. DerbyNet
+// had manual entry and it was used constantly.
+//
+// The times go through exactly the path a timer's do: places are derived here,
+// not taken on trust, so a hand-entered heat and a timed one are the same kind
+// of thing afterwards. A lane left blank is left alone rather than zeroed.
+func (rc *RaceController) EnterTimes(ctx context.Context, heatID int64, times map[int]float64, actor string) error {
+	rc.mu.Lock()
+	paused := rc.intermission
+	rc.mu.Unlock()
+	if paused {
+		return errors.New("the race is in its intermission — resume racing first")
+	}
+
+	heat, err := rc.app.DB.Heat(ctx, heatID)
+	if err != nil {
+		return err
+	}
+	if len(times) == 0 {
+		return errors.New("no times were entered")
+	}
+
+	occupied := map[int]bool{}
+	for _, l := range heat.Lanes {
+		if l.EntryID != nil {
+			occupied[l.Lane] = true
+		}
+	}
+	for lane, t := range times {
+		if !occupied[lane] {
+			return fmt.Errorf("lane %d has no car in heat %d", lane, heat.Number)
+		}
+		// A time of zero is what a timer sends for a lane that never finished,
+		// and it is rewritten to 9.999 so it sorts last. Someone typing times
+		// in should get the same treatment rather than a car that appears to
+		// have won by a mile.
+		if t <= 0 {
+			times[lane] = scoring.DNF
+		}
+		if t > 0 && t < 0.5 {
+			return fmt.Errorf("%.3f s is too fast to be real — check lane %d", t, lane)
+		}
+	}
+
+	if err := rc.app.DB.RecordHeatResults(ctx, heatID, times); err != nil {
+		return err
+	}
+	_ = rc.app.DB.Audit(ctx, actor, "race.manual",
+		fmt.Sprintf("heat %d: %d lanes entered by hand", heat.Number, len(times)))
+
+	updated, err := rc.app.DB.Heat(ctx, heatID)
+	if err == nil {
+		rc.mu.Lock()
+		if rc.current != nil && rc.current.ID == heatID {
+			rc.current = &updated
+		}
+		rc.mu.Unlock()
+	}
+	rc.app.Bus.Publish(bus.TopicRace, "heat.finished", rc.State(ctx))
+	rc.app.Log.Info("heat entered by hand", "heat", heat.Number, "lanes", len(times))
 	return nil
 }

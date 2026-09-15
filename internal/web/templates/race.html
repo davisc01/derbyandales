@@ -163,8 +163,13 @@
         {{end}}
       </td>
       {{end}}
-      <td>
+      <td class="heat-actions">
         {{if .RunOff}}<span class="badge warn">run-off</span>{{end}}
+        <button class="btn small enter-times" data-heat="{{.ID}}" data-number="{{.Number}}"
+                data-lanes="{{range .Lanes}}{{if .EntryID}}{{.Lane}}:{{.CarNumber}}:{{.CarName}},{{end}}{{end}}"
+                data-times="{{range .Lanes}}{{if .EntryID}}{{.Lane}}={{time .FinishTime}};{{end}}{{end}}">
+          {{if .Complete}}Edit times{{else}}Enter times{{end}}
+        </button>
         {{if .Complete}}
         <button class="btn small rerun" data-heat="{{.ID}}">Re-run</button>
         {{end}}
@@ -176,4 +181,22 @@
   <p class="empty">No schedule yet. Close check-in to build one.</p>
   {{end}}
 </section>
+
+<dialog id="times-dialog">
+  <form method="dialog" class="form">
+    <h1 id="times-title">Enter times</h1>
+    <p class="hint">
+      Seconds, as the timer would report them &mdash; <code>2.431</code>. Type
+      <code>DNF</code> for a car that did not finish; it is recorded as 9.999 so
+      it sorts last. Leave a lane blank to leave it as it is.
+    </p>
+    <div id="times-lanes"></div>
+    <div class="console-row">
+      <button class="btn primary" id="times-save" value="save">Save</button>
+      <button class="btn" value="cancel">Cancel</button>
+      <span class="note err-text" id="times-error"></span>
+    </div>
+  </form>
+</dialog>
+
 {{end}}

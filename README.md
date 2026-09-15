@@ -161,6 +161,16 @@ times" would never exercise line assembly, detector excision, masking or the
 gate debounce — which is exactly where the bugs are. It also means the Timer
 Test Bench can be rehearsed with no hardware present.
 
+**Times can be entered by hand.** A correction after a bad reading, or a whole
+night with no timer at all — which is how anybody learns the software. Typed
+times go through exactly the path a timer's do, so a hand-entered heat and a
+timed one are the same kind of thing afterwards.
+
+**There is a screen for the impound table.** The official loading cars into a
+tray is not watching the racing, so that screen shows two heats — the one on the
+track and the one to load next — as numbers, lanes and pictures, and nothing
+else. It moves on by itself as the race does.
+
 **One screen tells you how to run the night.** The run-of-show is a list, in
 order, that says what is done, what is next, and what is stopping it. Nothing on
 it is ticked off by being pressed — a step is done when the thing it describes

@@ -80,3 +80,32 @@ func BuildURLs(httpPort, httpsPort int) URLs {
 	}
 	return u
 }
+
+// LAN returns just the numeric addresses a screen or tablet can reach, in
+// preference to the .local name.
+//
+// Both work, and the .local name survives a DHCP lease change where an address
+// does not — but listing both made every URL appear twice on screens that are
+// read at arm's length while carrying an HDMI cable. The address is the one
+// that always resolves, including from a device that has no mDNS.
+func (u URLs) LAN() []string {
+	var out []string
+	for _, addr := range u.Insecure {
+		host := addr
+		if i := strings.Index(host, "//"); i >= 0 {
+			host = host[i+2:]
+		}
+		if i := strings.LastIndex(host, ":"); i >= 0 {
+			host = host[:i]
+		}
+		// A numeric address starts with a digit; a hostname does not.
+		if host != "" && host[0] >= '0' && host[0] <= '9' {
+			out = append(out, addr)
+		}
+	}
+	// Fall back to whatever there is rather than showing nothing at all.
+	if len(out) == 0 {
+		return u.Insecure
+	}
+	return out
+}

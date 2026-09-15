@@ -178,6 +178,80 @@
     });
   });
 
+  // --- entering times by hand -------------------------------------------------
+  //
+  // A correction, or a whole night with no timer at all. Both are the same
+  // thing, and both were constant in the old system.
+
+  const timesDialog = document.getElementById("times-dialog");
+  let timesHeat = null;
+
+  document.querySelectorAll(".enter-times").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      timesHeat = btn.dataset.heat;
+      const box = document.getElementById("times-lanes");
+      const err = document.getElementById("times-error");
+      err.textContent = "";
+      box.replaceChildren();
+
+      document.getElementById("times-title").textContent =
+        "Heat " + btn.dataset.number;
+
+      // Whatever is already recorded, so an edit starts from the real numbers
+      // rather than from nothing.
+      const existing = {};
+      (btn.dataset.times || "").split(";").forEach(function (pair) {
+        if (!pair) return;
+        const [lane, t] = pair.split("=");
+        if (lane) existing[lane] = t || "";
+      });
+
+      (btn.dataset.lanes || "").split(",").forEach(function (entry) {
+        if (!entry) return;
+        const parts = entry.split(":");
+        const lane = parts[0];
+        const row = document.createElement("label");
+        row.className = "times-row";
+
+        const label = document.createElement("span");
+        label.className = "lbl";
+        label.textContent = "Lane " + lane + " — #" + parts[1] + " " + (parts.slice(2).join(":") || "");
+        row.appendChild(label);
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.name = "lane_" + lane;
+        input.inputMode = "decimal";
+        input.autocomplete = "off";
+        input.placeholder = "2.431 or DNF";
+        input.value = existing[lane] || "";
+        row.appendChild(input);
+
+        box.appendChild(row);
+      });
+
+      timesDialog.showModal();
+      const first = box.querySelector("input");
+      if (first) first.focus();
+    });
+  });
+
+  if (timesDialog) {
+    timesDialog.addEventListener("close", async function () {
+      if (timesDialog.returnValue !== "save" || !timesHeat) return;
+      const params = { heat_id: timesHeat };
+      document.querySelectorAll("#times-lanes input").forEach(function (i) {
+        params[i.name] = i.value;
+      });
+      try {
+        await post("/api/race/times", params);
+        location.reload();
+      } catch (err) {
+        say("run-status", err.message, true);
+      }
+    });
+  }
+
   // --- live -----------------------------------------------------------------
 
   const source = new EventSource("/events?topics=race,timer");

@@ -1,10 +1,13 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/davisc01/derbyandales/internal/schedule"
+	"github.com/davisc01/derbyandales/internal/scoring"
 	"github.com/davisc01/derbyandales/internal/store"
 )
 
@@ -19,6 +22,7 @@ func (s *Server) raceRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/race/rerun", s.handleReRunHeat)
 	mux.HandleFunc("POST /api/race/auto", s.handleAutoAdvance)
 	mux.HandleFunc("POST /api/race/runoff", s.handleRunOff)
+	mux.HandleFunc("POST /api/race/times", s.handleEnterTimes)
 }
 
 func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
@@ -178,6 +182,54 @@ func (s *Server) handleRunOff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.app.Race.ArmRunOff(r.Context(), raceID, place); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.app.Race.State(r.Context()))
+}
+
+// handleEnterTimes records a heat's times by hand — a correction, or a whole
+// night run with no timer at all.
+func (s *Server) handleEnterTimes(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	heatID, err := strconv.ParseInt(r.Form.Get("heat_id"), 10, 64)
+	if err != nil || heatID <= 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "which heat?"})
+		return
+	}
+
+	times := map[int]float64{}
+	for key, values := range r.Form {
+		if !strings.HasPrefix(key, "lane_") || len(values) == 0 {
+			continue
+		}
+		raw := strings.TrimSpace(values[0])
+		if raw == "" {
+			continue // left blank on purpose: that lane keeps whatever it had
+		}
+		lane, err := strconv.Atoi(strings.TrimPrefix(key, "lane_"))
+		if err != nil {
+			continue
+		}
+		// "dnf" is quicker to type than 9.999 and is what somebody would say.
+		if strings.EqualFold(raw, "dnf") || strings.EqualFold(raw, "x") {
+			times[lane] = scoring.DNF
+			continue
+		}
+		t, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{
+				"error": fmt.Sprintf("%q is not a time — use seconds like 2.431, or DNF", raw),
+			})
+			return
+		}
+		times[lane] = t
+	}
+
+	if err := s.app.Race.EnterTimes(r.Context(), heatID, times, "coordinator"); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
