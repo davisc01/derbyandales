@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -169,5 +170,49 @@ func TestSubstituteCandidatesComeFromTheSameRace(t *testing.T) {
 		if c.Place <= 3 {
 			t.Errorf("a car that finished %d was offered, but it already qualified", c.Place)
 		}
+	}
+}
+
+// The season page used to tell people to change these in Settings, where they
+// never were. The form has to be there and has to save.
+func TestSeasonSettingsCanBeChangedFromTheSeasonPage(t *testing.T) {
+	s, a, seasonID := seasonServer(t)
+	h := handler(t, s)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/season", nil))
+	body := rec.Body.String()
+	if !strings.Contains(body, `id="season-settings"`) {
+		t.Fatal("the season page has no settings form")
+	}
+	if strings.Contains(body, "Change this in Settings") {
+		t.Error("the page still points at Settings for a season setting")
+	}
+
+	sn, _ := a.DB.Season(context.Background(), seasonID)
+	code, resp := postForm(t, h, "/api/season/settings", url.Values{
+		"season_id":              {strconv.FormatInt(seasonID, 10)},
+		"name":                   {sn.Name},
+		"race_count":             {"6"},
+		"auto_qual_places":       {"3"},
+		"wildcard_spots":         {"14"},
+		"max_championship_entry": {"3"},
+		"track_length_ft":        {"28"},
+		"bracket_lane_a":         {"1"},
+		"bracket_lane_b":         {"2"},
+		"points_count_control":   {"false"},
+	})
+	if code != http.StatusOK {
+		t.Fatalf("status %d: %v", code, resp)
+	}
+	if got, _ := a.DB.Season(context.Background(), seasonID); got.WildcardSpots != 14 {
+		t.Errorf("wildcard spots = %d after saving 14", got.WildcardSpots)
+	}
+
+	code, resp = postForm(t, h, "/api/season/settings", url.Values{
+		"season_id": {strconv.FormatInt(seasonID, 10)}, "race_count": {"0"},
+	})
+	if code != http.StatusBadRequest {
+		t.Errorf("a season of no races was accepted: %d %v", code, resp)
 	}
 }

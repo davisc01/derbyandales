@@ -734,3 +734,7 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 .tie.settled { opacity: .7; }
 .tie-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .tie-cars { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; }
+
+/* Two short numbers side by side, such as a pair of lanes. */
+.inline-pair { display: flex; gap: 8px; align-items: center; }
+.inline-pair input { width: 5em; }

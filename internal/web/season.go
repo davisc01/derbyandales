@@ -3,7 +3,9 @@ package web
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
+	"github.com/davisc01/derbyandales/internal/app"
 	"github.com/davisc01/derbyandales/internal/season"
 )
 
@@ -19,6 +21,7 @@ func (s *Server) seasonRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /season", s.handleSeasonPage)
 
 	mux.HandleFunc("POST /api/season/recompute", s.handleRecompute)
+	mux.HandleFunc("POST /api/season/settings", s.handleSeasonSettings)
 	mux.HandleFunc("POST /api/season/adjust", s.handleAdjust)
 	mux.HandleFunc("POST /api/season/adjust/remove", s.handleRemoveAdjustment)
 
@@ -251,4 +254,44 @@ func (s *Server) handleUndoSubstitution(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// handleSeasonSettings saves the season's shape. It reports what it did not do
+// as plainly as what it did: finished races keep their points until somebody
+// recomputes, and a bracket already built is not rebuilt.
+func (s *Server) handleSeasonSettings(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	seasonID := s.seasonIDForm(r)
+	if seasonID == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "which season?"})
+		return
+	}
+	num := func(key string) int {
+		n, _ := strconv.Atoi(strings.TrimSpace(r.FormValue(key)))
+		return n
+	}
+	track, _ := strconv.ParseFloat(strings.TrimSpace(r.FormValue("track_length_ft")), 64)
+	change, err := s.app.Season.UpdateSettings(r.Context(), seasonID, app.SeasonSettings{
+		Name:                 r.FormValue("name"),
+		TrackLengthFt:        track,
+		RaceCount:            num("race_count"),
+		AutoQualPlaces:       num("auto_qual_places"),
+		WildcardSpots:        num("wildcard_spots"),
+		MaxChampionshipEntry: num("max_championship_entry"),
+		PointsCountControl:   r.FormValue("points_count_control") == "on" || r.FormValue("points_count_control") == "true",
+		BracketLaneA:         num("bracket_lane_a"),
+		BracketLaneB:         num("bracket_lane_b"),
+	}, "coordinator")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"changed":         change.Changed,
+		"needs_recompute": change.NeedsRecompute,
+		"bracket_built":   change.BracketBuilt,
+	})
 }

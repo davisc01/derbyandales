@@ -424,3 +424,56 @@ func TestTheChampionshipAwardsNoSeasonPoints(t *testing.T) {
 		t.Errorf("Recompute: %v", err)
 	}
 }
+
+// A season changes shape — a race cancelled, a wildcard spot added — and the
+// software has to allow it without quietly rewriting nights already raced.
+func TestSeasonSettingsChangeWithoutRewritingFinishedRaces(t *testing.T) {
+	a, seasonID := seasonFixture(t)
+	ctx := context.Background()
+
+	before, _ := a.DB.Wildcard(ctx, seasonID)
+	s, _ := a.DB.Season(ctx, seasonID)
+	in := SeasonSettings{
+		Name: s.Name, TrackLengthFt: s.TrackLengthFt, RaceCount: s.RaceCount,
+		AutoQualPlaces: s.AutoQualPlaces, WildcardSpots: 8,
+		MaxChampionshipEntry: s.MaxChampionshipEntry, PointsCountControl: true,
+		BracketLaneA: 2, BracketLaneB: 3,
+	}
+	change, err := a.Season.UpdateSettings(ctx, seasonID, in, "test")
+	if err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+	if len(change.Changed) != 3 {
+		t.Errorf("reported changes %v, want wildcards, pace car and lanes", change.Changed)
+	}
+	if !change.NeedsRecompute {
+		t.Error("counting the pace car changes points, but no recompute was called for")
+	}
+	got, _ := a.DB.Season(ctx, seasonID)
+	if got.WildcardSpots != 8 || !got.PointsCountControl || got.BracketLaneA != 2 || got.BracketLaneB != 3 {
+		t.Errorf("settings not saved: %+v", got)
+	}
+	after, _ := a.DB.Wildcard(ctx, seasonID)
+	for i := range before {
+		if i < len(after) && before[i].Total != after[i].Total {
+			t.Fatalf("saving a setting rewrote %s's points from %d to %d", before[i].Name, before[i].Total, after[i].Total)
+		}
+	}
+
+	// Values that cannot be right are refused with a reason.
+	for name, bad := range map[string]func(*SeasonSettings){
+		"same lane twice":        func(x *SeasonSettings) { x.BracketLaneB = x.BracketLaneA },
+		"lane off the track":     func(x *SeasonSettings) { x.BracketLaneA = 9 },
+		"no races":               func(x *SeasonSettings) { x.RaceCount = 0 },
+		"fewer than raced":       func(x *SeasonSettings) { x.RaceCount = 2 },
+		"nobody qualifies":       func(x *SeasonSettings) { x.AutoQualPlaces = 0 },
+		"negative wildcards":     func(x *SeasonSettings) { x.WildcardSpots = -1 },
+		"a track with no length": func(x *SeasonSettings) { x.TrackLengthFt = 0 },
+	} {
+		x := in
+		bad(&x)
+		if _, err := a.Season.UpdateSettings(ctx, seasonID, x, "test"); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+}

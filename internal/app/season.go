@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/davisc01/derbyandales/internal/bus"
@@ -274,4 +275,130 @@ func (sc *SeasonController) announce(seasonID int64, kind string, data map[strin
 	}
 	data["season_id"] = seasonID
 	sc.app.Bus.Publish(bus.TopicSeason, kind, data)
+}
+
+// SeasonSettings are the parts of a season that can change once it has started.
+//
+// Lane count and scale are not here: every heat already scheduled was built for
+// the lane count, and the scale is a fact about the cars. The rest describe how
+// the year is scored and how the championship is shaped, and the club does
+// change those — a race cancelled, a wildcard spot added.
+type SeasonSettings struct {
+	Name                 string
+	TrackLengthFt        float64
+	RaceCount            int
+	AutoQualPlaces       int
+	WildcardSpots        int
+	MaxChampionshipEntry int
+	PointsCountControl   bool
+	BracketLaneA         int
+	BracketLaneB         int
+}
+
+// SettingsChange reports what saving settings did, and what it deliberately did
+// not do.
+type SettingsChange struct {
+	Changed []string
+	// NeedsRecompute is set when a change affects points already recorded for
+	// finished races. They are not rewritten here: a finished race is frozen,
+	// and rewriting it is an action somebody takes on purpose.
+	NeedsRecompute bool
+	// BracketBuilt is set when the championship shape changed after the bracket
+	// was built. The bracket is not rebuilt either.
+	BracketBuilt bool
+}
+
+// UpdateSettings changes a season's settings, refusing values that cannot be
+// right and recording every change in the audit log.
+func (sc *SeasonController) UpdateSettings(ctx context.Context, seasonID int64, in SeasonSettings, actor string) (SettingsChange, error) {
+	var out SettingsChange
+	s, err := sc.app.DB.Season(ctx, seasonID)
+	if err != nil {
+		return out, err
+	}
+
+	switch {
+	case in.RaceCount < 1:
+		return out, errors.New("a season needs at least one race")
+	case in.AutoQualPlaces < 1:
+		return out, errors.New("at least the winner of each race has to qualify")
+	case in.WildcardSpots < 0:
+		return out, errors.New("wildcard spots cannot be negative")
+	case in.MaxChampionshipEntry < 1:
+		return out, errors.New("a racer has to be allowed at least one championship entry")
+	case in.TrackLengthFt <= 0:
+		return out, errors.New("the track has to have a length")
+	case in.BracketLaneA < 1 || in.BracketLaneA > s.LaneCount ||
+		in.BracketLaneB < 1 || in.BracketLaneB > s.LaneCount:
+		return out, fmt.Errorf("bracket lanes have to be between 1 and %d", s.LaneCount)
+	case in.BracketLaneA == in.BracketLaneB:
+		return out, errors.New("a bracket matchup needs two different lanes")
+	}
+
+	races, err := sc.app.DB.Races(ctx, seasonID)
+	if err != nil {
+		return out, err
+	}
+	points := 0
+	var champ *model.Race
+	for i, r := range races {
+		if r.Kind == model.RacePoints {
+			points++
+		} else {
+			champ = &races[i]
+		}
+	}
+	// Shrinking below the races already created would leave a night in the
+	// database that the season says does not exist.
+	if in.RaceCount < points {
+		return out, fmt.Errorf("%d races have already been created this season, so it cannot have fewer", points)
+	}
+
+	note := func(label string, from, to any) {
+		if fmt.Sprint(from) != fmt.Sprint(to) {
+			out.Changed = append(out.Changed, fmt.Sprintf("%s %v → %v", label, from, to))
+		}
+	}
+	if strings.TrimSpace(in.Name) == "" {
+		in.Name = s.Name
+	}
+	note("name", s.Name, in.Name)
+	note("track length", s.TrackLengthFt, in.TrackLengthFt)
+	note("races", s.RaceCount, in.RaceCount)
+	note("qualifying places", s.AutoQualPlaces, in.AutoQualPlaces)
+	note("wildcards", s.WildcardSpots, in.WildcardSpots)
+	note("entry cap", s.MaxChampionshipEntry, in.MaxChampionshipEntry)
+	note("count the pace car", s.PointsCountControl, in.PointsCountControl)
+	note("bracket lanes", fmt.Sprintf("%d & %d", s.BracketLaneA, s.BracketLaneB),
+		fmt.Sprintf("%d & %d", in.BracketLaneA, in.BracketLaneB))
+	if len(out.Changed) == 0 {
+		return out, nil
+	}
+
+	out.NeedsRecompute = s.AutoQualPlaces != in.AutoQualPlaces || s.PointsCountControl != in.PointsCountControl
+	if champ != nil && (s.RaceCount != in.RaceCount || s.AutoQualPlaces != in.AutoQualPlaces ||
+		s.WildcardSpots != in.WildcardSpots) {
+		if ms, err := sc.app.DB.Matchups(ctx, champ.ID); err == nil && len(ms) > 0 {
+			out.BracketBuilt = true
+		}
+	}
+
+	s.Name = strings.TrimSpace(in.Name)
+	s.TrackLengthFt = in.TrackLengthFt
+	s.RaceCount = in.RaceCount
+	s.AutoQualPlaces = in.AutoQualPlaces
+	s.WildcardSpots = in.WildcardSpots
+	s.MaxChampionshipEntry = in.MaxChampionshipEntry
+	s.PointsCountControl = in.PointsCountControl
+	s.BracketLaneA = in.BracketLaneA
+	s.BracketLaneB = in.BracketLaneB
+	if err := sc.app.DB.UpdateSeason(ctx, s); err != nil {
+		return out, err
+	}
+
+	for _, c := range out.Changed {
+		_ = sc.app.DB.Audit(ctx, actor, "season.settings", fmt.Sprintf("%s: %s", s.Name, c))
+	}
+	sc.announce(seasonID, "settings", map[string]any{"changed": out.Changed})
+	return out, nil
 }

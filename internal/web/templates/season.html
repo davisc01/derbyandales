@@ -35,7 +35,8 @@
   <p class="note">
     The CONTROL pace car is left out of the field size, so points match the
     club's published rule. The old tracker counted it, which added a point to
-    everyone. Change this in Settings if you need to reproduce an old year.
+    everyone. Change this under Season settings below if you need to reproduce an
+    old year.
   </p>
   {{else}}
   <p class="warn-text">
@@ -51,6 +52,48 @@
       Recompute only after correcting a result or changing a season setting.
     </span>
   </div>
+</section>
+
+<section class="card">
+  <details class="season-settings">
+    <summary>Season settings</summary>
+    <p class="hint">
+      Changing these does not rewrite a race already run. Its places and points
+      were recorded when it finished; press <b>Recompute every race</b> above to
+      bring them into line, which takes a backup first.
+    </p>
+    <form class="form" id="season-settings">
+      <label><span class="lbl">Name</span>
+        <input type="text" name="name" value="{{$s.Name}}"></label>
+      <label><span class="lbl">Races in the season</span>
+        <input type="number" name="race_count" min="1" max="20" value="{{$s.RaceCount}}"></label>
+      <label><span class="lbl">Qualifying places per race</span>
+        <input type="number" name="auto_qual_places" min="1" max="10" value="{{$s.AutoQualPlaces}}"></label>
+      <label><span class="lbl">Wildcard spots</span>
+        <input type="number" name="wildcard_spots" min="0" max="64" value="{{$s.WildcardSpots}}"></label>
+      <label><span class="lbl">Championship entries per racer</span>
+        <input type="number" name="max_championship_entry" min="1" max="10" value="{{$s.MaxChampionshipEntry}}">
+        <span class="hint">A racer holding more slots than this has to substitute the extras away.</span></label>
+      <label><span class="lbl">Track length (ft)</span>
+        <input type="number" name="track_length_ft" min="1" step="0.1" value="{{$s.TrackLengthFt}}">
+        <span class="hint">Only the scale MPH depends on it.</span></label>
+      <label><span class="lbl">Bracket lanes</span>
+        <span class="inline-pair">
+          <input type="number" name="bracket_lane_a" min="1" max="{{$s.LaneCount}}" value="{{$s.BracketLaneA}}">
+          and
+          <input type="number" name="bracket_lane_b" min="1" max="{{$s.LaneCount}}" value="{{$s.BracketLaneB}}">
+        </span></label>
+      <label class="inline">
+        <input type="checkbox" name="points_count_control" {{if $s.PointsCountControl}}checked{{end}}>
+        <span class="lbl" style="margin-left:6px">Count the pace car in the field size</span>
+      </label>
+      <p class="hint">Only for reproducing a year scored by the old tracker, which counted it.</p>
+      <div class="console-row">
+        <button class="btn primary" type="submit" data-season="{{$s.ID}}">Save season settings</button>
+        <span class="note" id="settings-status"></span>
+      </div>
+    </form>
+  </details>
 </section>
 
 <section class="card">

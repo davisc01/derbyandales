@@ -55,6 +55,36 @@
     });
   }
 
+  // --- season settings -----------------------------------------------------
+
+  const settings = document.getElementById("season-settings");
+  if (settings) {
+    settings.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const status = document.getElementById("settings-status");
+      const params = {};
+      new FormData(settings).forEach(function (v, k) { params[k] = v; });
+      // An unticked checkbox is simply absent from the form, which would read
+      // as "no change" rather than "turn it off".
+      params.points_count_control = settings.elements.points_count_control.checked ? "true" : "false";
+      try {
+        const data = await post("/api/season/settings", params);
+        if (!data.changed || !data.changed.length) {
+          say(status, "Nothing changed.");
+          return;
+        }
+        let msg = "Saved: " + data.changed.join("; ") + ".";
+        if (data.needs_recompute) msg += " Finished races keep their old points until you recompute.";
+        if (data.bracket_built) msg += " The championship bracket is already built and was not rebuilt.";
+        say(status, msg);
+        // Leave the message up long enough to read before the page redraws.
+        setTimeout(() => location.reload(), data.needs_recompute || data.bracket_built ? 4000 : 1200);
+      } catch (err) {
+        say(status, err.message, true);
+      }
+    });
+  }
+
   // --- adjustments ----------------------------------------------------------
 
   const save = document.getElementById("adjust-save");

@@ -394,6 +394,15 @@ the night was later split into five, so it is eleven now (see *Since M8*):
 - **`-demo-championship`** seeds a finished season and a bracket championship
   with the field checked in, substituting the demo's over-limit racer first.
 
+- **Season settings can be changed after the season starts**, from the Season
+  page: race count, qualifying places, wildcard spots, the entry cap, track
+  length, bracket lanes and whether the pace car counts. Every change is
+  audited. Nothing already raced is rewritten — the page says when a change
+  needs a recompute, and when the bracket was already built and is not
+  rebuilt. Lane count and scale stay fixed: every scheduled heat was built for
+  them. The page had been telling people to change the pace-car setting "in
+  Settings", where it never was.
+
 ## Settled
 
 - **"Raced in a previous championship" is checked from the archive.** The club's
