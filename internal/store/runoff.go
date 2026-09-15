@@ -67,6 +67,12 @@ func ordinal(n int) string {
 // UnsettledTies lists the ties in a race that reach a trophy, with the cars in
 // them and any run-off already arranged.
 func (db *DB) UnsettledTies(ctx context.Context, raceID int64) ([]TieView, error) {
+	// A bracket's shared places are rounds, not times. Two semi-final losers
+	// are both 3rd because neither raced the other; running them off would be
+	// a third-place match, and that is a different rule from a tie.
+	if race, err := db.Race(ctx, raceID); err == nil && race.Bracket() {
+		return nil, nil
+	}
 	standings, err := db.Standings(ctx, raceID)
 	if err != nil {
 		return nil, err

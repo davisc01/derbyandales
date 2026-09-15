@@ -158,6 +158,8 @@
           return await renderAwards();
         case "impound":
           return await renderImpound();
+        case "bracket":
+          return await renderBracket();
         case "blank":
           return renderBlank();
         default:
@@ -450,6 +452,66 @@
     return row;
   }
 
+  // The championship bracket, as it stands.
+  //
+  // Read from across a bar, so it is rounds as columns and nothing else: seed,
+  // number, car. The matchup on the track is lit, winners stay bright and the
+  // beaten car fades, and an upset is marked because it is what the room
+  // reacts to. Byes are left out of the first round — they were settled when
+  // the bracket was built, and eight empty boxes would push the real races off
+  // the screen.
+  async function renderBracket() {
+    const data = await getJSON("/api/race/bracket");
+    if (!data.seeded || !(data.rounds || []).length) {
+      const { wrap, body } = sceneShell(data.race || "Championship", "Bracket");
+      body.appendChild(el("p", "display-hint", "The bracket has not been built yet."));
+      return swap(wrap);
+    }
+
+    const sub = data.champion
+      ? "Champion: #" + data.champion.number + " " + data.champion.car + " — " + data.champion.driver
+      : data.remaining + " race" + (data.remaining === 1 ? "" : "s") + " to go";
+    const { wrap, body } = sceneShell(data.race || "Championship", sub);
+    if (data.champion) wrap.classList.add("has-champion");
+
+    const grid = el("div", "bracket");
+    grid.style.setProperty("--bracket-rounds", String(data.rounds.length));
+    data.rounds.forEach(function (rd) {
+      const col = el("div", "bracket-col");
+      col.appendChild(el("div", "bracket-round", rd.name));
+      const list = el("div", "bracket-list");
+      rd.matchups
+        .filter(function (m) { return !m.walkover; })
+        .forEach(function (m) {
+          const box = el("div", "bracket-match");
+          if (data.on_track === m.id && !m.decided) box.classList.add("on-track");
+          if (m.upset) box.classList.add("upset");
+          [m.top, m.bottom].forEach(function (slot) {
+            const line = el("div", "bracket-slot");
+            if (!slot) {
+              line.classList.add("pending");
+              line.appendChild(el("span", "bracket-seed", ""));
+              line.appendChild(el("span", "bracket-car", "—"));
+            } else {
+              if (m.decided) {
+                line.classList.add(slot.entry_id === m.winner_id ? "won" : "lost");
+              }
+              line.appendChild(el("span", "bracket-seed", String(slot.seed || "")));
+              line.appendChild(el("span", "bracket-number", "#" + slot.number));
+              line.appendChild(el("span", "bracket-car", slot.car));
+            }
+            box.appendChild(line);
+          });
+          if (m.upset) box.appendChild(el("div", "bracket-upset", "upset"));
+          list.appendChild(box);
+        });
+      col.appendChild(list);
+      grid.appendChild(col);
+    });
+    body.appendChild(grid);
+    swap(wrap);
+  }
+
   // The two voted trophies, one at a time, with the car big on the screen.
   //
   // These are given for how a car looks, so the photo is the point — a list of
@@ -711,7 +773,7 @@
   // --- live updates ---------------------------------------------------------
 
   function connect() {
-    const source = new EventSource("/events?topics=race,timer,display,system");
+    const source = new EventSource("/events?topics=race,timer,display,system,bracket");
 
     source.onopen = function () {
       showOffline(false);
@@ -734,7 +796,12 @@
       // Any race change redraws whatever this screen is showing. The reveal is
       // operator-paced, so it is left alone.
       if (scene === "now-racing" || scene === "roster" || scene === "voting-qr" ||
-          scene === "final-standings" || scene === "impound") render();
+          scene === "final-standings" || scene === "impound" || scene === "bracket") render();
+    });
+
+    source.addEventListener("bracket", function () {
+      // A matchup decided, or the bracket built or rebuilt.
+      if (scene === "bracket" || scene === "impound") render();
     });
 
     source.addEventListener("timer", function () {

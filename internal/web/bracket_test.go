@@ -296,3 +296,58 @@ func TestThePlannerEndpointAnswersWhatIf(t *testing.T) {
 		t.Error("no bye-free alternative was suggested for a five-race season")
 	}
 }
+
+// The TV scene and the loading tray both have to follow a bracket, whose next
+// heat does not exist until it is armed.
+func TestTheBracketSceneAndImpoundFollowTheMatchups(t *testing.T) {
+	s, a, seasonID, champID := championshipFixture(t)
+	ctx := context.Background()
+	if err := a.Timer.Connect(ctx, "", "simulator"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Timer.RunBench(ctx); err != nil {
+		t.Fatal(err)
+	}
+	proposals, _ := a.Bracket.Seed(ctx, seasonID, champID)
+	if _, err := a.Bracket.Generate(ctx, champID, proposals, "test"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Race.Start(ctx, champID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(a.Race.Stop)
+	armed := a.Race.State(ctx).Heat
+
+	rec := get(t, s, "/api/race/bracket")
+	var scene struct {
+		Seeded  bool  `json:"seeded"`
+		OnTrack int64 `json:"on_track"`
+		Rounds  []struct {
+			Name     string            `json:"name"`
+			Matchups []json.RawMessage `json:"matchups"`
+		} `json:"rounds"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &scene); err != nil {
+		t.Fatalf("%v: %s", err, rec.Body.String())
+	}
+	if !scene.Seeded || len(scene.Rounds) != 5 || scene.Rounds[4].Name != "Final" {
+		t.Errorf("the bracket scene has %d rounds (seeded %v)", len(scene.Rounds), scene.Seeded)
+	}
+	if scene.OnTrack != *armed.BracketMatchupID {
+		t.Errorf("the scene marks matchup %d on the track, but %d is armed", scene.OnTrack, *armed.BracketMatchupID)
+	}
+
+	cur, next := impoundState(t, s)
+	if cur == nil || next == nil {
+		t.Fatalf("impound shows current %v and next %v for a bracket", cur != nil, next != nil)
+	}
+	cars := 0
+	for _, l := range next.Lanes {
+		if l.CarNumber != 0 {
+			cars++
+		}
+	}
+	if cars != 2 {
+		t.Errorf("the next matchup to load has %d cars, want 2", cars)
+	}
+}

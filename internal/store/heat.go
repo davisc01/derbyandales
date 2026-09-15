@@ -406,6 +406,12 @@ type Standing struct {
 // run-off's order. The tied cars keep their identical averages — the run-off
 // settled which trophy each takes, not how fast they went.
 func (db *DB) Standings(ctx context.Context, raceID int64) ([]Standing, error) {
+	// A bracket is ranked by how far each car got, not by average. Answering
+	// here rather than at each caller means the reveal, the final standings and
+	// the published file cannot disagree about it.
+	if race, err := db.Race(ctx, raceID); err == nil && race.Bracket() {
+		return db.bracketStandings(ctx, raceID)
+	}
 	runs, err := db.RunsByEntry(ctx, raceID)
 	if err != nil {
 		return nil, err

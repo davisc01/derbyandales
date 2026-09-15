@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/davisc01/derbyandales/internal/bracket"
 	"github.com/davisc01/derbyandales/internal/model"
+	"github.com/davisc01/derbyandales/internal/scoring"
 	"github.com/davisc01/derbyandales/internal/season"
 )
 
@@ -797,4 +799,92 @@ func (db *DB) UndoMatchupWinner(ctx context.Context, championshipID, matchupID i
 		}
 		return nil
 	})
+}
+
+// bracketStandings is the finishing order of a bracket: by how far each car got.
+//
+// The champion is 1st and the car beaten in the final 2nd. Everyone knocked out
+// in the same round shares a place, the way two cars on the same average do —
+// both semi-final losers are 3rd, the four quarter-final losers 5th — because a
+// single elimination does not say which of them was better, and inventing an
+// order from their times would be ranking cars on something they did not race
+// for. A car still in the bracket has no place yet.
+//
+// The times columns are still filled in, from the runs each car made, because
+// the club's standings page has them. There is no dropped run: a bracket car
+// runs once a round and every run counted.
+func (db *DB) bracketStandings(ctx context.Context, raceID int64) ([]Standing, error) {
+	matchups, err := db.Matchups(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
+	seeds, err := db.Seeds(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
+	runs, err := db.RunsByEntry(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
+
+	rounds := 0
+	for _, m := range matchups {
+		if m.Round > rounds {
+			rounds = m.Round
+		}
+	}
+	// Losing in round r means 2^(rounds-r) cars went further, so the place is
+	// one after them.
+	place := map[int64]int{}
+	for _, m := range matchups {
+		if m.WinnerEntryID == nil || m.TopEntryID == nil || m.BottomEntryID == nil {
+			continue
+		}
+		loser := *m.TopEntryID
+		if loser == *m.WinnerEntryID {
+			loser = *m.BottomEntryID
+		}
+		place[loser] = 1<<(rounds-m.Round) + 1
+		if m.Round == rounds {
+			place[*m.WinnerEntryID] = 1
+		}
+	}
+	shared := map[int]int{}
+	for _, p := range place {
+		shared[p]++
+	}
+
+	out := make([]Standing, 0, len(seeds))
+	for _, s := range seeds {
+		r := scoring.Result{EntryID: s.Entry.ID, Place: place[s.Entry.ID]}
+		r.Tied = r.Place > 0 && shared[r.Place] > 1
+		for _, run := range runs[s.Entry.ID] {
+			if run.Ignored {
+				continue
+			}
+			r.Counted = append(r.Counted, run.Time)
+			r.Average += run.Time
+			if r.Heats == 0 || run.Time < r.Best {
+				r.Best = run.Time
+			}
+			if run.Time > r.Worst {
+				r.Worst = run.Time
+			}
+			r.Heats++
+		}
+		if r.Heats > 0 {
+			r.Average /= float64(r.Heats)
+		}
+		out = append(out, Standing{Result: r, Entry: s.Entry})
+	}
+	// Seeds are already in seed order, so a stable sort by place leaves cars
+	// sharing a place listed by seed — the order the room already knows them in.
+	sort.SliceStable(out, func(i, j int) bool {
+		pi, pj := out[i].Place, out[j].Place
+		if pi == 0 || pj == 0 {
+			return pj == 0 && pi != 0
+		}
+		return pi < pj
+	})
+	return out, nil
 }

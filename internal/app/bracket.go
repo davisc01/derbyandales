@@ -242,6 +242,17 @@ func (bc *BracketController) declare(ctx context.Context, championshipID int64,
 		}
 		bc.app.Log.Info("champion", "car", champ.CarName, "driver", champ.FullName(),
 			"seed", seedOf[champ.ID])
+		// A screen already showing the bracket shows the champion the moment
+		// this is published, so that counts as presenting it. Without this, a
+		// bracket left up all night would never tick off the run of show.
+		if displays, err := bc.app.DB.Displays(ctx); err == nil {
+			for _, d := range displays {
+				if d.Page == string(store.SceneBracket) && time.Since(d.LastSeenAt) < store.DisplayOnlineWindow {
+					_ = bc.app.DB.RecordSceneShown(ctx, championshipID, store.SceneBracket)
+					break
+				}
+			}
+		}
 		bc.app.Bus.Publish(bus.TopicBracket, "champion", map[string]any{
 			"race_id": championshipID,
 			"entry":   champ.ID,

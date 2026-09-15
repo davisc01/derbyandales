@@ -301,3 +301,113 @@ func TestAChampionshipHasNoIntermission(t *testing.T) {
 		t.Error("the championship paused for an intermission")
 	}
 }
+
+// The finishing order of a bracket is how far each car got. Nobody who went
+// out in the same round raced each other, so they share the place.
+func TestABracketIsRankedByHowFarEachCarGot(t *testing.T) {
+	a, champID, seedOf := bracketReady(t)
+	ctx := context.Background()
+	if err := a.Race.Start(ctx, champID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(a.Race.Stop)
+
+	for i := 0; i < 40; i++ {
+		h := a.Race.State(ctx).Heat
+		times := map[int]float64{}
+		for entry, lane := range lanesOf(*h) {
+			times[lane] = 2.4 + float64(seedOf[entry])*0.01
+		}
+		if err := a.Race.EnterTimes(ctx, h.ID, times, "test"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.DB.Champion(ctx, champID); err == nil {
+			break
+		}
+		if err := a.Race.ArmNext(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	standings, err := a.DB.Standings(ctx, champID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 24 cars in a 32 bracket: the champion, the runner-up, two semi-final
+	// losers, four quarter-final, eight in round two and the eight who lost in
+	// round one.
+	count := map[int]int{}
+	for _, st := range standings {
+		count[st.Place]++
+	}
+	want := map[int]int{1: 1, 2: 1, 3: 2, 5: 4, 9: 8, 17: 8}
+	for place, n := range want {
+		if count[place] != n {
+			t.Errorf("%d cars placed %d, want %d", count[place], place, n)
+		}
+	}
+	if len(standings) != 24 || standings[0].Place != 1 || seedOf[standings[0].Entry.ID] != 1 {
+		t.Errorf("the standings do not start with the top seed as champion")
+	}
+	// Seeds 1 and 2 were fastest every time, so they met in the final.
+	if seedOf[standings[1].Entry.ID] != 2 {
+		t.Errorf("seed %d is runner-up, want 2", seedOf[standings[1].Entry.ID])
+	}
+
+	// A shared 3rd is not a tie to run off, and no trophy is invented for it.
+	if ties, _ := a.DB.UnsettledTies(ctx, champID); len(ties) != 0 {
+		t.Errorf("the semi-final losers were offered as a tie to run off")
+	}
+	awards, err := a.DB.SpeedAwards(ctx, champID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(awards) != 2 {
+		t.Errorf("%d speed trophies for a bracket, want 1st and 2nd only", len(awards))
+	}
+}
+
+// -demo-championship is how anybody rehearses championship night, so it has to
+// arrive at a field that seeds completely and builds.
+func TestTheDemoChampionshipIsReadyToBuild(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	champ, err := a.SeedDemoChampionship(ctx, 2027)
+	if err != nil {
+		t.Fatalf("SeedDemoChampionship: %v", err)
+	}
+	if !champ.Bracket() {
+		t.Error("the demo championship is not a bracket")
+	}
+	proposals, err := a.Bracket.Seed(ctx, champ.SeasonID, champ.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cars := map[int64]int{}
+	for _, p := range proposals {
+		if !p.Matched() {
+			t.Errorf("seed %d (%s) has no car: %s", p.Seed, p.Driver, p.Why)
+		}
+		cars[p.EntryID]++
+	}
+	// The over-limit racer has been substituted down, so no one car holds two
+	// places in the bracket.
+	for id, n := range cars {
+		if n > 1 {
+			t.Errorf("entry %d is seeded %d times", id, n)
+		}
+	}
+	slots, _ := a.DB.Qualifiers(ctx, champ.SeasonID)
+	for _, sl := range slots {
+		if sl.OverLimit {
+			t.Errorf("%s is still over the limit in the demo championship", sl.Driver)
+		}
+	}
+	st, err := a.Bracket.Generate(ctx, champ.ID, proposals, "test")
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if st.Entrants != 24 {
+		t.Errorf("%d cars in the demo bracket, want 24", st.Entrants)
+	}
+}

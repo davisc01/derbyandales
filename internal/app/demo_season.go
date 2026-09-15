@@ -2,12 +2,14 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
 
 	"github.com/davisc01/derbyandales/internal/model"
 	"github.com/davisc01/derbyandales/internal/schedule"
+	"github.com/davisc01/derbyandales/internal/season"
 	"github.com/davisc01/derbyandales/internal/store"
 )
 
@@ -178,4 +180,119 @@ func seasonPace(i int) float64 {
 // round3 puts a fabricated time on the millisecond, the way a timer reports it.
 func round3(t float64) float64 {
 	return float64(int64(t*1000+0.5)) / 1000
+}
+
+// SeedDemoChampionship creates a demo season with all six nights raced and its
+// championship waiting at check-in, flagged as a bracket, with the whole field
+// checked in. This is what -demo-championship produces.
+//
+// The bracket is deliberately left unbuilt. Reviewing the seeding and building
+// it is the first thing a coordinator does on championship night, and the step
+// a demo exists to let somebody practise.
+func (a *App) SeedDemoChampionship(ctx context.Context, year int) (model.Race, error) {
+	created, err := a.seedDemoSeasonRow(ctx, year)
+	if err != nil {
+		return model.Race{}, err
+	}
+	rng := rand.New(rand.NewSource(int64(year)))
+	for n := 1; n <= created.RaceCount; n++ {
+		if err := a.seedPastRace(ctx, created.ID, n, rng); err != nil {
+			return model.Race{}, fmt.Errorf("demo race %d: %w", n, err)
+		}
+	}
+
+	// The demo season has a racer holding more slots than the cap allows, on
+	// purpose. Before a championship the club substitutes those away, so the
+	// demo does too — otherwise the same car would be seeded in the bracket
+	// several times over.
+	if err := a.substituteOverLimit(ctx, created); err != nil {
+		return model.Race{}, err
+	}
+
+	champ, err := a.DB.CreateRace(ctx, model.Race{
+		SeasonID: created.ID,
+		Number:   1,
+		Name:     "Championship",
+		Date:     time.Now(),
+		Venue:    demoVenues[len(demoVenues)-1],
+		Kind:     model.RaceChampionship,
+		Format:   model.FormatBracket,
+		Status:   model.StatusCheckin,
+	})
+	if err != nil {
+		return model.Race{}, err
+	}
+
+	field, err := a.DB.ProposeSeeding(ctx, created.ID, champ.ID)
+	if err != nil {
+		return model.Race{}, err
+	}
+	now := time.Now()
+	for i, c := range field {
+		// A wildcard racer has no particular car to bring, so they bring one
+		// named for them — which also means the seeding review shows one of
+		// each kind of match.
+		name := c.CarName
+		if name == "" {
+			name = c.Driver + "'s Wildcard"
+		}
+		if _, err := a.DB.CreateEntry(ctx, model.Entry{
+			RaceID:      champ.ID,
+			RacerID:     c.RacerID,
+			CarNumber:   101 + i,
+			CarName:     name,
+			CheckedInAt: &now,
+		}); err != nil {
+			return model.Race{}, fmt.Errorf("checking in %s: %w", c.Driver, err)
+		}
+	}
+
+	_ = a.DB.Audit(ctx, "system", "demo.seed",
+		fmt.Sprintf("championship with %d cars", len(field)))
+	a.Log.Info("demo championship created", "season", created.Name, "cars", len(field))
+	return champ, nil
+}
+
+// substituteOverLimit hands each over-limit racer's lowest slot to the best
+// finisher from that race who has room under the cap, until nobody is over.
+func (a *App) substituteOverLimit(ctx context.Context, sn model.Season) error {
+	for guard := 0; guard < 50; guard++ {
+		slots, err := a.DB.Qualifiers(ctx, sn.ID)
+		if err != nil {
+			return err
+		}
+		held := map[int64]int{}
+		for _, sl := range slots {
+			held[sl.RacerID]++
+		}
+		var over *season.Slot
+		for i := len(slots) - 1; i >= 0; i-- {
+			if slots[i].OverLimit && slots[i].SubstitutedFor == nil {
+				over = &slots[i]
+				break
+			}
+		}
+		if over == nil {
+			return nil
+		}
+		candidates, err := a.DB.SubstituteCandidates(ctx, sn.ID, over.RaceID)
+		if err != nil {
+			return err
+		}
+		done := false
+		for _, c := range candidates {
+			if c.RacerID == over.RacerID || held[c.RacerID] >= sn.MaxChampionshipEntry {
+				continue
+			}
+			if err := a.DB.Substitute(ctx, sn.ID, over.EntryID, c.EntryID); err != nil {
+				continue
+			}
+			done = true
+			break
+		}
+		if !done {
+			return fmt.Errorf("nobody from race %d can take %s's slot", over.RaceNumber, over.Driver)
+		}
+	}
+	return errors.New("substitutions did not settle")
 }

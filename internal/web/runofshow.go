@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/davisc01/derbyandales/internal/app"
 	"github.com/davisc01/derbyandales/internal/model"
 	"github.com/davisc01/derbyandales/internal/store"
 )
@@ -235,6 +236,10 @@ func (s *Server) runOfShow(ctx context.Context) ([]Step, model.Race) {
 			len(timer.Bench.Failures()), plural(len(timer.Bench.Failures())))
 	}
 
+	if race.Bracket() {
+		return s.bracketShow(ctx, race, steps[0], steps[1], state), race
+	}
+
 	// --- 3. check-in ------------------------------------------------------------
 	steps[2].Detail = fmt.Sprintf("%d car%s checked in, %d with photos",
 		len(entries), plural(len(entries)), photos)
@@ -434,8 +439,195 @@ func (s *Server) runOfShow(ctx context.Context) ([]Step, model.Race) {
 	if inter.Active {
 		force = 5
 	}
+
+	// A championship raced as a normal night has no intermission and no vote:
+	// the trophies there are for the season, not for how a car looks. Leaving
+	// the steps in would park the checklist on a vote nobody is holding.
+	if race.Kind == model.RaceChampionship {
+		steps = append(steps[:5], steps[7:]...)
+		force = -1
+		for i := range steps {
+			steps[i].Number = i + 1
+		}
+		steps[5].Hint = "Slowest to fastest, one car at a time, building up to the champion."
+	}
 	markNext(steps, force)
 	return steps, race
+}
+
+// bracketShow is the run of show for a championship raced as a bracket.
+//
+// Shorter than a race night, and differently shaped: the heats are not
+// scheduled up front, there is no vote and no reveal — the bracket *is* the
+// reveal, filling in on the screen as the night goes — and it ends when there
+// is a champion rather than when a schedule runs out.
+func (s *Server) bracketShow(ctx context.Context, race model.Race, open, timer Step, state app.RaceState) []Step {
+	steps := []Step{
+		open,
+		timer,
+		{
+			Title: "Check the field in and build the bracket",
+			Hint: "Check each car in as usual. The championship page matches every car " +
+				"to its seed from the season; building the bracket fixes the field, and " +
+				"anybody absent is left out with the seeds closed up.",
+			Link: "/championship", Action: "Championship",
+		},
+		{
+			Title: "Put the bracket on the screen",
+			Hint:  "It fills in by itself as each matchup is decided, and marks the one on the track.",
+			Link:  "/displays", Action: "Displays",
+		},
+		{
+			Title: "Race the bracket",
+			Hint: "Two cars at a time. The faster car goes through and the next matchup " +
+				"arms itself. A dead heat is run again.",
+			Link: "/race", Action: "Race screen",
+		},
+		{
+			Title: "Present the champion",
+			Hint:  "With the finished bracket up on the screen.",
+			Link:  "/displays", Action: "Displays",
+		},
+		{
+			Title: "Publish to the website",
+			Hint: "Writes the heats and the finishing order and stops. You review and " +
+				"commit them yourself — the app never runs git.",
+			Link: "/publish", Action: "Publish",
+		},
+	}
+	for i := range steps {
+		steps[i].Number = i + 1
+	}
+
+	matchups, _ := s.app.DB.Matchups(ctx, race.ID)
+	built := len(matchups) > 0
+	remaining := 0
+	for _, m := range matchups {
+		if m.WinnerEntryID == nil {
+			remaining++
+		}
+	}
+	champion, champErr := s.app.DB.Champion(ctx, race.ID)
+	crowned := champErr == nil
+
+	// --- the field ---------------------------------------------------------------
+	switch {
+	case built:
+		steps[2].State = StepDone
+		seeds, _ := s.app.DB.Seeds(ctx, race.ID)
+		steps[2].Detail = fmt.Sprintf("%d cars in the bracket", len(seeds))
+	case steps[1].State != StepDone:
+		steps[2].State = StepBlocked
+		steps[2].Blocker = "The timer test has not passed yet."
+	default:
+		steps[2].State = stepReady
+		if proposals, err := s.app.Bracket.Seed(ctx, race.SeasonID, race.ID); err == nil {
+			filled := 0
+			for _, p := range proposals {
+				if p.Matched() {
+					filled++
+				}
+			}
+			steps[2].Detail = fmt.Sprintf("%d of %d places filled", filled, len(proposals))
+		} else {
+			steps[2].Detail = err.Error()
+		}
+	}
+
+	// --- the screen ----------------------------------------------------------------
+	shown, _ := s.app.DB.SceneShown(ctx, race.ID, store.SceneBracket)
+	switch {
+	case !built:
+		steps[3].State = StepWaiting
+	case shown:
+		steps[3].State = StepDone
+		steps[3].Detail = "Shown on a screen."
+	case crowned:
+		// Too late to matter now, and presenting the champion puts it up
+		// anyway. Leaving this as the next thing to do would send somebody
+		// back to a moment that has passed.
+		steps[3].State = StepDone
+		steps[3].Caveat = "It was not on a screen during the racing."
+	default:
+		steps[3].State = stepReady
+	}
+
+	// --- the racing ----------------------------------------------------------------
+	switch {
+	case !built:
+		steps[4].State = StepBlocked
+		steps[4].Blocker = "Build the bracket first."
+	case crowned:
+		steps[4].State = StepDone
+		steps[4].Detail = fmt.Sprintf("Champion: #%d %s — %s",
+			champion.CarNumber, champion.CarName, champion.FullName())
+	default:
+		steps[4].State = stepReady
+		steps[4].Detail = fmt.Sprintf("%d race%s to go", remaining, plural(remaining))
+		if !state.Running {
+			steps[4].Detail += " · not started"
+		}
+	}
+
+	// --- the champion ----------------------------------------------------------------
+	//
+	// Shown *after* the final, not just at some point in the night: the bracket
+	// is likely to have been up since the first matchup.
+	switch {
+	case !crowned:
+		steps[5].State = StepWaiting
+	case s.bracketShownSinceFinal(ctx, race.ID, matchups):
+		steps[5].State = StepDone
+		steps[5].Detail = "Shown on a screen."
+	default:
+		steps[5].State = stepReady
+	}
+
+	// --- publish ---------------------------------------------------------------------
+	if _, err := s.app.Publish.SitePath(ctx); err != nil {
+		steps[6].State = StepBlocked
+		steps[6].Blocker = err.Error()
+	} else if !crowned {
+		steps[6].State = StepBlocked
+		steps[6].Blocker = "The bracket has not been won yet."
+	} else if plan, err := s.app.Publish.PlanRace(ctx, race.ID); err != nil {
+		steps[6].State = StepBlocked
+		steps[6].Blocker = err.Error()
+	} else if plan.Changes() == 0 {
+		steps[6].State = StepDone
+		steps[6].Detail = "Published — nothing left to write."
+	} else {
+		steps[6].State = stepReady
+		steps[6].Detail = fmt.Sprintf("%d file%s to write", plan.Changes(), plural(plan.Changes()))
+	}
+
+	markNext(steps, -1)
+	return steps
+}
+
+// bracketShownSinceFinal reports whether the bracket went on a screen after the
+// final was decided.
+func (s *Server) bracketShownSinceFinal(ctx context.Context, raceID int64, matchups []store.MatchupView) bool {
+	at, ok, err := s.app.DB.SceneShownAt(ctx, raceID, store.SceneBracket)
+	if err != nil || !ok {
+		return false
+	}
+	rounds := 0
+	var final store.MatchupView
+	for _, m := range matchups {
+		if m.Round > rounds {
+			rounds, final = m.Round, m
+		}
+	}
+	// A final settled by hand has no heat and so no time. Any showing counts.
+	if final.HeatID == nil {
+		return true
+	}
+	heat, err := s.app.DB.Heat(ctx, *final.HeatID)
+	if err != nil || heat.CompletedAt == nil {
+		return true
+	}
+	return at.Unix() >= heat.CompletedAt.Unix()
 }
 
 func plural(n int) string {

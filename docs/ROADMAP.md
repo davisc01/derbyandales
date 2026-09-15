@@ -374,6 +374,26 @@ the night was later split into five, so it is eleven now (see *Since M8*):
 - **Auto-advance is 7 seconds**, at the club's request. The screens follow the
   race, so that one setting is how long the finish order stays up.
 
+- **A bracket championship races from race control.** Before this, starting
+  one armed nothing and marked it finished; matchups could only be armed and
+  decided from the championship page. Now the next ready matchup arms itself,
+  times decide it, a dead heat re-runs, a re-run undoes a result that has not
+  been built on, and racing stops at a champion.
+- **The run of show has three shapes.** A race night as before; a standard
+  championship without the intermission and the voted trophies; and a bracket:
+  check the field in and build the bracket → put the bracket on the screen →
+  race it → present the champion (the bracket shown *after* the final) →
+  publish.
+- **The bracket TV scene** is built: rounds as columns, the matchup on the
+  track outlined, winners in gold, upsets marked. First-round byes are left
+  off. The impound screen follows a bracket too, showing the next ready
+  matchup as the heat to load.
+- **A bracket publishes** `heats.csv` and `standings.csv` in the usual columns,
+  places by round reached, only once there is a champion. No bracket was ever
+  published before, so there is no archive file to match.
+- **`-demo-championship`** seeds a finished season and a bracket championship
+  with the field checked in, substituting the demo's over-limit racer first.
+
 ## Settled
 
 - **"Raced in a previous championship" is checked from the archive.** The club's
@@ -406,5 +426,12 @@ the night was later split into five, so it is eleven now (see *Since M8*):
 
 - **Code signing and notarization** — see `packaging/NOTARIZING.md`. Last job
   before anyone else installs the app.
-- **Two display scenes are still unbuilt**: the championship bracket, and the
-  car-photo slideshow. The bracket is the one that would be noticed.
+- **Can one car qualify from two races?** In the demo it happens — a fast car
+  podiums every night — and the bracket then seeds the same car three times.
+  None of the club's qualifier lists from 2021 to 2026 repeats a car, which
+  suggests a rule the software does not know. If a car that has qualified
+  cannot qualify again, the next finisher from that race should take the slot,
+  and that changes the qualifier list.
+- **Is there a third-place matchup in a bracket?** At the moment both
+  semi-final losers share 3rd and no 3rd-place trophy is derived.
+- **The car-photo slideshow scene** is still unbuilt.

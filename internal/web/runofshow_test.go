@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/davisc01/derbyandales/internal/app"
 	"github.com/davisc01/derbyandales/internal/model"
@@ -624,4 +625,124 @@ func TestTheVotedTrophiesComeBeforeTheResults(t *testing.T) {
 	if len(out.Awards) != 5 {
 		t.Errorf("%d trophies in total, want 5", len(out.Awards))
 	}
+}
+
+// A bracket championship is a different evening: no schedule, no vote, no
+// reveal. Its checklist has to walk somebody from check-in to a champion
+// without once pointing at a step that does not apply.
+func TestABracketChampionshipHasItsOwnRunOfShow(t *testing.T) {
+	s, a, seasonID, champID := championshipFixture(t)
+	ctx := context.Background()
+	connectAndBench(t, a)
+	if err := a.Race.SetRace(ctx, champID); err != nil {
+		t.Fatal(err)
+	}
+
+	next := func() string {
+		t.Helper()
+		steps, _ := s.runOfShow(ctx)
+		for _, st := range steps {
+			if st.Title == "Intermission and voting" || st.Title == "Reveal the results" {
+				t.Errorf("a bracket's checklist includes %q", st.Title)
+			}
+		}
+		now, ok := nowStep(steps)
+		if !ok {
+			return ""
+		}
+		return now.Title
+	}
+
+	if got := next(); got != "Check the field in and build the bracket" {
+		t.Fatalf("before the bracket is built, next is %q", got)
+	}
+
+	proposals, err := a.Bracket.Seed(ctx, seasonID, champID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := a.Bracket.Generate(ctx, champID, proposals, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := next(); got != "Put the bracket on the screen" {
+		t.Fatalf("once built, next is %q", got)
+	}
+	if err := a.DB.RecordSceneShown(ctx, champID, store.SceneBracket); err != nil {
+		t.Fatal(err)
+	}
+	if got := next(); got != "Race the bracket" {
+		t.Fatalf("with the bracket on screen, next is %q", got)
+	}
+
+	seedOf := map[int64]int{}
+	for _, sd := range st.Seeds {
+		seedOf[sd.Entry.ID] = sd.Seed
+	}
+	if err := a.Race.Start(ctx, champID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(a.Race.Stop)
+	for i := 0; i < 40; i++ {
+		h := a.Race.State(ctx).Heat
+		times := map[int]float64{}
+		for _, l := range h.Lanes {
+			if l.EntryID != nil {
+				times[l.Lane] = 2.4 + float64(seedOf[*l.EntryID])*0.01
+			}
+		}
+		if err := a.Race.EnterTimes(ctx, h.ID, times, "test"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.DB.Champion(ctx, champID); err == nil {
+			break
+		}
+		if err := a.Race.ArmNext(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// The bracket was put up before the first matchup. That is not the same
+	// as presenting the champion, which has to happen after the final.
+	if got := next(); got != "Present the champion" {
+		t.Fatalf("after the final, next is %q", got)
+	}
+	time.Sleep(1100 * time.Millisecond) // scene times are stored to the second
+	if err := a.DB.RecordSceneShown(ctx, champID, store.SceneBracket); err != nil {
+		t.Fatal(err)
+	}
+	steps, _ := s.runOfShow(ctx)
+	if got := stepNamed(t, steps, "Present the champion"); got.State != StepDone {
+		t.Errorf("showing the finished bracket left presenting the champion %s", got.State)
+	}
+	if got := stepNamed(t, steps, "Race the bracket"); !strings.Contains(got.Detail, "Champion") {
+		t.Errorf("the racing step does not name the champion: %q", got.Detail)
+	}
+}
+
+// A championship raced as a normal night — every one from 2023 to 2025 — keeps
+// the reveal and the run-off but has nobody voting.
+func TestAStandardChampionshipSkipsTheVote(t *testing.T) {
+	s, a, _, champID := championshipFixture(t)
+	ctx := context.Background()
+	if err := a.DB.SetRaceFormat(ctx, champID, model.FormatStandard); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Race.SetRace(ctx, champID); err != nil {
+		t.Fatal(err)
+	}
+	steps, _ := s.runOfShow(ctx)
+	if len(steps) != 9 {
+		t.Errorf("%d steps, want 9", len(steps))
+	}
+	for i, st := range steps {
+		if st.Number != i+1 {
+			t.Errorf("step %d is numbered %d", i+1, st.Number)
+		}
+		if strings.Contains(st.Title, "Intermission") || strings.Contains(st.Title, "design and theme") {
+			t.Errorf("a championship's checklist includes %q", st.Title)
+		}
+	}
+	stepNamed(t, steps, "Reveal the results")
+	stepNamed(t, steps, "Run off any tie for a trophy")
 }

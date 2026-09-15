@@ -53,7 +53,7 @@ func Scenes() []SceneInfo {
 		{SceneFinal, "Final standings", "The whole table at once, for the wrap-up.", true},
 		{SceneSlides, "Car photos", "Slideshow of the cars.", false},
 		{SceneAwards, "Design & theme trophies", "The two voted trophies, one at a time, with the car.", true},
-		{SceneBracket, "Bracket", "The championship bracket.", false},
+		{SceneBracket, "Bracket", "The championship bracket, live, with the matchup on the track marked.", true},
 		{SceneImpound, "Impound", "This heat and the next: numbers, lanes and pictures, for loading the tray.", true},
 		{SceneVotingQR, "Voting", "Points people at the tablet during the intermission.", true},
 	}
@@ -229,6 +229,23 @@ func (db *DB) SceneShown(ctx context.Context, raceID int64, scene Scene) (bool, 
 		`SELECT COUNT(*) FROM scene_shown WHERE race_id = ? AND scene = ?`,
 		raceID, string(scene)).Scan(&n)
 	return n > 0, err
+}
+
+// SceneShownAt reports when a race last put a scene on a screen, and whether it
+// ever has. Some steps care about order — the bracket shown *after* the final —
+// not just that it happened once.
+func (db *DB) SceneShownAt(ctx context.Context, raceID int64, scene Scene) (time.Time, bool, error) {
+	var at int64
+	err := db.QueryRowContext(ctx,
+		`SELECT at FROM scene_shown WHERE race_id = ? AND scene = ?`,
+		raceID, string(scene)).Scan(&at)
+	if errors.Is(err, sql.ErrNoRows) {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	return time.Unix(at, 0), true, nil
 }
 
 // RunOffHeats returns a race's run-off heats, keyed by the place each settles.

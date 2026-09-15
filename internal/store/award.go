@@ -65,6 +65,10 @@ func (db *DB) SpeedAwards(ctx context.Context, raceID int64) ([]AwardView, error
 	if err != nil {
 		return nil, err
 	}
+	race, err := db.Race(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
 
 	var out []AwardView
 	for _, st := range standings {
@@ -72,6 +76,11 @@ func (db *DB) SpeedAwards(ctx context.Context, raceID int64) ([]AwardView, error
 			continue
 		}
 		i := len(out)
+		// A shared place in a bracket is a round, and there is no run-off to
+		// split it, so the trophy for that place is not the software's to give.
+		if race.Bracket() && st.Tied {
+			break
+		}
 		a := AwardView{Entry: st.Entry}
 		a.RaceID = raceID
 		a.Name = SpeedAwardNames[i]

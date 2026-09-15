@@ -63,6 +63,18 @@ screens have something real on them from the first launch. The Timer page offers
 a simulated timer with buttons that stand in for the person at the track, so the
 whole race night can be rehearsed on a laptop.
 
+For championship night instead:
+
+```sh
+go run ./cmd/derbyandales -demo-championship -data /tmp/dna-champ
+```
+
+That is a season with all six nights raced and its championship at check-in,
+flagged as a bracket, with the whole field checked in. Review the seeding and
+build the bracket on the Championship page, then race it from the Race page —
+typing times in with **Enter times** works without a timer. A separate `-data`
+folder keeps it apart from the ordinary demo.
+
 The app starts a web server and opens a browser. Everything happens there.
 
 ```
@@ -70,6 +82,7 @@ The app starts a web server and opens a browser. Everything happens there.
   Check-in:     https://192.168.1.42:8443/checkin            camera works after trusting the certificate
   A TV:         http://192.168.1.42:8080/display             then pick its scene on the Displays page
   Impound:      http://192.168.1.42:8080/display?scene=impound
+  Bracket:      http://192.168.1.42:8080/display?scene=bracket
   Voting:       http://192.168.1.42:8080/vote
 ```
 

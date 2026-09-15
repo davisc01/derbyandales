@@ -74,6 +74,13 @@ func (pc *PublishController) PlanRace(ctx context.Context, raceID int64) (publis
 	if len(files.Heats) == 0 {
 		return publish.Plan{}, fmt.Errorf("%s has no results yet", raceLabel(race))
 	}
+	// Half a bracket has no finishing order to publish: most of the field has
+	// no place until the cars above them are decided.
+	if race.Bracket() {
+		if _, err := pc.app.DB.Champion(ctx, raceID); err != nil {
+			return publish.Plan{}, fmt.Errorf("%s has not been won yet", raceLabel(race))
+		}
+	}
 	if files.Standings, err = pc.standingRows(ctx, raceID); err != nil {
 		return publish.Plan{}, err
 	}

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -34,6 +35,7 @@ func (s *Server) displayRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/race/standings", s.handleStandings)
 	mux.HandleFunc("GET /api/race/awards", s.handleRaceAwards)
 	mux.HandleFunc("GET /api/race/impound", s.handleImpound)
+	mux.HandleFunc("GET /api/race/bracket", s.handleRaceBracket)
 }
 
 // handleDisplay serves the display shell.
@@ -490,6 +492,18 @@ func (s *Server) handleImpound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	out["current"] = impoundHeat(heats[current])
+
+	// A bracket builds each heat when it is armed, so the next one does not
+	// exist yet. The next matchup ready to race is what goes in the tray.
+	if race.Bracket() {
+		if next, ok := s.nextMatchupAfter(ctx, race, heats[current]); ok {
+			out["upcoming"] = next
+		}
+		writeJSON(w, http.StatusOK, out)
+		return
+	}
+
 	// The next heat that still has to be loaded. A heat already run is not
 	// something anybody needs to fetch cars for.
 	upcoming := -1
@@ -500,7 +514,6 @@ func (s *Server) handleImpound(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	out["current"] = impoundHeat(heats[current])
 	if upcoming >= 0 {
 		out["upcoming"] = impoundHeat(heats[upcoming])
 	}
@@ -527,4 +540,67 @@ func impoundHeat(h store.HeatView) map[string]any {
 		"lanes":    lanes,
 		"complete": h.Complete(),
 	}
+}
+
+// nextMatchupAfter is the matchup that will be raced after the one on the
+// track, shown the way its heat will be laid out.
+func (s *Server) nextMatchupAfter(ctx context.Context, race model.Race, current store.HeatView) (map[string]any, bool) {
+	matchups, err := s.app.DB.Matchups(ctx, race.ID)
+	if err != nil {
+		return nil, false
+	}
+	sn, err := s.app.DB.Season(ctx, race.SeasonID)
+	if err != nil {
+		return nil, false
+	}
+	for _, m := range matchups {
+		if !m.Ready() || (current.BracketMatchupID != nil && *current.BracketMatchupID == m.ID) {
+			continue
+		}
+		lanes := make([]map[string]any, 0, sn.LaneCount)
+		for lane := 1; lane <= sn.LaneCount; lane++ {
+			row := map[string]any{"lane": lane}
+			var e *store.EntryView
+			switch lane {
+			case sn.BracketLaneA:
+				e = m.Top
+			case sn.BracketLaneB:
+				e = m.Bottom
+			}
+			if e != nil {
+				row["car_number"] = e.CarNumber
+				row["car_name"] = e.CarName
+				row["driver"] = e.FullName()
+				if e.PhotoID != nil {
+					row["photo_id"] = *e.PhotoID
+				}
+			}
+			lanes = append(lanes, row)
+		}
+		// Not yet numbered: the heat is numbered when it is built.
+		return map[string]any{"heat": current.Number + 1, "lanes": lanes, "complete": false}, true
+	}
+	return nil, false
+}
+
+// handleRaceBracket is what the bracket scene reads: the loaded race's bracket,
+// with the matchup on the track marked.
+func (s *Server) handleRaceBracket(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	raceID := s.raceIDParam(r)
+	race, err := s.app.DB.Race(ctx, raceID)
+	if raceID == 0 || err != nil || !race.Bracket() {
+		writeJSON(w, http.StatusOK, map[string]any{"seeded": false, "race": race.Name})
+		return
+	}
+	state, err := s.app.Bracket.State(ctx, raceID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	data := bracketJSON(state)
+	if h := s.app.Race.State(ctx).Heat; h != nil && h.BracketMatchupID != nil {
+		data["on_track"] = *h.BracketMatchupID
+	}
+	writeJSON(w, http.StatusOK, data)
 }

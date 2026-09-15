@@ -34,6 +34,7 @@ func main() {
 		noOpen    = flag.Bool("no-open", false, "do not open a browser on startup")
 		debug     = flag.Bool("debug", false, "verbose logging")
 		demo      = flag.Bool("demo", false, "create a demo season and race if none exists, for learning the software without real data")
+		demoChamp = flag.Bool("demo-championship", false, "create a demo season that has finished, with its bracket championship at check-in")
 		showVer   = flag.Bool("version", false, "print version and exit")
 	)
 	flag.Parse()
@@ -49,13 +50,13 @@ func main() {
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
 
-	if err := run(log, *dataDir, *httpPort, *httpsPort, *noTLS, *noOpen, *demo); err != nil {
+	if err := run(log, *dataDir, *httpPort, *httpsPort, *noTLS, *noOpen, *demo, *demoChamp); err != nil {
 		log.Error("fatal", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(log *slog.Logger, dataDir string, httpPort, httpsPort int, noTLS, noOpen, demo bool) error {
+func run(log *slog.Logger, dataDir string, httpPort, httpsPort int, noTLS, noOpen, demo, demoChamp bool) error {
 	// Interrupts are caught so the database gets a clean close and connected
 	// displays are told the server is going away.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -72,8 +73,12 @@ func run(log *slog.Logger, dataDir string, httpPort, httpsPort int, noTLS, noOpe
 	}
 	defer a.Close()
 
-	if demo && !a.HasDemoData(ctx) {
-		if _, err := a.SeedDemoSeason(ctx, time.Now().Year()); err != nil {
+	if (demo || demoChamp) && !a.HasDemoData(ctx) {
+		seed := a.SeedDemoSeason
+		if demoChamp {
+			seed = a.SeedDemoChampionship
+		}
+		if _, err := seed(ctx, time.Now().Year()); err != nil {
 			log.Warn("could not create demo data", "err", err)
 		} else {
 			// The startup load already ran against an empty database.

@@ -12,6 +12,7 @@ make test                       # tests only
 go test ./... -race             # the concurrency-sensitive packages need this
 make app                        # dist/DerbyAndAles.app (universal binary)
 go run ./cmd/derbyandales -demo # a practice season, no hardware needed
+go run ./cmd/derbyandales -demo-championship -data /tmp/x  # championship night
 ```
 
 `-demo` plus the simulated timer means a whole race night can be rehearsed on a
@@ -116,6 +117,16 @@ These are the domain, and getting them wrong changes published results.
   bracket. Every championship from 2023 to 2025 was a normal race, so nothing
   bracket-shaped — building it, arming matchups, the bracket scene, its steps on
   the run-of-show — should appear for a race where `Race.Bracket()` is false.
+  No championship of either format has an intermission: there is no vote.
+- **A bracket is raced from race control like any other night.** `ArmNext`
+  arms the next ready matchup, building its heat then; the times — timed or
+  typed in — decide it through `decideMatchup`; racing stops at a champion.
+  A dead heat re-runs the same matchup. Re-running a decided matchup takes its
+  winner back out of the round above, and is refused once that winner has
+  raced again (`UndoMatchupWinner`). `Standings` answers for a bracket by
+  round reached — the champion 1st, runner-up 2nd, both semi-final losers
+  3rd — so the reveal, the final standings and the published file agree. A
+  shared place in a bracket is not a tie to run off and earns no trophy.
 - **A bye is not a race.** Walkovers are resolved when the bracket is built, so
   a bye racer appears in round two immediately rather than looking like a
   matchup waiting to happen. A 24-car field is still 23 races: byes move where

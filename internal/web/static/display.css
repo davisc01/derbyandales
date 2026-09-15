@@ -6,9 +6,11 @@
 :root {
   --bg:        #0b0c12;
   --panel:     #161824;
+  --panel-2:   #1f2232;
   --line:      #272b3d;
   --ink:       #f2f4fa;
   --ink-dim:   #98a0b8;
+  --ink-faint: #6b7390;
 
   --green: #46d16f;
   --amber: #f5b23c;
@@ -543,4 +545,67 @@ html, body { height: 100%; }
     animation: none;
   }
   .lanes.leaving .lane-row.running { opacity: 0; }
+}
+
+/* --- the championship bracket -------------------------------------------------
+   Rounds as columns, each spreading its matchups down the full height so the
+   later rounds sit between the pairs that feed them. */
+
+.bracket {
+  display: grid;
+  grid-template-columns: repeat(var(--bracket-rounds, 5), 1fr);
+  gap: 1.4vw;
+  height: 100%;
+}
+.bracket-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.bracket-round {
+  font-size: 2.2vh;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink-dim);
+  margin-bottom: 1vh;
+}
+.bracket-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: .8vh;
+  min-height: 0;
+}
+.bracket-match {
+  position: relative;
+  background: var(--panel);
+  border-radius: .8vh;
+  padding: .5vh .8vw;
+}
+.bracket-match.on-track { box-shadow: inset 0 0 0 .35vh var(--green); }
+.bracket-slot {
+  display: flex;
+  align-items: baseline;
+  gap: .6vw;
+  font-size: 2.3vh;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.bracket-seed { flex: 0 0 2.4vw; text-align: right; color: var(--ink-faint); font-family: var(--mono); }
+.bracket-number { font-family: var(--mono); color: var(--ink-dim); }
+.bracket-car { overflow: hidden; text-overflow: ellipsis; }
+.bracket-slot.won { font-weight: 700; }
+.bracket-slot.won .bracket-car { color: var(--gold); }
+.bracket-slot.lost { opacity: .4; }
+.bracket-slot.pending { color: var(--ink-faint); }
+/* The label sits in a gutter kept clear for it, so it never runs over a name. */
+.bracket-match.upset { padding-right: 4.6vw; box-shadow: inset .35vh 0 0 var(--red); }
+.bracket-match.upset.on-track { box-shadow: inset .35vh 0 0 var(--red), inset 0 0 0 .35vh var(--green); }
+.bracket-upset {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: .6vw;
+  font-size: 1.5vh;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--red);
 }
