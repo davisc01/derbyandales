@@ -137,6 +137,19 @@
     {{end}}
   </table>
 
+  {{if not $d.Race.Bracket}}
+  <div class="console-row">
+    <span class="badge off">Normal race</span>
+    <span class="note">
+      This championship runs like any other night: four runs a car, one in each
+      lane, fastest average wins. The field above is who is entitled to race.
+    </span>
+  </div>
+  <div class="console-row">
+    <button class="btn" id="run-as-bracket" data-race="{{$d.Race.ID}}">Run it as a bracket instead</button>
+    <span class="note" id="format-status"></span>
+  </div>
+  {{else}}
   <div class="console-row">
     <button class="btn primary" id="generate-bracket" data-season="{{$s.ID}}">
       Build the bracket
@@ -150,6 +163,10 @@
       {{end}}
     </span>
   </div>
+  <div class="console-row">
+    <button class="btn small" id="run-as-standard" data-race="{{$d.Race.ID}}">Run it as a normal race instead</button>
+  </div>
+  {{end}}
 </section>
 {{end}}
 

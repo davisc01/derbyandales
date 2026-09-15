@@ -48,6 +48,20 @@ const (
 	StatusComplete RaceStatus = "complete"
 )
 
+// RaceFormat is how a race is run.
+type RaceFormat string
+
+const (
+	// FormatStandard: every car runs once in each lane, drop the slowest,
+	// fastest average wins. Every season race, and every championship the club
+	// published from 2019 to 2025.
+	FormatStandard RaceFormat = "standard"
+	// FormatBracket: single elimination, head to head, seeded from the season.
+	// Only ever a championship: a bracket produces no averages, so it cannot
+	// feed season points.
+	FormatBracket RaceFormat = "bracket"
+)
+
 // Race is one event night.
 type Race struct {
 	ID        int64
@@ -57,9 +71,14 @@ type Race struct {
 	Date      time.Time
 	Venue     string
 	Kind      RaceKind
+	Format    RaceFormat
 	Status    RaceStatus
 	CreatedAt time.Time
 }
+
+// Bracket reports whether this race is run as a single-elimination bracket.
+// Everything bracket-shaped in the application hangs off this and nothing else.
+func (r Race) Bracket() bool { return r.Format == FormatBracket }
 
 // Racer is a person, identified by a row rather than by name string. The old
 // tracker keyed season points on the name text, so a typo silently split a

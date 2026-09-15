@@ -120,13 +120,13 @@ func (db *DB) Seasons(ctx context.Context) ([]model.Season, error) {
 
 // --- races -------------------------------------------------------------------
 
-const raceCols = `id, season_id, number, name, date, venue, kind, status, created_at`
+const raceCols = `id, season_id, number, name, date, venue, kind, format, status, created_at`
 
 func scanRace(sc interface{ Scan(...any) error }) (model.Race, error) {
 	var r model.Race
 	var date, createdAt int64
 	err := sc.Scan(&r.ID, &r.SeasonID, &r.Number, &r.Name, &date, &r.Venue,
-		&r.Kind, &r.Status, &createdAt)
+		&r.Kind, &r.Format, &r.Status, &createdAt)
 	if err != nil {
 		return r, err
 	}
@@ -140,14 +140,20 @@ func (db *DB) CreateRace(ctx context.Context, r model.Race) (model.Race, error) 
 	if r.Kind == "" {
 		r.Kind = model.RacePoints
 	}
+	if r.Format == "" {
+		r.Format = model.FormatStandard
+	}
+	if err := checkFormat(r); err != nil {
+		return r, err
+	}
 	if r.Status == "" {
 		r.Status = model.StatusSetup
 	}
 	r.CreatedAt = time.Now()
 	res, err := db.ExecContext(ctx, `
-		INSERT INTO race (season_id, number, name, date, venue, kind, status, created_at)
-		VALUES (?,?,?,?,?,?,?,?)`,
-		r.SeasonID, r.Number, r.Name, unix(r.Date), r.Venue, r.Kind, r.Status, unix(r.CreatedAt))
+		INSERT INTO race (season_id, number, name, date, venue, kind, format, status, created_at)
+		VALUES (?,?,?,?,?,?,?,?,?)`,
+		r.SeasonID, r.Number, r.Name, unix(r.Date), r.Venue, r.Kind, r.Format, r.Status, unix(r.CreatedAt))
 	if err != nil {
 		return r, fmt.Errorf("insert race: %w", err)
 	}
@@ -190,4 +196,62 @@ func (db *DB) Races(ctx context.Context, seasonID int64) ([]model.Race, error) {
 func (db *DB) SetRaceStatus(ctx context.Context, id int64, status model.RaceStatus) error {
 	_, err := db.ExecContext(ctx, `UPDATE race SET status = ? WHERE id = ?`, status, id)
 	return err
+}
+
+// checkFormat refuses a race that cannot work.
+//
+// A bracket produces no averages, and season points are built from averages,
+// so a season race run as a bracket would quietly give everybody nothing.
+func checkFormat(r model.Race) error {
+	switch r.Format {
+	case model.FormatStandard:
+		return nil
+	case model.FormatBracket:
+		if r.Kind != model.RaceChampionship {
+			return errors.New("only the championship can be run as a bracket — season points come from averages, and a bracket does not produce them")
+		}
+		return nil
+	}
+	return fmt.Errorf("%q is not a way to run a race", r.Format)
+}
+
+// SetRaceFormat changes how a race is run, before it has started.
+//
+// Once a heat has results the format is fixed: switching a half-run bracket to
+// a normal race, or the reverse, would leave results that belong to neither.
+func (db *DB) SetRaceFormat(ctx context.Context, raceID int64, format model.RaceFormat) error {
+	race, err := db.Race(ctx, raceID)
+	if err != nil {
+		return err
+	}
+	wanted := race
+	wanted.Format = format
+	if err := checkFormat(wanted); err != nil {
+		return err
+	}
+	var run int
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM heat_lane hl JOIN heat h ON h.id = hl.heat_id
+		WHERE h.race_id = ? AND hl.finish_time IS NOT NULL`, raceID).Scan(&run); err != nil {
+		return err
+	}
+	if run > 0 {
+		return errors.New("this race has already been run, so how it is run cannot change now")
+	}
+	if format == race.Format {
+		return nil
+	}
+	// Whatever was built for the other format goes: a round-robin schedule is
+	// not a bracket's heats, and a bracket left behind by a normal race would
+	// be offered to somebody later as though it were real. None of it has
+	// been raced — that was checked above — so nothing is lost.
+	return db.Tx(ctx, func(tx *sql.Tx) error {
+		for _, table := range []string{"bracket_matchup", "bracket_seed", "heat"} {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM `+table+` WHERE race_id = ?`, raceID); err != nil {
+				return err
+			}
+		}
+		_, err := tx.ExecContext(ctx, `UPDATE race SET format = ? WHERE id = ?`, format, raceID)
+		return err
+	})
 }

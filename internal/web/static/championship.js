@@ -55,6 +55,23 @@
     });
   }
 
+  // --- normal race or bracket --------------------------------------------------
+
+  for (const [id, format] of [["run-as-bracket", "bracket"], ["run-as-standard", "standard"]]) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.addEventListener("click", async function () {
+      btn.disabled = true;
+      try {
+        await post("/api/race/format", { race_id: btn.dataset.race, format: format });
+        location.reload();
+      } catch (err) {
+        say(format === "bracket" ? "format-status" : "generate-status", err.message, true);
+        btn.disabled = false;
+      }
+    });
+  }
+
   // --- running it --------------------------------------------------------------
 
   const armNext = document.getElementById("arm-next");

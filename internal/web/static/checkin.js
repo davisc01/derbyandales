@@ -349,6 +349,17 @@
 
   const raceForm = $("race-form");
   if (raceForm) {
+    // "Run as" only means something for the championship. Showing it for a
+    // season race would offer a choice the server refuses.
+    const kind = $("race-kind");
+    const showFormat = function () {
+      const championship = kind.value === "championship";
+      $("race-format-field").hidden = !championship;
+      $("race-format-hint").hidden = !championship;
+    };
+    kind.addEventListener("change", showFormat);
+    showFormat();
+
     raceForm.addEventListener("submit", async function (e) {
       e.preventDefault();
       try {
@@ -359,6 +370,7 @@
           venue: $("race-venue").value.trim(),
           date: $("race-date").value,
           kind: $("race-kind").value,
+          format: $("race-format").value,
         });
         say("race-create-status", "Created and opened for check-in.");
         setTimeout(() => location.reload(), 600);

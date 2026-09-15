@@ -57,7 +57,7 @@ func championshipFixture(t *testing.T) (*Server, *app.App, int64, int64) {
 	champ, err := a.DB.CreateRace(ctx, model.Race{
 		SeasonID: seasonID, Number: 1, Name: "Championship",
 		Date: time.Now(), Venue: "The Testing Room",
-		Kind: model.RaceChampionship, Status: model.StatusCheckin,
+		Kind: model.RaceChampionship, Format: model.FormatBracket, Status: model.StatusCheckin,
 	})
 	if err != nil {
 		t.Fatal(err)

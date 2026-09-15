@@ -200,7 +200,17 @@
             <option value="points">Season race</option>
             <option value="championship">Championship</option>
           </select></label>
+        <label class="narrow" id="race-format-field" hidden><span class="lbl">Run as</span>
+          <select id="race-format">
+            <option value="standard">A normal race</option>
+            <option value="bracket">A bracket</option>
+          </select></label>
       </div>
+      <p class="hint" id="race-format-hint" hidden>
+        A normal race is four runs a car, fastest average wins &mdash; how every
+        championship ran up to 2025. A bracket is single elimination, seeded from
+        the season. Season races are always normal.
+      </p>
       <p><button class="btn" type="submit">Create race</button>
          <span class="note" id="race-create-status"></span></p>
     </form>

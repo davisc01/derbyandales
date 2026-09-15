@@ -18,20 +18,6 @@
     </label>
 
     <label>
-      <span class="lbl">Coordinator PIN</span>
-      <input type="text" name="coordinator_pin" value="{{setting $s "coordinator_pin" ""}}"
-             inputmode="numeric" autocomplete="off">
-      <span class="hint">Scheduling, editing results, publishing. Blank means no prompt.</span>
-    </label>
-
-    <label>
-      <span class="lbl">Crew PIN</span>
-      <input type="text" name="crew_pin" value="{{setting $s "crew_pin" ""}}"
-             inputmode="numeric" autocomplete="off">
-      <span class="hint">Check-in and voting admin. Blank means no prompt.</span>
-    </label>
-
-    <label>
       <span class="lbl">Auto-advance pause</span>
       <input type="number" name="auto_advance_secs" min="0" max="120"
              value="{{setting $s "auto_advance_secs" "7"}}">

@@ -308,3 +308,70 @@ func TestTxCommitsOnSuccess(t *testing.T) {
 		t.Errorf("committed write missing, got %q", got)
 	}
 }
+
+// A bracket produces no averages, and season points are built from averages.
+// A points race run as a bracket would silently award nobody anything.
+func TestOnlyTheChampionshipCanBeABracket(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+	season, _ := db.CreateSeason(ctx, DefaultSeason(2027))
+
+	if _, err := db.CreateRace(ctx, model.Race{
+		SeasonID: season.ID, Number: 1, Name: "R", Date: time.Now(), Format: model.FormatBracket,
+	}); err == nil {
+		t.Error("a points race was created as a bracket")
+	}
+	champ, err := db.CreateRace(ctx, model.Race{
+		SeasonID: season.ID, Number: 1, Name: "C", Kind: model.RaceChampionship, Date: time.Now(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The club's championships up to 2025 were all normal races, so that is
+	// what a championship is until somebody says otherwise.
+	if champ.Bracket() {
+		t.Error("a championship defaulted to a bracket")
+	}
+	if _, err := db.GenerateBracket(ctx, champ.ID); err == nil {
+		t.Error("a bracket was built for a championship set to run as a normal race")
+	}
+	if err := db.SetRaceFormat(ctx, champ.ID, model.FormatBracket); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := db.Race(ctx, champ.ID)
+	if !got.Bracket() {
+		t.Error("the format did not change")
+	}
+	if err := db.SetRaceFormat(ctx, champ.ID, "knockout"); err == nil {
+		t.Error("an unknown format was accepted")
+	}
+}
+
+// Once cars have run, switching format would turn half a night's results into
+// the wrong kind of result.
+func TestTheFormatCannotChangeOnceRacingHasStarted(t *testing.T) {
+	db := testDB(t)
+	ctx := context.Background()
+	season, _ := db.CreateSeason(ctx, DefaultSeason(2027))
+	champ, _ := db.CreateRace(ctx, model.Race{
+		SeasonID: season.ID, Number: 1, Name: "C", Kind: model.RaceChampionship, Date: time.Now(),
+	})
+	res, err := db.ExecContext(ctx, `INSERT INTO heat (race_id, number, phase, status) VALUES (?, 1, 'qualifying', 'complete')`, champ.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	heatID, _ := res.LastInsertId()
+	racer, _ := db.ExecContext(ctx, `INSERT INTO racer (season_id, first_name, last_name) VALUES (?, 'A', 'B')`, season.ID)
+	racerID, _ := racer.LastInsertId()
+	entry, err := db.ExecContext(ctx, `INSERT INTO entry (race_id, racer_id, car_number, car_name) VALUES (?, ?, 1, 'X')`, champ.ID, racerID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entryID, _ := entry.LastInsertId()
+	if _, err := db.ExecContext(ctx, `INSERT INTO heat_lane (heat_id, lane, entry_id, finish_time) VALUES (?, 1, ?, 2.5)`, heatID, entryID); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SetRaceFormat(ctx, champ.ID, model.FormatBracket); err == nil {
+		t.Error("the format changed after a heat had been run")
+	}
+}

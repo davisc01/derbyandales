@@ -267,6 +267,11 @@ eight-element tables that raised an index error at any other size. The seeding
 is filled in from the season's own results rather than typed in by hand, which
 was a CSV export, a hand-edit, an import, and then twenty-four seeds.
 
+**The bracket is optional.** A championship is raced like any other night — four
+runs a car, fastest average wins — unless it is flagged as a bracket when it is
+created or on the championship page. The club's 2023–2025 championships were all
+normal races.
+
 ## Credits
 
 The heat-scheduling approach, the timer protocol handling, and the

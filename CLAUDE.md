@@ -111,6 +111,11 @@ These are the domain, and getting them wrong changes published results.
   are not a separate rule from 9–18: they are one ordered run, and the split at
   8 is where the byes stop. The byes land on the top seeds because that is what
   the bracket construction does, not because anything says so.
+- **A championship is a normal race unless flagged as a bracket.**
+  `race.format` is `standard` or `bracket`, and only a championship may be a
+  bracket. Every championship from 2023 to 2025 was a normal race, so nothing
+  bracket-shaped — building it, arming matchups, the bracket scene, its steps on
+  the run-of-show — should appear for a race where `Race.Bracket()` is false.
 - **A bye is not a race.** Walkovers are resolved when the bracket is built, so
   a bye racer appears in round two immediately rather than looking like a
   matchup waiting to happen. A 24-car field is still 23 races: byes move where

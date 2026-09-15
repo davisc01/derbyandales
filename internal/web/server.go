@@ -302,8 +302,6 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	// invent configuration.
 	allowed := []string{
 		store.KeyDerbySitePath,
-		store.KeyCoordinatorPIN,
-		store.KeyCrewPIN,
 		store.KeyAutoAdvanceSecs,
 		store.KeyBackupKeep,
 		store.KeyHTTPPort,

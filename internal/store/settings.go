@@ -14,8 +14,6 @@ import (
 // season row instead, so these are genuinely global.
 const (
 	KeyDerbySitePath   = "derby_site_path"   // path to the Hugo site clone
-	KeyCoordinatorPIN  = "coordinator_pin"   // scheduling, results editing, publishing
-	KeyCrewPIN         = "crew_pin"          // check-in, voting admin
 	KeyAutoAdvanceSecs = "auto_advance_secs" // pause between heats
 	KeyTimerPort       = "timer_port"        // remembered serial device
 	KeyTimerProfile    = "timer_profile"     // e.g. fasttrack-k, simulator

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/davisc01/derbyandales/internal/model"
 	"github.com/davisc01/derbyandales/internal/schedule"
 	"github.com/davisc01/derbyandales/internal/scoring"
 	"github.com/davisc01/derbyandales/internal/store"
@@ -23,6 +24,7 @@ func (s *Server) raceRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/race/auto", s.handleAutoAdvance)
 	mux.HandleFunc("POST /api/race/runoff", s.handleRunOff)
 	mux.HandleFunc("POST /api/race/times", s.handleEnterTimes)
+	mux.HandleFunc("POST /api/race/format", s.handleRaceFormat)
 }
 
 func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
@@ -234,4 +236,26 @@ func (s *Server) handleEnterTimes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.app.Race.State(r.Context()))
+}
+
+// handleRaceFormat switches the championship between a normal race and a
+// bracket. It is refused once any heat has times, because the two produce
+// different heats and half of each is not a result.
+func (s *Server) handleRaceFormat(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	raceID := s.raceIDForm(r)
+	if raceID == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "which race?"})
+		return
+	}
+	format := model.RaceFormat(r.Form.Get("format"))
+	if err := s.app.DB.SetRaceFormat(r.Context(), raceID, format); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	s.app.DB.Audit(r.Context(), "coordinator", "race.format", fmt.Sprintf("race %d → %s", raceID, format))
+	writeJSON(w, http.StatusOK, map[string]string{"format": string(format)})
 }

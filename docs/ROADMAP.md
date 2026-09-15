@@ -389,13 +389,22 @@ the night was later split into five, so it is eleven now (see *Since M8*):
   site, those tests fail loudly with a message saying why, rather than silently
   testing nothing.
 
+- **A championship is a normal race unless it is flagged as a bracket.** Every
+  championship the club ran from 2023 to 2025 was four runs a car, fastest
+  average wins — 24, 22 and 24 heats, four cars each. The bracket is an option
+  chosen when the championship race is created, or switched on the
+  championship page until the first heat has times. Switching throws away
+  whatever was built for the other format and has not been raced. Only a
+  championship can be a bracket: season points come from averages, which a
+  bracket does not produce.
+- **No PINs.** The settings page offered a coordinator and a crew PIN that
+  nothing checked. The fields are gone rather than wired up: the app runs on a
+  private network at the venue, and a prompt that can be bypassed by the person
+  standing at the laptop protects nothing.
+
 ## Open questions
 
 - **Code signing and notarization** — see `packaging/NOTARIZING.md`. Last job
   before anyone else installs the app.
-- **The PINs are settable but enforce nothing.** Settings offers a coordinator
-  and a crew PIN and says "blank means no prompt", which implies a non-blank one
-  prompts. Nothing checks them. Either wire them up or take the fields out; as
-  it stands the page makes a promise the app does not keep.
 - **Two display scenes are still unbuilt**: the championship bracket, and the
   car-photo slideshow. The bracket is the one that would be noticed.

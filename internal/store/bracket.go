@@ -328,6 +328,13 @@ func (m MatchupView) Upset() bool {
 // Walkovers are resolved as it goes, so a bye racer appears in round two the
 // moment the bracket exists rather than after somebody presses something.
 func (db *DB) GenerateBracket(ctx context.Context, championshipID int64) (*bracket.Bracket, error) {
+	race, err := db.Race(ctx, championshipID)
+	if err != nil {
+		return nil, err
+	}
+	if !race.Bracket() {
+		return nil, fmt.Errorf("%s is set to run as a normal race, not a bracket", raceName(race))
+	}
 	seeds, err := db.Seeds(ctx, championshipID)
 	if err != nil {
 		return nil, err

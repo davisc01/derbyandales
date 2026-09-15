@@ -147,6 +147,12 @@ func (s *Server) handleCreateRace(w http.ResponseWriter, r *http.Request) {
 	if r.Form.Get("kind") == string(model.RaceChampionship) {
 		kind = model.RaceChampionship
 	}
+	// How it is run is only a question for the championship. A season race is
+	// always a normal race, whatever the form sent.
+	format := model.FormatStandard
+	if kind == model.RaceChampionship && r.Form.Get("format") == string(model.FormatBracket) {
+		format = model.FormatBracket
+	}
 
 	name := strings.TrimSpace(r.Form.Get("name"))
 	if name == "" {
@@ -171,6 +177,7 @@ func (s *Server) handleCreateRace(w http.ResponseWriter, r *http.Request) {
 		Date:     date,
 		Venue:    strings.TrimSpace(r.Form.Get("venue")),
 		Kind:     kind,
+		Format:   format,
 		Status:   model.StatusCheckin,
 	})
 	if err != nil {

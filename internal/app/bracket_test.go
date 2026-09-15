@@ -57,6 +57,7 @@ func championshipWithField(t *testing.T, a *App, seasonID int64, skip map[string
 		Date:     time.Now(),
 		Venue:    "The Testing Room",
 		Kind:     model.RaceChampionship,
+		Format:   model.FormatBracket,
 		Status:   model.StatusCheckin,
 	})
 	if err != nil {
