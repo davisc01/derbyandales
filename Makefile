@@ -21,6 +21,10 @@ run:
 test:
 	go test ./...
 
+## e2e: two whole seasons through the web endpoints, published to a temp site
+e2e:
+	go test -tags e2e -count=1 -run TestE2E ./internal/web/
+
 ## race: run the suite under the race detector
 race:
 	go test -race ./...
@@ -41,9 +45,10 @@ fmt-check:
 	@out=$$(gofmt -l .); \
 	if [ -n "$$out" ]; then echo "unformatted files:"; echo "$$out"; exit 1; fi
 
-## vet: run go vet
+## vet: run go vet, including the end-to-end tests so they cannot rot unseen
 vet:
 	go vet ./...
+	go vet -tags e2e ./internal/web/
 
 ## app: build DerbyAndAles.app (universal binary)
 app:
@@ -53,4 +58,4 @@ app:
 clean:
 	rm -rf $(DIST) .devdata
 
-.PHONY: help build run test race cover check fmt fmt-check vet app clean
+.PHONY: help build run test e2e race cover check fmt fmt-check vet app clean

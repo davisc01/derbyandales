@@ -9,11 +9,18 @@ and [docs/ROADMAP.md](docs/ROADMAP.md) for what is left to build.
 ```sh
 make check                      # gofmt, vet, tests — run before committing
 make test                       # tests only
+make e2e                        # two whole seasons end to end (~30 s) — run after rule changes
 go test ./... -race             # the concurrency-sensitive packages need this
 make app                        # dist/DerbyAndAles.app (universal binary)
 go run ./cmd/derbyandales -demo # a practice season, no hardware needed
 go run ./cmd/derbyandales -demo-championship -data /tmp/x  # championship night
 ```
+
+`make e2e` runs two complete seasons through the HTTP endpoints — six nights
+with the vote, a racer reaching the cap, an already-qualified car, a run-off,
+a bracket championship, every file published to a temp site — and a 5-race,
+1-wildcard season that must make a bye-free 16. It is what to run after
+touching a club rule: each rule has unit tests, but this is where they meet.
 
 `-demo` plus the simulated timer means a whole race night can be rehearsed on a
 laptop. Use it — most bugs in this codebase have surfaced that way rather than

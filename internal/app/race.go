@@ -792,6 +792,7 @@ func (rc *RaceController) EnterTimes(ctx context.Context, heatID int64, times ma
 		}
 	}
 
+	firstTimes := !anyRecorded(heat)
 	if err := rc.app.DB.RecordHeatResults(ctx, heatID, times); err != nil {
 		return err
 	}
@@ -823,6 +824,13 @@ func (rc *RaceController) EnterTimes(ctx context.Context, heatID int64, times ma
 	}
 	rc.app.Bus.Publish(bus.TopicRace, "heat.finished", rc.State(ctx))
 	rc.app.Log.Info("heat entered by hand", "heat", heat.Number, "lanes", len(times))
+
+	// A night run with no timer still stops halfway for the vote. Only on a
+	// heat's first times: correcting one later is not the race reaching its
+	// halfway point.
+	if firstTimes && heat.BracketMatchupID == nil && rc.shouldPauseAfter(ctx, heat.RaceID, int64(heat.Number)) {
+		rc.startIntermission(ctx, heat.RaceID)
+	}
 	return nil
 }
 

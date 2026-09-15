@@ -265,3 +265,36 @@ func runHeatsUntil(t *testing.T, a *App, raceID int64, done func() bool, timeout
 	}
 	t.Fatalf("timed out after %v", timeout)
 }
+
+// Times typed in take the same path as a timer's, and that includes stopping
+// halfway for the vote. A night run without a timer would otherwise never open
+// voting at all.
+func TestTypedInTimesStillStopForTheIntermission(t *testing.T) {
+	a, raceID := raceFixture(t)
+	ctx := context.Background()
+	if _, err := a.Race.GenerateSchedule(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Race.SetRace(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+	half := a.Race.IntermissionHeat(ctx, raceID)
+	heats, _ := a.DB.Heats(ctx, raceID)
+	for _, h := range heats {
+		times := map[int]float64{}
+		for _, l := range h.Lanes {
+			if l.EntryID != nil {
+				times[l.Lane] = 2.5 + float64(l.Lane)*0.01
+			}
+		}
+		if err := a.Race.EnterTimes(ctx, h.ID, times, "test"); err != nil {
+			t.Fatalf("heat %d: %v", h.Number, err)
+		}
+		if h.Number == half {
+			break
+		}
+	}
+	if !a.Race.Intermission(ctx).Active || !a.Race.VotingOpen() {
+		t.Fatal("typing in the halfway heat did not start the intermission")
+	}
+}

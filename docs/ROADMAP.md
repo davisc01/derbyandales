@@ -447,6 +447,20 @@ the night was later split into five, so it is eleven now (see *Since M8*):
   run-off, so a settled tie for 3rd stayed tied in the season's places. It is
   recorded again once the run-off lands.
 
+- **`make e2e` runs two whole seasons end to end** through the web endpoints:
+  six nights (one on the simulated timer, five typed in) with the vote at each
+  intermission, a racer reaching the cap, an already-qualified car turning up,
+  a run-off for 2nd, a bracket championship raced to a champion, and every file
+  published to a temp site and read back. Then a 5-race, 1-wildcard season that
+  has to make a bye-free 16. Checked against a deliberately broken cap rule,
+  which it caught. It found one real gap on its first run: **typed-in times
+  never started the intermission**, so a night without a timer would never have
+  opened voting. Fixed.
+- **The devices page** (`/devices`) is what every other device bookmarks:
+  buttons for check-in and roster, impound, the voting booth and the main
+  display, each opening in its own tab, with no coordinator navigation.
+  Check-in from a plain-HTTP tablet is sent to the HTTPS address for the camera.
+
 ## Settled
 
 - **"Raced in a previous championship" is checked from the archive.** The club's
