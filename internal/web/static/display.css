@@ -609,3 +609,30 @@ html, body { height: 100%; }
   letter-spacing: .08em;
   color: var(--red);
 }
+
+/* --- slideshow: one car at a time ----------------------------------------------- */
+
+/* Pushed down to clear the club mark in the corner, which the photo would
+   otherwise run under. */
+.scene.slide .scene-body { display: flex; flex-direction: column; gap: 2vh; height: 100%; padding-top: 8vh; box-sizing: border-box; }
+.slide-pic {
+  flex: 1;
+  min-height: 0;
+  border-radius: 1.2vh;
+  overflow: hidden;
+  background: var(--panel);
+  animation: slide-in .6s ease-out;
+}
+.slide-pic img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.slide-caption { display: flex; align-items: baseline; gap: 2.5vw; padding: 0 1vw; }
+.slide-number { font-family: var(--mono); font-size: 7vh; font-weight: 800; color: var(--gold); }
+.slide-car { font-size: 5vh; font-weight: 700; line-height: 1.1; }
+.slide-driver { font-size: 3vh; color: var(--ink-dim); }
+
+@keyframes slide-in {
+  from { opacity: 0; transform: scale(.985); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slide-pic { animation: none; }
+}

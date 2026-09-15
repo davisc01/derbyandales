@@ -416,6 +416,10 @@ the night was later split into five, so it is eleven now (see *Since M8*):
   backup; where both had a car in the same race the page asks for a recompute,
   since each half earned points for its own best car.
 
+- **The car-photo slideshow** is built: each photographed car full screen for
+  six seconds with its number, name and driver, looping by itself and picking
+  up cars photographed since the last pass. Every display scene now exists.
+
 ## Settled
 
 - **"Raced in a previous championship" is checked from the archive.** The club's
@@ -456,4 +460,3 @@ the night was later split into five, so it is eleven now (see *Since M8*):
   and that changes the qualifier list.
 - **Is there a third-place matchup in a bracket?** At the moment both
   semi-final losers share 3rd and no 3rd-place trophy is derived.
-- **The car-photo slideshow scene** is still unbuilt.

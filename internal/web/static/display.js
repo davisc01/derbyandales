@@ -106,6 +106,7 @@
     revealRows = [];
     awardIndex = 0;
     awardRows = [];
+    stopSlides();
     render();
   }
 
@@ -160,6 +161,8 @@
           return await renderImpound();
         case "bracket":
           return await renderBracket();
+        case "slideshow":
+          return await renderSlideshow();
         case "blank":
           return renderBlank();
         default:
@@ -510,6 +513,63 @@
     });
     body.appendChild(grid);
     swap(wrap);
+  }
+
+  // Car photos, one at a time, for the gaps in an evening: people arriving,
+  // the intermission, the wait while results are checked.
+  //
+  // It runs itself on a timer — nobody should have to stand at a laptop pressing
+  // next through twenty-four cars. The list is fetched once per pass, so a car
+  // photographed at check-in joins the loop on the next time round rather than
+  // jolting the one on screen.
+  const SLIDE_MS = 6000;
+  let slideTimer = null;
+  let slides = [];
+  let slideIndex = 0;
+
+  function stopSlides() {
+    if (slideTimer) clearTimeout(slideTimer);
+    slideTimer = null;
+    slides = [];
+    slideIndex = 0;
+  }
+
+  async function renderSlideshow() {
+    if (slideTimer) clearTimeout(slideTimer);
+    if (slideIndex >= slides.length) {
+      const data = await getJSON("/api/race/roster");
+      slides = (data.entries || []).filter(function (e) { return e.photo_id && !e.excluded; });
+      slideIndex = 0;
+    }
+    if (!slides.length) {
+      const { wrap, body } = sceneShell("Tonight's cars");
+      body.appendChild(el("p", "display-hint", "No cars have been photographed yet."));
+      swap(wrap);
+      // Keep looking: photos are taken at check-in while this is on screen.
+      slideTimer = setTimeout(function () { if (scene === "slideshow") render(); }, SLIDE_MS);
+      return;
+    }
+
+    const e = slides[slideIndex];
+    const { wrap, body } = sceneShell("", "");
+    wrap.classList.add("slide");
+    const pic = el("div", "slide-pic");
+    const img = document.createElement("img");
+    img.src = "/photo/" + e.photo_id + "?size=full";
+    img.alt = e.car_name || "";
+    pic.appendChild(img);
+    body.appendChild(pic);
+    const cap = el("div", "slide-caption");
+    cap.appendChild(el("div", "slide-number", "#" + e.car_number));
+    const words = el("div", "slide-words");
+    words.appendChild(el("div", "slide-car", e.car_name || ""));
+    words.appendChild(el("div", "slide-driver", e.driver));
+    cap.appendChild(words);
+    body.appendChild(cap);
+    swap(wrap);
+
+    slideIndex++;
+    slideTimer = setTimeout(function () { if (scene === "slideshow") render(); }, SLIDE_MS);
   }
 
   // The two voted trophies, one at a time, with the car big on the screen.

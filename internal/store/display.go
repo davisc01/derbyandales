@@ -51,7 +51,7 @@ func Scenes() []SceneInfo {
 		{SceneRacing, "Now racing", "Lane assignments, then the finish order.", true},
 		{SceneReveal, "Results reveal", "One car at a time, slowest to fastest.", true},
 		{SceneFinal, "Final standings", "The whole table at once, for the wrap-up.", true},
-		{SceneSlides, "Car photos", "Slideshow of the cars.", false},
+		{SceneSlides, "Car photos", "Each photographed car in turn, changing by itself every few seconds.", true},
 		{SceneAwards, "Design & theme trophies", "The two voted trophies, one at a time, with the car.", true},
 		{SceneBracket, "Bracket", "The championship bracket, live, with the matchup on the track marked.", true},
 		{SceneImpound, "Impound", "This heat and the next: numbers, lanes and pictures, for loading the tray.", true},
