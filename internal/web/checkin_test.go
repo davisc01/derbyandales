@@ -343,3 +343,43 @@ func TestCheckingInACarThatRacedAChampionshipWarns(t *testing.T) {
 		t.Errorf("a new car was warned about: %v", out["warning"])
 	}
 }
+
+// A car that has qualified is not allowed to race again before the championship.
+// The person at the table is the one who can stop it, so they are told.
+func TestCheckingInACarThatAlreadyQualifiedWarns(t *testing.T) {
+	s, a, seasonID := seasonServer(t)
+	ctx := context.Background()
+	h := handler(t, s)
+
+	slots, err := a.DB.Qualifiers(ctx, seasonID)
+	if err != nil || len(slots) == 0 {
+		t.Fatalf("no qualifiers in the demo season (%v)", err)
+	}
+	slot := slots[0]
+	racer, _ := a.DB.Racer(ctx, slot.RacerID)
+	live := liveRace(t, a)
+
+	code, out := postForm(t, h, "/api/entry", url.Values{
+		"race_id": {itoa(live.ID)}, "first_name": {racer.FirstName}, "last_name": {racer.LastName},
+		"car_name": {strings.ToUpper(slot.CarName)}, "car_number": {"900"},
+	})
+	if code != http.StatusOK {
+		t.Fatalf("status %d: %v", code, out)
+	}
+	warning, _ := out["warning"].(string)
+	if !strings.Contains(warning, "already qualified") {
+		t.Errorf("no already-qualified warning: %q", warning)
+	}
+	if reason, _ := out["exclusion_reason"].(string); !strings.Contains(reason, "already qualified") {
+		t.Errorf("the reason offered for marking it ineligible is %q", reason)
+	}
+
+	// A new car from the same racer is fine: they are allowed up to three.
+	code, out = postForm(t, h, "/api/entry", url.Values{
+		"race_id": {itoa(live.ID)}, "first_name": {racer.FirstName}, "last_name": {racer.LastName},
+		"car_name": {"Brand New Build"}, "car_number": {"901"},
+	})
+	if code != http.StatusOK || out["warning"] != nil {
+		t.Errorf("a new car was warned about: %d %v", code, out)
+	}
+}

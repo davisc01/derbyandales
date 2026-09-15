@@ -77,7 +77,7 @@
 
 {{if $d.Ties}}
 <section class="card tie-card">
-  <h1>Tied for a trophy</h1>
+  <h1>Tied for a trophy or a championship place</h1>
   <p class="sub">
     Below the top three a tie stands &mdash; two cars that ran the same average
     are the same speed. But 1st, 2nd and 3rd are handed to somebody, so they are
@@ -89,6 +89,7 @@
     <li class="tie {{if .Settled}}settled{{end}}">
       <div class="tie-head">
         <span class="badge {{if .Settled}}ok{{else}}warn{{end}}">{{.Describe}}</span>
+        {{if .ForPlace}}<span class="note">for a championship place &mdash; a place passed down to here</span>{{end}}
         {{if .Settled}}<span class="note">settled by heat {{.HeatNumber}}</span>{{end}}
         {{if .DeadHeat}}<span class="note warn-text">heat {{.HeatNumber}} finished level too</span>{{end}}
       </div>

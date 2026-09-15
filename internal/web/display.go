@@ -346,8 +346,10 @@ func (s *Server) handleStandings(w http.ResponseWriter, r *http.Request) {
 		rows = append(rows, row)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"race":      race.Name,
-		"standings": rows,
+		"race":         race.Name,
+		"standings":    rows,
+		"trophies":     store.TrophyPlaces(race),
+		"championship": race.Kind == model.RaceChampionship,
 	})
 }
 

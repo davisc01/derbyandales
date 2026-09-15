@@ -124,7 +124,7 @@ func wildcardFrom(t *testing.T, finishes []Finish, r Rules) []WildcardRow {
 	}
 
 	slots := map[int64]int{}
-	for _, s := range Qualifiers(finishes, nil, r) {
+	for _, s := range Qualifiers(finishes, r) {
 		slots[s.RacerID]++
 	}
 
@@ -232,102 +232,141 @@ func TestExcludingTheControlCarCostsOnePointPerScoringRace(t *testing.T) {
 
 // The auto-qualifier list is the seeding order for the championship, so its
 // order is not cosmetic.
+//
+// The published 2026 file was made by hand before the club's pass-down rule was
+// applied, and shows its working: Chris Bryan holds four places, flagged over
+// the limit, and Greg Thrift — 4th in race 5 — is listed as a "9*" standby
+// beside them. Chris already held three places when race 5 was run, so his
+// second car to finish in the top three there (Sprocket, 3rd) cannot take a
+// place and it passes to 4th. The expected list is therefore the published one
+// with that standby resolved: Greg in at seed 9, Sprocket out, Chris on three.
 func TestAutoQualifiersMatchThePublishedSeeding(t *testing.T) {
-	got := Qualifiers(loadSeason(t), nil, clubRules)
+	got := Qualifiers(loadSeason(t), clubRules)
 	want := readCSV(t, qualifiersFixture)
 
-	// The published file carries one extra hand-added row, seeded "9*": the
-	// standby for an over-limit racer, shown alongside the slot rather than
-	// replacing it, because mid-season the substitution was not yet committed.
-	// The app records substitutions properly, so that row has no counterpart
-	// here — see TestSubstitutionReplacesAnOverLimitSlot.
 	var rows [][]string
+	var standby []string
 	for _, row := range want[1:] {
 		if strings.HasSuffix(row[0], "*") {
+			standby = row
 			continue
 		}
 		rows = append(rows, row)
 	}
-	if len(rows) == len(want)-1 {
-		t.Fatal("the fixture no longer contains the 9* standby row this test accounts for")
+	if standby == nil {
+		t.Fatal("the fixture no longer contains the 9* standby row this test resolves")
+	}
+
+	// Resolve it: the standby takes the place of the over-limit racer's last
+	// qualifying finish in the standby's race.
+	replaced := -1
+	for i, row := range rows {
+		if row[7] == "YES" && row[3] == standby[3] {
+			replaced = i
+		}
+	}
+	if replaced < 0 {
+		t.Fatal("the fixture has no over-limit place in the standby's race")
+	}
+	capped := rows[replaced][1]
+	standby[0] = rows[replaced][0]
+	rows[replaced] = standby
+	for _, row := range rows {
+		if row[1] == capped {
+			row[6] = strconv.Itoa(clubRules.MaxEntries)
+		}
+		row[7] = ""
 	}
 
 	if len(got) != len(rows) {
-		t.Fatalf("produced %d qualifiers, published %d", len(got), len(rows))
+		t.Fatalf("produced %d qualifiers, want %d", len(got), len(rows))
 	}
 	for i, row := range rows {
 		s := got[i]
 		seed := atoi(t, row[0])
 		switch {
 		case s.Seed != seed:
-			t.Errorf("row %d: seed %d, published %d", i+1, s.Seed, seed)
+			t.Errorf("row %d: seed %d, want %d", i+1, s.Seed, seed)
 		case s.Driver != row[1]:
-			t.Errorf("seed %d: %s, published %s", seed, s.Driver, row[1])
+			t.Errorf("seed %d: %s, want %s", seed, s.Driver, row[1])
 		case s.CarName != row[2]:
-			t.Errorf("seed %d: car %q, published %q", seed, s.CarName, row[2])
+			t.Errorf("seed %d: car %q, want %q", seed, s.CarName, row[2])
 		case fmt.Sprintf("Race %d", s.RaceNumber) != row[3]:
-			t.Errorf("seed %d: %s, published %s", seed, fmt.Sprintf("Race %d", s.RaceNumber), row[3])
+			t.Errorf("seed %d: %s, want %s", seed, fmt.Sprintf("Race %d", s.RaceNumber), row[3])
 		case s.Place != atoi(t, row[4]):
-			t.Errorf("seed %d: finished %d, published %s", seed, s.Place, row[4])
+			t.Errorf("seed %d: finished %d, want %s", seed, s.Place, row[4])
 		case s.Entries != atoi(t, row[6]):
-			t.Errorf("seed %d: %d entries, published %s", seed, s.Entries, row[6])
-		case s.OverLimit != (row[7] == "YES"):
-			t.Errorf("seed %d: over limit %v, published %q", seed, s.OverLimit, row[7])
+			t.Errorf("seed %d: %d entries, want %s", seed, s.Entries, row[6])
+		}
+	}
+
+	// And the place records why it passed down, for the season screen.
+	for _, s := range got {
+		if s.Driver != standby[1] {
+			continue
+		}
+		if len(s.PassedOver) != 1 || s.PassedOver[0].Driver != capped || s.PassedOver[0].Reason != PassAtCap {
+			t.Errorf("%s's place does not record passing over %s at the cap: %+v", s.Driver, capped, s.PassedOver)
 		}
 	}
 }
 
-// The club's 2026 snapshot has one racer holding four of fifteen slots, which
-// is the situation substitution exists for.
-func TestSubstitutionReplacesAnOverLimitSlot(t *testing.T) {
-	finishes := loadSeason(t)
-	before := Qualifiers(finishes, nil, clubRules)
-
-	// Find the lowest-seeded slot held by an over-limit racer: the one the
-	// coordinator would give up.
-	var give Slot
-	for _, s := range before {
-		if s.OverLimit {
-			give = s
+// A car that qualified is not allowed to race again. If one does anyway, it
+// cannot take a second place: the place goes to the next car.
+func TestACarThatAlreadyQualifiedCannotQualifyAgain(t *testing.T) {
+	r := Rules{AutoQualPlaces: 1, MaxEntries: 3}
+	finishes := []Finish{
+		{EntryID: 1, RacerID: 1, RaceNumber: 1, Driver: "A", CarName: "Rocket", Place: 1, Average: 2.3},
+		{EntryID: 2, RacerID: 2, RaceNumber: 1, Driver: "B", CarName: "Slug", Place: 2, Average: 2.4},
+		{EntryID: 3, RacerID: 1, RaceNumber: 2, Driver: "A", CarName: "  rocket ", Place: 1, Average: 2.3},
+		{EntryID: 4, RacerID: 2, RaceNumber: 2, Driver: "B", CarName: "Slug", Place: 2, Average: 2.4},
+	}
+	got := Qualifiers(finishes, r)
+	if len(got) != 2 {
+		t.Fatalf("%d places, want one per race", len(got))
+	}
+	for _, s := range got {
+		if s.RaceNumber == 2 {
+			if s.EntryID != 4 {
+				t.Errorf("race 2's place went to entry %d, want the runner-up", s.EntryID)
+			}
+			if len(s.PassedOver) != 1 || s.PassedOver[0].Reason != PassAlreadyQualified {
+				t.Errorf("race 2's place does not record why it passed down: %+v", s.PassedOver)
+			}
+			if !s.RaceTop {
+				t.Error("the best qualifier from race 2 is not seeded as that race's top car")
+			}
 		}
 	}
-	if give.EntryID == 0 {
-		t.Fatal("the fixture no longer contains an over-limit racer")
-	}
+}
 
-	candidates := SubstituteCandidates(finishes, give.RaceID, nil, clubRules)
-	if len(candidates) == 0 {
-		t.Fatal("no substitute available from that race")
+// A racer on the cap still races and still finishes where they finish; only the
+// place moves. And they are never shown over the cap, because they never are.
+func TestARacerAtTheCapPassesTheirPlaceDown(t *testing.T) {
+	r := Rules{AutoQualPlaces: 1, MaxEntries: 2}
+	var finishes []Finish
+	for race := 1; race <= 3; race++ {
+		finishes = append(finishes,
+			Finish{EntryID: int64(race*10 + 1), RacerID: 1, RaceNumber: race, Driver: "Fast",
+				CarName: fmt.Sprintf("Car %d", race), Place: 1, Average: 2.3},
+			Finish{EntryID: int64(race*10 + 2), RacerID: 2, RaceNumber: race, Driver: "Next",
+				CarName: fmt.Sprintf("Other %d", race), Place: 2, Average: 2.5})
 	}
-	take := candidates[0]
-	if take.Place <= clubRules.AutoQualPlaces {
-		t.Errorf("candidate finished %d, which already qualifies", take.Place)
-	}
-
-	after := Qualifiers(finishes, []Substitution{{give.EntryID, take.EntryID}}, clubRules)
-	if len(after) != len(before) {
-		t.Fatalf("field changed size: %d slots, was %d", len(after), len(before))
-	}
-
-	var found *Slot
-	for i := range after {
-		if after[i].EntryID == give.EntryID {
-			t.Errorf("the substituted-out entry is still seeded at %d", after[i].Seed)
+	got := Qualifiers(finishes, r)
+	fast := 0
+	for _, s := range got {
+		if s.RacerID == 1 {
+			fast++
+			if s.Entries != 2 {
+				t.Errorf("Fast holds %d entries, want the cap of 2", s.Entries)
+			}
 		}
-		if after[i].EntryID == take.EntryID {
-			found = &after[i]
+		if s.RaceNumber == 3 && s.RacerID != 2 {
+			t.Errorf("race 3's place went to racer %d, want the runner-up", s.RacerID)
 		}
 	}
-	if found == nil {
-		t.Fatal("the substitute is not in the field")
-	}
-	if found.SubstitutedFor == nil || found.SubstitutedFor.EntryID != give.EntryID {
-		t.Error("the slot does not record who it replaced")
-	}
-	for _, s := range after {
-		if s.RacerID == give.RacerID && s.OverLimit {
-			t.Errorf("%s is still over the limit with %d entries", s.Driver, s.Entries)
-		}
+	if fast != 2 {
+		t.Errorf("Fast has %d places, want 2", fast)
 	}
 }
 

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"github.com/davisc01/derbyandales/internal/app"
 	"github.com/davisc01/derbyandales/internal/bus"
 	"github.com/davisc01/derbyandales/internal/model"
+	"github.com/davisc01/derbyandales/internal/season"
 	"github.com/davisc01/derbyandales/internal/store"
 )
 
@@ -307,6 +309,19 @@ func (s *Server) handleCreateEntry(w http.ResponseWriter, r *http.Request) {
 	})
 
 	out := map[string]any{"id": created.ID}
+	// A car that has already qualified this season is not allowed to race again
+	// before the championship. Said rather than enforced, like the check below:
+	// cars are matched by name, and a name can be reused for a new car.
+	if race.Kind == model.RacePoints {
+		if slot, ok := s.qualifiedCar(ctx, race.SeasonID, racer.ID, entry.CarName); ok {
+			out["warning"] = fmt.Sprintf("%s already qualified for the championship — %s in race %d. "+
+				"A car that has qualified cannot race again until the championship.",
+				entry.CarName, ordinalOf(slot.Place), slot.RaceNumber)
+			out["exclusion_reason"] = fmt.Sprintf("already qualified for the championship in race %d", slot.RaceNumber)
+			writeJSON(w, http.StatusOK, out)
+			return
+		}
+	}
 	// A car gets one championship. Checking that has always been somebody
 	// remembering, so say it here rather than let it be found out afterwards —
 	// but only say it. Excluding a car is a decision, and it needs a reason.
@@ -549,4 +564,19 @@ func (s *Server) handleServePhoto(w http.ResponseWriter, r *http.Request) {
 	// and can be cached hard. This matters on a slideshow cycling 30 cars.
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	http.ServeFile(w, r, path)
+}
+
+// qualifiedCar finds the championship place a car already holds this season.
+func (s *Server) qualifiedCar(ctx context.Context, seasonID, racerID int64, carName string) (season.Slot, bool) {
+	slots, err := s.app.DB.Qualifiers(ctx, seasonID)
+	if err != nil {
+		return season.Slot{}, false
+	}
+	key := season.CarKey(racerID, carName)
+	for _, sl := range slots {
+		if season.CarKey(sl.RacerID, sl.CarName) == key {
+			return sl, true
+		}
+	}
+	return season.Slot{}, false
 }

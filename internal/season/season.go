@@ -15,14 +15,10 @@ type Rules struct {
 	// The club uses 3.
 	AutoQualPlaces int
 
-	// MaxEntries caps how many championship slots one racer may hold. Note the
-	// two thresholds this produces, which are deliberately different:
-	//
-	//   over limit — count >  MaxEntries, so a slot must be substituted away
-	//   maxed out  — count >= MaxEntries, so no more wildcard contention
-	//
-	// A racer holding exactly the cap is maxed out but not over limit: they
-	// keep every slot, they simply cannot win another through wildcards.
+	// MaxEntries caps how many championship places one racer may hold. A racer
+	// at the cap still races, but a top finish passes its place down to the
+	// next car, and they are out of wildcard contention. Nobody is ever over
+	// it: see Qualifiers.
 	MaxEntries int
 
 	// CountControl restores the old tracker's behaviour of counting the CONTROL

@@ -20,6 +20,8 @@
   let awardIndex = 0;
   let awardRows = [];
   let revealRows = [];
+  let revealTrophies = 3;
+  let revealChampionship = false;
 
   try {
     token = localStorage.getItem(TOKEN_KEY);
@@ -674,6 +676,8 @@
         .filter(function (s) { return s.place > 0; })
         .sort(function (a, b) { return b.place - a.place; });
       revealTitle = data.race || "Results";
+      revealTrophies = data.trophies || 3;
+      revealChampionship = !!data.championship;
     }
 
     const shown = revealRows.slice(0, revealIndex);
@@ -702,7 +706,7 @@
         // The speed trophies are handed over here, as each of the top three is
         // revealed, so the screen says which one is due. The pace car is ranked
         // but takes nothing, and a place still tied has no trophy to give yet.
-        if (s.place <= 3 && !s.tied && !s.is_control) {
+        if (s.place <= revealTrophies && !s.tied && !s.is_control) {
           who.appendChild(el("div", "reveal-trophy", trophyFor(s.place)));
         }
         row.appendChild(who);
@@ -777,6 +781,8 @@
 
   // The trophy due at a given place, in the club's words.
   function trophyFor(place) {
+    // The championship hands out one trophy, and it is not a "1st place" one.
+    if (revealChampionship) return "Season trophy";
     return ["1st", "2nd", "3rd"][place - 1] + " place trophy";
   }
 

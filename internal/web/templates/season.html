@@ -23,11 +23,12 @@
     </span>
   </div>
 
-  {{if gt $o.OverLimit 0}}
-  <p class="warn-text">
-    {{$o.OverLimit}} slot{{if ne $o.OverLimit 1}}s are{{else}} is{{end}} held by
-    racers above the {{$s.MaxChampionshipEntry}}-entry cap. Substitute the extra
-    ones away before seeding the bracket, or the field will be wrong.
+  {{if gt $o.PassedDown 0}}
+  <p class="note">
+    {{$o.PassedDown}} place{{if ne $o.PassedDown 1}}s{{end}} went further down a
+    race's results than the top {{$s.AutoQualPlaces}}, because a car above was
+    already at the {{$s.MaxChampionshipEntry}}-place cap or had qualified before.
+    Each one says why below.
   </p>
   {{end}}
 
@@ -73,7 +74,7 @@
         <input type="number" name="wildcard_spots" min="0" max="64" value="{{$s.WildcardSpots}}"></label>
       <label><span class="lbl">Championship entries per racer</span>
         <input type="number" name="max_championship_entry" min="1" max="10" value="{{$s.MaxChampionshipEntry}}">
-        <span class="hint">A racer holding more slots than this has to substitute the extras away.</span></label>
+        <span class="hint">A racer at the cap can still race, but a top finish passes its place to the next car.</span></label>
       <label><span class="lbl">Track length (ft)</span>
         <input type="number" name="track_length_ft" min="1" step="0.1" value="{{$s.TrackLengthFt}}">
         <span class="hint">Only the scale MPH depends on it.</span></label>
@@ -130,28 +131,29 @@
       <th>Finish</th><th>Average</th><th>Entries</th><th></th>
     </tr>
     {{range $o.Qualifiers}}
-    <tr class="{{if .OverLimit}}over-limit{{end}}" data-entry="{{.EntryID}}">
+    <tr class="{{if .PassedOver}}passed-down{{end}}" data-entry="{{.EntryID}}">
       <td class="num">{{.Seed}}</td>
       <td>
         {{.Driver}}
-        {{if .SubstitutedFor}}
-        <div class="note">in place of {{.SubstitutedFor.Driver}} &mdash;
-          {{.SubstitutedFor.CarName}}</div>
+        {{range .PassedOver}}
+        <div class="note">
+          passed down from {{.Driver}}'s {{.CarName}} ({{.Place}}{{if eq .Place 1}}st{{else if eq .Place 2}}nd{{else if eq .Place 3}}rd{{else}}th{{end}}),
+          {{if eq (printf "%s" .Reason) "at-cap"}}who already held {{$s.MaxChampionshipEntry}} places{{else}}a car that had already qualified{{end}}
+        </div>
+        {{end}}
+        {{with .TiedWith}}
+        <div class="warn-text">
+          tied with {{.Driver}}'s {{.CarName}} for this place &mdash; run it off
+          on the race screen for race {{.RaceNumber}}
+        </div>
         {{end}}
       </td>
       <td>{{.CarName}}</td>
       <td class="note">Race {{.RaceNumber}}</td>
       <td class="num">{{.Place}}</td>
       <td class="num mono">{{average .Average}}</td>
-      <td class="num">{{.Entries}}{{if .OverLimit}} <span class="badge warn">over</span>{{end}}</td>
-      <td class="tally-action">
-        {{if .SubstitutedFor}}
-        <button class="btn small undo-substitute"
-                data-original="{{.SubstitutedFor.EntryID}}">Undo</button>
-        {{else if .OverLimit}}
-        <button class="btn small substitute" data-entry="{{.EntryID}}">Substitute</button>
-        {{end}}
-      </td>
+      <td class="num">{{.Entries}}</td>
+      <td></td>
     </tr>
     {{end}}
   </table>
@@ -264,20 +266,5 @@
   </div>
 </section>
 
-<dialog id="substitute-dialog">
-  <form method="dialog" class="form">
-    <h1 id="substitute-title">Substitute</h1>
-    <p class="hint" id="substitute-hint"></p>
-    <label>
-      <span class="lbl">Who takes the slot</span>
-      <select id="substitute-pick"></select>
-    </label>
-    <div class="console-row">
-      <button class="btn primary" id="substitute-confirm" value="confirm">Substitute</button>
-      <button class="btn" value="cancel">Cancel</button>
-      <span class="note err-text" id="substitute-error"></span>
-    </div>
-  </form>
-</dialog>
 {{end}}
 {{end}}

@@ -26,7 +26,7 @@ func sixRaceSeason() ([]Slot, []WildcardRow) {
 			})
 		}
 	}
-	qualifiers := Qualifiers(finishes, nil, clubRules)
+	qualifiers := Qualifiers(finishes, clubRules)
 
 	var standings []WildcardRow
 	for i := 1; i <= 8; i++ {
@@ -216,7 +216,7 @@ func TestAShorterSeasonMovesTheBoundary(t *testing.T) {
 			})
 		}
 	}
-	field := Field(Qualifiers(finishes, nil, clubRules), nil, 1)
+	field := Field(Qualifiers(finishes, clubRules), nil, 1)
 
 	winners := 0
 	for _, c := range field {

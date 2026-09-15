@@ -22,6 +22,19 @@ import (
 // 2027 onwards will differ from the archive in that one column.
 var SpeedAwardNames = []string{"1st", "2nd", "3rd"}
 
+// TrophyPlaces is how many places in a race are handed a trophy — and so how
+// far down a tie has to be run off.
+//
+// A race night gives 1st, 2nd and 3rd. The championship gives one: it exists to
+// decide the season trophy, so a tie for 2nd there is just a tie, and there is
+// no third-place matchup in a bracket.
+func TrophyPlaces(r model.Race) int {
+	if r.Kind == model.RaceChampionship {
+		return 1
+	}
+	return len(SpeedAwardNames)
+}
+
 // AwardTypeSpeed is the award type the old system used for these.
 const AwardTypeSpeed = "Speed Trophy"
 
@@ -45,8 +58,13 @@ func (db *DB) SpeedAwards(ctx context.Context, raceID int64) ([]AwardView, error
 	if err != nil {
 		return nil, err
 	}
+	race, err := db.Race(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
 	for _, t := range ties {
-		if t.Settled {
+		// A tie for a championship place lower down is not a tie for a trophy.
+		if t.Settled || t.ForPlace {
 			continue
 		}
 		names := make([]string, 0, len(t.Entries))
@@ -65,10 +83,6 @@ func (db *DB) SpeedAwards(ctx context.Context, raceID int64) ([]AwardView, error
 	if err != nil {
 		return nil, err
 	}
-	race, err := db.Race(ctx, raceID)
-	if err != nil {
-		return nil, err
-	}
 
 	var out []AwardView
 	for _, st := range standings {
@@ -76,11 +90,6 @@ func (db *DB) SpeedAwards(ctx context.Context, raceID int64) ([]AwardView, error
 			continue
 		}
 		i := len(out)
-		// A shared place in a bracket is a round, and there is no run-off to
-		// split it, so the trophy for that place is not the software's to give.
-		if race.Bracket() && st.Tied {
-			break
-		}
 		a := AwardView{Entry: st.Entry}
 		a.RaceID = raceID
 		a.Name = SpeedAwardNames[i]
@@ -90,7 +99,7 @@ func (db *DB) SpeedAwards(ctx context.Context, raceID int64) ([]AwardView, error
 		a.Sort = i
 		a.Source = model.AwardAuto
 		out = append(out, a)
-		if len(out) == len(SpeedAwardNames) {
+		if len(out) == TrophyPlaces(race) {
 			break
 		}
 	}

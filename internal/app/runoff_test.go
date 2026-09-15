@@ -401,3 +401,108 @@ func TestARunOffIsNotEvidenceForTheAnomalyCheck(t *testing.T) {
 }
 
 var _ = scoring.PodiumPlaces
+
+// The race is recorded into the season when its last heat lands, and the run-off
+// comes after that. The season has to end up with the settled order, or a tie
+// for 3rd would stay a tie in the championship places.
+func TestTheSeasonRecordsTheOrderARunOffSettled(t *testing.T) {
+	a, raceID := raceFixture(t)
+	ctx := context.Background()
+
+	tied := tiedRace(t, a, raceID, 3, 2)
+	if err := a.Season.FreezeRace(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Race.ArmRunOff(ctx, raceID, 3); err != nil {
+		t.Fatalf("ArmRunOff: %v", err)
+	}
+	heat := a.Race.State(ctx).Heat
+	times := map[int]float64{}
+	for _, l := range heat.Lanes {
+		if l.EntryID == nil {
+			continue
+		}
+		if *l.EntryID == tied[1] {
+			times[l.Lane] = 2.001
+		} else {
+			times[l.Lane] = 2.050
+		}
+	}
+	if err := a.Race.EnterTimes(ctx, heat.ID, times, "test"); err != nil {
+		t.Fatal(err)
+	}
+
+	race, _ := a.DB.Race(ctx, raceID)
+	finishes, _ := a.DB.SeasonFinishes(ctx, race.SeasonID)
+	place := map[int64]int{}
+	for _, f := range finishes {
+		place[f.EntryID] = f.Place
+	}
+	if place[tied[1]] != 3 || place[tied[0]] != 4 {
+		t.Errorf("the season has the run-off winner %d and loser %d, want 3 and 4",
+			place[tied[1]], place[tied[0]])
+	}
+}
+
+// A place that passes down can land on two cars that finished level. Only one
+// of them can have it, so that tie is run off like a tie for a trophy — even
+// though it is for 4th.
+func TestATieForAPassedDownPlaceIsRunOff(t *testing.T) {
+	a, raceID := raceFixture(t)
+	ctx := context.Background()
+	race, _ := a.DB.Race(ctx, raceID)
+	sn, _ := a.DB.Season(ctx, race.SeasonID)
+
+	// One place per racer, so a racer's second car cannot take one.
+	sn.MaxChampionshipEntry = 1
+	if err := a.DB.UpdateSeason(ctx, sn); err != nil {
+		t.Fatal(err)
+	}
+
+	tied := tiedRace(t, a, raceID, 4, 2)
+
+	// Give the 2nd-placed car to the winner's driver: it finishes 2nd but that
+	// racer already has their one place, so 3rd and 4th qualify — and 4th is
+	// shared.
+	standings, _ := a.DB.Standings(ctx, raceID)
+	var winner, second store.Standing
+	for _, st := range standings {
+		switch st.Place {
+		case 1:
+			winner = st
+		case 2:
+			second = st
+		}
+	}
+	if _, err := a.DB.ExecContext(ctx, `UPDATE entry SET racer_id = ? WHERE id = ?`,
+		winner.Entry.RacerID, second.Entry.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Season.FreezeRace(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+
+	ties, err := a.DB.UnsettledTies(ctx, raceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found *store.TieView
+	for i := range ties {
+		if ties[i].Place == 4 {
+			found = &ties[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("the tie for the passed-down 4th place is not offered as a run-off: %+v", ties)
+	}
+	if !found.ForPlace {
+		t.Error("the tie is not marked as being for a championship place")
+	}
+	if len(found.Entries) != len(tied) {
+		t.Errorf("%d cars in the tie, want %d", len(found.Entries), len(tied))
+	}
+	// And it does not hold up the trophies, which it has nothing to do with.
+	if _, err := a.DB.SpeedAwards(ctx, raceID); err != nil {
+		t.Errorf("a tie for 4th blocked the trophies: %v", err)
+	}
+}

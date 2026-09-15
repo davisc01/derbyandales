@@ -16,7 +16,7 @@ document so they cannot be lost.
 | M3 | Timer | FastTrack K/Q driver, simulator, Timer Test Bench |
 | M4 | Displays and race control | registration, scene manager, roster / now-racing / results-reveal, auto-advance |
 | M5 | Voting and intermission | ballot tablet, tallies, undo, tie-break, winner declaration, automatic halfway pause |
-| M6 | Season points and auto-qualifiers | frozen race results, wildcard points, seeded qualifier list, substitutions, adjustments |
+| M6 | Season points and auto-qualifiers | frozen race results, wildcard points, seeded qualifier list, adjustments |
 | M7 | Championship bracket | planner, generalized construction, seeding from season data, running the matchups |
 | M8 | Publishing and the run of show | five website files with a diff preview, speed trophies, the race-night checklist |
 
@@ -143,6 +143,8 @@ top finishers by average time. The list index *is* the seed.
   contention). The thresholds differ intentionally; label them clearly.
 - **Substitution**: replace an over-limit slot with any non-top-3 finisher from
   that race. Both sides unique, undo supported, CONTROL excluded.
+  *Superseded: the club's rule passes the place down automatically, so nobody
+  is ever over the cap. See "Since M8".*
 - **Adjustments**: signed points with a mandatory reason, individually removable.
 
 #### What building it settled
@@ -392,7 +394,7 @@ the night was later split into five, so it is eleven now (see *Since M8*):
   places by round reached, only once there is a champion. No bracket was ever
   published before, so there is no archive file to match.
 - **`-demo-championship`** seeds a finished season and a bracket championship
-  with the field checked in, substituting the demo's over-limit racer first.
+  with the field checked in.
 
 - **Season settings can be changed after the season starts**, from the Season
   page: race count, qualifying places, wildcard spots, the entry cap, track
@@ -423,6 +425,21 @@ the night was later split into five, so it is eleven now (see *Since M8*):
 - **A run-off can be rehearsed in the demo.** Once a demo race's heats are run
   with nothing tied, the race page offers to give the 2nd-place car the
   winner's exact times. Refused outside a demo season.
+
+- **Auto-qualifying follows the club's pass-down rule** (confirmed 2026-09-15).
+  A car that qualified may not race again before the championship; a racer at
+  three places still races, but a top finish passes its place to the next car,
+  and they are out of wildcard contention. The manual substitution screen is
+  gone — there is nothing left to substitute. The 2026 golden test now expects
+  the `9*` standby resolved: Greg Thrift in at seed 9, Chris Bryan's Sprocket
+  out. Check-in warns about a car that already qualified. A tie that a
+  passed-down place lands on is run off.
+- **The championship decides the season trophy only** (confirmed): no
+  intermission, no third-place matchup, and only a tie for 1st is run off. The
+  reveal names it "Season trophy".
+- **A run-off now reaches the season.** The race was recorded before its
+  run-off, so a settled tie for 3rd stayed tied in the season's places. It is
+  recorded again once the run-off lands.
 
 ## Settled
 
@@ -456,11 +473,3 @@ the night was later split into five, so it is eleven now (see *Since M8*):
 
 - **Code signing and notarization** — see `packaging/NOTARIZING.md`. Last job
   before anyone else installs the app.
-- **Can one car qualify from two races?** In the demo it happens — a fast car
-  podiums every night — and the bracket then seeds the same car three times.
-  None of the club's qualifier lists from 2021 to 2026 repeats a car, which
-  suggests a rule the software does not know. If a car that has qualified
-  cannot qualify again, the next finisher from that race should take the slot,
-  and that changes the qualifier list.
-- **Is there a third-place matchup in a bracket?** At the moment both
-  semi-final losers share 3rd and no 3rd-place trophy is derived.

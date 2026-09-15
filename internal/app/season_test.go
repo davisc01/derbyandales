@@ -2,11 +2,9 @@ package app
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/davisc01/derbyandales/internal/model"
-	"github.com/davisc01/derbyandales/internal/season"
 )
 
 // These drive the season against a real database: five fabricated race nights,
@@ -95,10 +93,12 @@ func TestQualifiersAreSeededInOrder(t *testing.T) {
 		}
 	}
 	// Race winners come first, fastest first; then everyone else by average.
-	// A runner-up must never outseed a winner however quick they were.
+	// A runner-up must never outseed a winner however quick they were. "Winner"
+	// is the best qualifier from each race, which is the winner unless their
+	// place passed down.
 	seenNonWinner := false
 	for _, s := range slots {
-		if s.Place != 1 {
+		if !s.RaceTop {
 			seenNonWinner = true
 		} else if seenNonWinner {
 			t.Errorf("seed %d won a race but is seeded below a runner-up", s.Seed)
@@ -280,123 +280,6 @@ func TestAnAdjustmentNeedsAReason(t *testing.T) {
 	if list, _ := a.DB.Adjustments(ctx, seasonID); len(list) != 0 {
 		t.Errorf("%d adjustments left after removing one", len(list))
 	}
-}
-
-// Substitution moves a championship place, so the refusals matter more than the
-// success case — and they have to read like an explanation, not a constraint.
-func TestSubstitutionIsRefusedWhenItWouldBeWrong(t *testing.T) {
-	a, seasonID := seasonFixture(t)
-	ctx := context.Background()
-
-	slots, err := a.DB.Qualifiers(ctx, seasonID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(slots) < 2 {
-		t.Fatal("not enough qualifiers to test with")
-	}
-
-	// A slot that is not over the limit cannot be given away. Find one: the
-	// demo season deliberately produces a racer above the cap as well.
-	var within int64
-	for _, s := range slots {
-		if !s.OverLimit {
-			within = s.EntryID
-			break
-		}
-	}
-	if within == 0 {
-		t.Fatal("every qualifier is over the limit; the fixture cannot test this")
-	}
-
-	err = a.Season.Substitute(ctx, seasonID, within, slots[1].EntryID, "coordinator")
-	if err == nil {
-		t.Fatal("substituting a slot that is within the limit was allowed")
-	}
-	if !strings.Contains(err.Error(), "limit") {
-		t.Errorf("error = %q, want it to explain why", err)
-	}
-
-	// Neither can a car that never raced that night.
-	if err := a.DB.Substitute(ctx, seasonID, within, 999999); err == nil {
-		t.Error("substituting in a car that did not exist was allowed")
-	}
-
-	if err := a.Season.UndoSubstitution(ctx, seasonID, within, "coordinator"); err == nil {
-		t.Error("undoing a substitution that never happened was allowed")
-	}
-}
-
-// The success path: a racer over the cap gives a slot back to someone from the
-// same race. This is the workflow the club actually performed in 2026.
-func TestSubstitutingAnOverLimitSlotKeepsTheFieldTheSameSize(t *testing.T) {
-	a, seasonID := seasonFixture(t)
-	ctx := context.Background()
-
-	slots, err := a.DB.Qualifiers(ctx, seasonID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// The lowest-seeded slot held by an over-limit racer: the one they would
-	// give up.
-	var give *season.Slot
-	for i := range slots {
-		if slots[i].OverLimit {
-			give = &slots[i]
-		}
-	}
-	if give == nil {
-		t.Fatal("the demo season no longer produces a racer over the entry cap")
-	}
-
-	candidates, err := a.DB.SubstituteCandidates(ctx, seasonID, give.RaceID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(candidates) == 0 {
-		t.Fatal("nobody in that race could take the slot")
-	}
-	take := candidates[0]
-	if take.Place <= 3 {
-		t.Errorf("the offered substitute finished %d, which already qualifies", take.Place)
-	}
-
-	if err := a.Season.Substitute(ctx, seasonID, give.EntryID, take.EntryID, "coordinator"); err != nil {
-		t.Fatalf("Substitute: %v", err)
-	}
-
-	after, _ := a.DB.Qualifiers(ctx, seasonID)
-	if len(after) != len(slots) {
-		t.Fatalf("the field changed size: %d slots, was %d", len(after), len(slots))
-	}
-	var found bool
-	for _, s := range after {
-		if s.EntryID == give.EntryID {
-			t.Errorf("the substituted-out car still holds seed %d", s.Seed)
-		}
-		if s.EntryID == take.EntryID {
-			found = true
-			if s.SubstitutedFor == nil {
-				t.Error("the slot does not record who it replaced")
-			}
-		}
-	}
-	if !found {
-		t.Error("the substitute is not in the field")
-	}
-
-	// And it is reversible, because the season is not over.
-	if err := a.Season.UndoSubstitution(ctx, seasonID, give.EntryID, "coordinator"); err != nil {
-		t.Fatalf("UndoSubstitution: %v", err)
-	}
-	restored, _ := a.DB.Qualifiers(ctx, seasonID)
-	for _, s := range restored {
-		if s.EntryID == give.EntryID {
-			return
-		}
-	}
-	t.Error("undoing the substitution did not put the original slot back")
 }
 
 // The championship it feeds is not a points race and must not become one.

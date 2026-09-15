@@ -2,14 +2,12 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"time"
 
 	"github.com/davisc01/derbyandales/internal/model"
 	"github.com/davisc01/derbyandales/internal/schedule"
-	"github.com/davisc01/derbyandales/internal/season"
 	"github.com/davisc01/derbyandales/internal/store"
 )
 
@@ -85,18 +83,23 @@ func (a *App) seedPastRace(ctx context.Context, seasonID int64, number int, rng 
 		field = demoRacers[:len(demoRacers)-3]
 	}
 
+	qualified, err := a.qualifiedCars(ctx, seasonID)
+	if err != nil {
+		return err
+	}
 	entries := make([]store.EntryView, 0, len(field))
 	for _, d := range field {
 		racer, err := a.DB.FindOrCreateRacer(ctx, seasonID, d.First, d.Last)
 		if err != nil {
 			return err
 		}
+		carNumber, car := demoCar(racer.ID, d.Number, d.Car, qualified)
 		checkedIn := race.Date
 		entry := model.Entry{
 			RaceID:      race.ID,
 			RacerID:     racer.ID,
-			CarNumber:   d.Number,
-			CarName:     d.Car,
+			CarNumber:   carNumber,
+			CarName:     car,
 			IsControl:   d.Car == "CONTROL",
 			CheckedInAt: &checkedIn,
 		}
@@ -127,11 +130,11 @@ func (a *App) seedPastRace(ctx context.Context, seasonID int64, number int, rng 
 	// A fast car is fast every night.
 	//
 	// Giving each car a fresh random pace per race would scatter the podium
-	// across the whole roster, and then no racer would ever hold more
-	// championship slots than the cap allows — so the over-limit warning and
-	// the substitution screen would never appear in the demo at all. A pace
-	// that persists across the season, with a little variation per night, is
-	// both more realistic and what makes those screens worth rehearsing.
+	// across the whole roster, and then no racer would ever reach the cap on
+	// championship places — so a place passing down to 4th would never appear
+	// in the demo at all. A pace that persists across the season, with a little
+	// variation per night, is both more realistic and what makes that worth
+	// rehearsing.
 	pace := make(map[int64]float64, len(entries))
 	for i, e := range entries {
 		base := seasonPace(i) + rng.Float64()*0.14
@@ -201,14 +204,6 @@ func (a *App) SeedDemoChampionship(ctx context.Context, year int) (model.Race, e
 		}
 	}
 
-	// The demo season has a racer holding more slots than the cap allows, on
-	// purpose. Before a championship the club substitutes those away, so the
-	// demo does too — otherwise the same car would be seeded in the bracket
-	// several times over.
-	if err := a.substituteOverLimit(ctx, created); err != nil {
-		return model.Race{}, err
-	}
-
 	champ, err := a.DB.CreateRace(ctx, model.Race{
 		SeasonID: created.ID,
 		Number:   1,
@@ -251,48 +246,4 @@ func (a *App) SeedDemoChampionship(ctx context.Context, year int) (model.Race, e
 		fmt.Sprintf("championship with %d cars", len(field)))
 	a.Log.Info("demo championship created", "season", created.Name, "cars", len(field))
 	return champ, nil
-}
-
-// substituteOverLimit hands each over-limit racer's lowest slot to the best
-// finisher from that race who has room under the cap, until nobody is over.
-func (a *App) substituteOverLimit(ctx context.Context, sn model.Season) error {
-	for guard := 0; guard < 50; guard++ {
-		slots, err := a.DB.Qualifiers(ctx, sn.ID)
-		if err != nil {
-			return err
-		}
-		held := map[int64]int{}
-		for _, sl := range slots {
-			held[sl.RacerID]++
-		}
-		var over *season.Slot
-		for i := len(slots) - 1; i >= 0; i-- {
-			if slots[i].OverLimit && slots[i].SubstitutedFor == nil {
-				over = &slots[i]
-				break
-			}
-		}
-		if over == nil {
-			return nil
-		}
-		candidates, err := a.DB.SubstituteCandidates(ctx, sn.ID, over.RaceID)
-		if err != nil {
-			return err
-		}
-		done := false
-		for _, c := range candidates {
-			if c.RacerID == over.RacerID || held[c.RacerID] >= sn.MaxChampionshipEntry {
-				continue
-			}
-			if err := a.DB.Substitute(ctx, sn.ID, over.EntryID, c.EntryID); err != nil {
-				continue
-			}
-			done = true
-			break
-		}
-		if !done {
-			return fmt.Errorf("nobody from race %d can take %s's slot", over.RaceNumber, over.Driver)
-		}
-	}
-	return errors.New("substitutions did not settle")
 }

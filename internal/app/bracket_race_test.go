@@ -354,7 +354,8 @@ func TestABracketIsRankedByHowFarEachCarGot(t *testing.T) {
 		t.Errorf("seed %d is runner-up, want 2", seedOf[standings[1].Entry.ID])
 	}
 
-	// A shared 3rd is not a tie to run off, and no trophy is invented for it.
+	// A shared 3rd is not a tie to run off, and the championship decides one
+	// trophy only: the season's.
 	if ties, _ := a.DB.UnsettledTies(ctx, champID); len(ties) != 0 {
 		t.Errorf("the semi-final losers were offered as a tie to run off")
 	}
@@ -362,8 +363,8 @@ func TestABracketIsRankedByHowFarEachCarGot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(awards) != 2 {
-		t.Errorf("%d speed trophies for a bracket, want 1st and 2nd only", len(awards))
+	if len(awards) != 1 || awards[0].Entry.ID != standings[0].Entry.ID {
+		t.Errorf("%d trophies for the championship, want the champion's alone", len(awards))
 	}
 }
 
@@ -390,7 +391,7 @@ func TestTheDemoChampionshipIsReadyToBuild(t *testing.T) {
 		}
 		cars[p.EntryID]++
 	}
-	// The over-limit racer has been substituted down, so no one car holds two
+	// A car that has qualified does not race again, so no one car can hold two
 	// places in the bracket.
 	for id, n := range cars {
 		if n > 1 {
@@ -399,8 +400,8 @@ func TestTheDemoChampionshipIsReadyToBuild(t *testing.T) {
 	}
 	slots, _ := a.DB.Qualifiers(ctx, champ.SeasonID)
 	for _, sl := range slots {
-		if sl.OverLimit {
-			t.Errorf("%s is still over the limit in the demo championship", sl.Driver)
+		if sl.Entries > 3 {
+			t.Errorf("%s holds %d places, over the cap", sl.Driver, sl.Entries)
 		}
 	}
 	st, err := a.Bracket.Generate(ctx, champ.ID, proposals, "test")
@@ -409,5 +410,32 @@ func TestTheDemoChampionshipIsReadyToBuild(t *testing.T) {
 	}
 	if st.Entrants != 24 {
 		t.Errorf("%d cars in the demo bracket, want 24", st.Entrants)
+	}
+}
+
+// The championship decides the season trophy and nothing else, so a tie for 2nd
+// there stands as a tie rather than being run off.
+func TestAChampionshipOnlyRunsOffATieForFirst(t *testing.T) {
+	a, seasonID := fullSeason(t)
+	ctx := context.Background()
+	champID := championshipWithField(t, a, seasonID, nil)
+	if err := a.DB.SetRaceFormat(ctx, champID, model.FormatStandard); err != nil {
+		t.Fatal(err)
+	}
+	tiedRace(t, a, champID, 2, 2)
+
+	ties, err := a.DB.UnsettledTies(ctx, champID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ties) != 0 {
+		t.Errorf("a tie for 2nd at the championship was offered as a run-off: %+v", ties)
+	}
+	awards, err := a.DB.SpeedAwards(ctx, champID)
+	if err != nil {
+		t.Fatalf("SpeedAwards: %v", err)
+	}
+	if len(awards) != 1 {
+		t.Errorf("%d trophies at the championship, want 1", len(awards))
 	}
 }

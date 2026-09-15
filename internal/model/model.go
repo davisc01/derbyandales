@@ -280,15 +280,6 @@ type Adjustment struct {
 	CreatedAt time.Time
 }
 
-// QualifierSubstitution replaces an over-limit auto-qualifier slot with the
-// next eligible finisher from that race.
-type QualifierSubstitution struct {
-	SeasonID          int64
-	OriginalEntryID   int64
-	SubstituteEntryID int64
-	CreatedAt         time.Time
-}
-
 // Display is a connected screen. Devices self-register, so there are no IP
 // addresses to configure.
 type Display struct {

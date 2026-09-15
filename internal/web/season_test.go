@@ -104,8 +104,6 @@ func TestSeasonErrorsAreReadable(t *testing.T) {
 			url.Values{"racer_id": {"0"}, "points": {"5"}, "reason": {"why"}}},
 		{"points that are not a number", "/api/season/adjust",
 			url.Values{"racer_id": {"1"}, "points": {"lots"}, "reason": {"why"}}},
-		{"a substitution that was never made", "/api/season/substitute/undo",
-			url.Values{"original_entry_id": {"1"}}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -119,57 +117,6 @@ func TestSeasonErrorsAreReadable(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// The substitute picker only offers cars that can legally take the slot, which
-// is what stops a wrong bracket being built by clicking the obvious thing.
-func TestSubstituteCandidatesComeFromTheSameRace(t *testing.T) {
-	s, a, seasonID := seasonServer(t)
-	ctx := context.Background()
-
-	slots, err := a.DB.Qualifiers(ctx, seasonID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var over int64
-	var raceNumber int
-	for _, slot := range slots {
-		if slot.OverLimit {
-			over = slot.EntryID
-			raceNumber = slot.RaceNumber
-		}
-	}
-	if over == 0 {
-		t.Skip("the demo season has no racer over the entry cap")
-	}
-
-	rec := httptest.NewRecorder()
-	handler(t, s).ServeHTTP(rec, httptest.NewRequest("GET",
-		"/api/season/substitutes?entry_id="+itoa(over)+"&season_id="+itoa(seasonID), nil))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, body: %s", rec.Code, rec.Body.String())
-	}
-
-	var out struct {
-		Race       int `json:"race"`
-		Candidates []struct {
-			Place int `json:"place"`
-		} `json:"candidates"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-		t.Fatal(err)
-	}
-	if out.Race != raceNumber {
-		t.Errorf("candidates offered from race %d, the slot is from race %d", out.Race, raceNumber)
-	}
-	if len(out.Candidates) == 0 {
-		t.Fatal("no candidates offered")
-	}
-	for _, c := range out.Candidates {
-		if c.Place <= 3 {
-			t.Errorf("a car that finished %d was offered, but it already qualified", c.Place)
-		}
 	}
 }
 

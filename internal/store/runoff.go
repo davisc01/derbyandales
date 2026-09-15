@@ -16,7 +16,8 @@ import (
 // A tie below the podium stands: two cars that ran the same average are the
 // same speed, and the club is content to publish that. A tie for 1st, 2nd or
 // 3rd is different, because a trophy cannot be shared, so those are settled on
-// the track.
+// the track — and so is a tie lower down that a championship place has passed
+// down to, for the same reason.
 //
 // The run-off decides an order and nothing else. Its times are not part of any
 // average — see the 0004 migration for why — so the tied cars keep the
@@ -36,6 +37,10 @@ type TieView struct {
 	Settled bool
 	// DeadHeat marks exactly that case: run, and still level.
 	DeadHeat bool
+	// ForPlace marks a tie that decides a championship place rather than a
+	// trophy: a qualifying place that passed down the results to where two
+	// cars finished level.
+	ForPlace bool
 }
 
 // Describe says what is tied, in the words someone would use at the venue.
@@ -67,10 +72,14 @@ func ordinal(n int) string {
 // UnsettledTies lists the ties in a race that reach a trophy, with the cars in
 // them and any run-off already arranged.
 func (db *DB) UnsettledTies(ctx context.Context, raceID int64) ([]TieView, error) {
+	race, err := db.Race(ctx, raceID)
+	if err != nil {
+		return nil, err
+	}
 	// A bracket's shared places are rounds, not times. Two semi-final losers
 	// are both 3rd because neither raced the other; running them off would be
-	// a third-place match, and that is a different rule from a tie.
-	if race, err := db.Race(ctx, raceID); err == nil && race.Bracket() {
+	// a third-place match, and the club does not race one.
+	if race.Bracket() {
 		return nil, nil
 	}
 	standings, err := db.Standings(ctx, raceID)
@@ -93,9 +102,27 @@ func (db *DB) UnsettledTies(ctx context.Context, raceID int64) ([]TieView, error
 		return nil, err
 	}
 
+	// A tie further down still has to be settled when a championship place
+	// depends on it. That happens when a place passes down — the racer above
+	// is at the cap, or the car had already qualified — and lands on two cars
+	// that finished level. Only one of them can have it.
+	forPlace := map[int]bool{}
+	if race.Kind == model.RacePoints {
+		if slots, err := db.Qualifiers(ctx, race.SeasonID); err == nil {
+			for _, sl := range slots {
+				if sl.RaceID == raceID && sl.TiedWith != nil {
+					forPlace[sl.Place] = true
+				}
+			}
+		}
+	}
+
 	var out []TieView
-	for _, tie := range scoring.UnsettledTies(results) {
-		v := TieView{Tie: tie}
+	for _, tie := range scoring.Ties(results) {
+		if tie.Place > TrophyPlaces(race) && !forPlace[tie.Place] {
+			continue
+		}
+		v := TieView{Tie: tie, ForPlace: tie.Place > TrophyPlaces(race)}
 		for _, id := range tie.EntryIDs {
 			v.Entries = append(v.Entries, byID[id])
 		}

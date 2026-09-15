@@ -1,6 +1,10 @@
 package season
 
-import "sort"
+import (
+	"sort"
+	"strconv"
+	"strings"
+)
 
 // Auto-qualifiers.
 //
@@ -22,83 +26,128 @@ type Slot struct {
 	Seed int
 
 	// Entries is how many slots this racer holds across the whole season, which
-	// is the "Total Entries" column on the published qualifiers list.
+	// is the "Total Entries" column on the published qualifiers list. It never
+	// exceeds the cap: a finish that would take a racer past it passes down.
 	Entries int
 
-	// OverLimit marks a racer holding more slots than the cap allows. One of
-	// them has to be substituted away before the bracket can be seeded.
-	OverLimit bool
+	// PassedOver lists the cars that finished above this one in its race but
+	// could not take the place, which is why this car has it.
+	PassedOver []Passed
 
-	// SubstitutedFor is the finish this slot replaced, when the slot exists
-	// because a coordinator substituted an over-limit racer out. Nil otherwise.
-	SubstitutedFor *Finish
+	// TiedWith is a car that finished level with this one but did not get the
+	// place, because the race had no more to give. Nil almost always. When it
+	// is set, which of the two qualifies has not been raced for, and a person
+	// needs to settle it on the track.
+	TiedWith *Finish
+
+	// RaceTop marks the best qualifier from its race — normally the winner. It
+	// is what "the race winners are seeded first" means once a winner's place
+	// has passed down.
+	RaceTop bool
 }
 
-// Substitution replaces one over-limit qualifying slot with another finisher
-// from the same race.
-type Substitution struct {
-	OriginalEntryID   int64
-	SubstituteEntryID int64
+// Passed is a car that finished in a qualifying place without taking it.
+type Passed struct {
+	Finish
+	Reason PassReason
 }
+
+// PassReason says why a qualifying finish did not take the place.
+type PassReason string
+
+const (
+	// PassAtCap: the racer already holds as many championship places as the
+	// cap allows. They can still race, but the place goes to the next car.
+	PassAtCap PassReason = "at-cap"
+	// PassAlreadyQualified: this car took a place at an earlier race and was
+	// not allowed to race again. It cannot take a second.
+	PassAlreadyQualified PassReason = "already-qualified"
+)
 
 // Qualifiers builds the seeded auto-qualifier list from every finish of the
 // season's completed races.
 //
-// Substitutions are applied first, so the entry counts and the over-limit flags
-// describe the field as it actually stands rather than as it stood before the
-// coordinator fixed it.
-func Qualifiers(finishes []Finish, subs []Substitution, r Rules) []Slot {
-	byEntry := make(map[int64]Finish, len(finishes))
+// The races are taken in order, because the club's rules depend on what a
+// racer already held when each race was run:
+//
+//   - The top AutoQualPlaces cars of a race take a place each.
+//   - A racer who already holds MaxEntries places can still race, but a top
+//     finish does not add another. The place goes down to the next car.
+//   - A car that has qualified is not allowed to race again before the
+//     championship. If one does, it cannot take a second place either.
+//
+// So nobody ever ends up over the cap, and there is nothing for a person to
+// substitute by hand — the next finisher simply has the place.
+func Qualifiers(finishes []Finish, r Rules) []Slot {
+	byRace := map[int][]Finish{}
+	var races []int
 	for _, f := range finishes {
-		byEntry[f.EntryID] = f
+		if _, ok := byRace[f.RaceNumber]; !ok {
+			races = append(races, f.RaceNumber)
+		}
+		byRace[f.RaceNumber] = append(byRace[f.RaceNumber], f)
 	}
+	sort.Ints(races)
 
-	substitutedOut := make(map[int64]Finish, len(subs))
-	for _, s := range subs {
-		if original, ok := byEntry[s.OriginalEntryID]; ok {
-			substitutedOut[s.OriginalEntryID] = original
-		}
-	}
+	held := map[int64]int{}
+	qualifiedCar := map[string]bool{}
+	var slots []Slot
 
-	slots := make([]Slot, 0, len(finishes))
-	for _, f := range finishes {
-		if !qualifies(f, r) {
-			continue
+	for _, race := range races {
+		field := byRace[race]
+		sort.SliceStable(field, func(i, j int) bool { return field[i].Place < field[j].Place })
+
+		taken := 0
+		var passed []Passed
+		first := true
+		for _, f := range field {
+			if f.IsControl || f.Place == 0 {
+				continue
+			}
+			key := CarKey(f.RacerID, f.CarName)
+			// The race has given all its places. A car level on place with
+			// the last one taken is not let in as well — that would send one
+			// more car to the championship than the season has room for — but
+			// the tie is recorded, because the order it sorted in is not a
+			// result.
+			if taken >= r.AutoQualPlaces {
+				last := &slots[len(slots)-1]
+				if f.Place == last.Place && !qualifiedCar[key] && held[f.RacerID] < r.MaxEntries {
+					tied := f
+					last.TiedWith = &tied
+				}
+				break
+			}
+			switch {
+			case qualifiedCar[key]:
+				passed = append(passed, Passed{Finish: f, Reason: PassAlreadyQualified})
+				continue
+			case held[f.RacerID] >= r.MaxEntries && r.MaxEntries > 0:
+				passed = append(passed, Passed{Finish: f, Reason: PassAtCap})
+				continue
+			}
+			held[f.RacerID]++
+			qualifiedCar[key] = true
+			slots = append(slots, Slot{Finish: f, PassedOver: passed, RaceTop: first})
+			passed = nil
+			first = false
+			taken++
 		}
-		if _, gone := substitutedOut[f.EntryID]; gone {
-			continue
-		}
-		slots = append(slots, Slot{Finish: f})
-	}
-	for _, s := range subs {
-		f, ok := byEntry[s.SubstituteEntryID]
-		if !ok {
-			continue // the substitute's race was deleted or un-frozen
-		}
-		original, ok := substitutedOut[s.OriginalEntryID]
-		if !ok {
-			continue // nothing was actually replaced
-		}
-		slots = append(slots, Slot{Finish: f, SubstitutedFor: &original})
 	}
 
 	sortSlots(slots)
-
-	entries := map[int64]int{}
-	for _, s := range slots {
-		entries[s.RacerID]++
-	}
 	for i := range slots {
 		slots[i].Seed = i + 1
-		slots[i].Entries = entries[slots[i].RacerID]
-		slots[i].OverLimit = entries[slots[i].RacerID] > r.MaxEntries
+		slots[i].Entries = held[slots[i].RacerID]
 	}
 	return slots
 }
 
-// qualifies reports whether a finish took one of the automatic slots.
-func qualifies(f Finish, r Rules) bool {
-	return !f.IsControl && f.Place > 0 && f.Place <= r.AutoQualPlaces
+// CarKey identifies one car across a season: the racer, and the car's name
+// folded for case and spacing, which is how people name their cars to each
+// other and how the club's own lists tell two cars apart.
+func CarKey(racerID int64, carName string) string {
+	return strconv.FormatInt(racerID, 10) + "|" + strings.Join(strings.Fields(strings.ToLower(carName)), " ")
 }
 
 // sortSlots puts race winners first by average, then everyone else by average.
@@ -110,8 +159,8 @@ func qualifies(f Finish, r Rules) bool {
 func sortSlots(slots []Slot) {
 	sort.Slice(slots, func(i, j int) bool {
 		a, b := slots[i], slots[j]
-		if (a.Place == 1) != (b.Place == 1) {
-			return a.Place == 1
+		if a.RaceTop != b.RaceTop {
+			return a.RaceTop
 		}
 		if a.Average != b.Average {
 			return a.Average < b.Average
@@ -124,30 +173,4 @@ func sortSlots(slots []Slot) {
 		}
 		return a.EntryID < b.EntryID
 	})
-}
-
-// SubstituteCandidates lists who may take an over-limit racer's slot in a given
-// race: a finisher from that race who did not auto-qualify, is not the pace car,
-// and is not already standing in for somebody else.
-//
-// The replacement comes from the same race as the slot it fills, so the race
-// still sends the same number of cars to the championship.
-func SubstituteCandidates(finishes []Finish, raceID int64, subs []Substitution, r Rules) []Finish {
-	used := make(map[int64]bool, len(subs))
-	for _, s := range subs {
-		used[s.SubstituteEntryID] = true
-	}
-
-	var out []Finish
-	for _, f := range finishes {
-		if f.RaceID != raceID || f.IsControl || f.Place == 0 {
-			continue
-		}
-		if f.Place <= r.AutoQualPlaces || used[f.EntryID] {
-			continue
-		}
-		out = append(out, f)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Place < out[j].Place })
-	return out
 }

@@ -126,9 +126,9 @@ type Overview struct {
 	Expected         int
 	QualifyingPlaces int
 
-	// OverLimit is how many slots are held by racers above the entry cap. Each
-	// one needs a substitution before the bracket can be seeded.
-	OverLimit int
+	// PassedDown is how many places went to a car below the top of its race,
+	// because a car above it was at the cap or had already qualified.
+	PassedDown int
 }
 
 // RaceStanding says where one race has got to, from the season's point of view.
@@ -194,8 +194,8 @@ func (sc *SeasonController) Season(ctx context.Context, seasonID int64) (Overvie
 	o.Entrants = len(o.Qualifiers) + o.Season.WildcardSpots
 	o.Expected = o.QualifyingPlaces + o.Season.WildcardSpots
 	for _, s := range o.Qualifiers {
-		if s.OverLimit {
-			o.OverLimit++
+		if len(s.PassedOver) > 0 {
+			o.PassedDown++
 		}
 	}
 	return o, nil
@@ -224,30 +224,6 @@ func (sc *SeasonController) RemoveAdjustment(ctx context.Context, seasonID, id i
 	}
 	_ = sc.app.DB.Audit(ctx, actor, "season.adjust.remove", fmt.Sprintf("adjustment %d", id))
 	sc.announce(seasonID, "adjusted", map[string]any{"removed": id})
-	return nil
-}
-
-// Substitute hands an over-limit racer's slot to another car from the same race.
-func (sc *SeasonController) Substitute(ctx context.Context, seasonID, originalEntryID, substituteEntryID int64, actor string) error {
-	if err := sc.app.DB.Substitute(ctx, seasonID, originalEntryID, substituteEntryID); err != nil {
-		return err
-	}
-	_ = sc.app.DB.Audit(ctx, actor, "season.substitute",
-		fmt.Sprintf("entry %d takes the slot held by entry %d", substituteEntryID, originalEntryID))
-	sc.announce(seasonID, "seeding", map[string]any{
-		"original":   originalEntryID,
-		"substitute": substituteEntryID,
-	})
-	return nil
-}
-
-// UndoSubstitution puts the original slot back.
-func (sc *SeasonController) UndoSubstitution(ctx context.Context, seasonID, originalEntryID int64, actor string) error {
-	if err := sc.app.DB.UndoSubstitution(ctx, seasonID, originalEntryID); err != nil {
-		return err
-	}
-	_ = sc.app.DB.Audit(ctx, actor, "season.substitute.undo", fmt.Sprintf("entry %d", originalEntryID))
-	sc.announce(seasonID, "seeding", map[string]any{"restored": originalEntryID})
 	return nil
 }
 

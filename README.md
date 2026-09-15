@@ -34,7 +34,7 @@ has the detail for what is left.
 | M3 | Timer — FastTrack driver, simulator, Timer Test Bench | **done** |
 | M4 | Displays and race control — roster, now-racing, results reveal | **done** (slideshow, awards, bracket with later milestones) |
 | M5 | Voting and intermission — ballot, tallies, undo, winner declaration | **done** |
-| M6 | Season — auto-qualifiers, wildcard points, substitutions, adjustments | **done** |
+| M6 | Season — auto-qualifiers, wildcard points, adjustments | **done** |
 | M7 | Bracket — planner, seeding, generation, advance | **done** |
 | M8 | Publishing — website CSV writers, run-of-show screen | **done** |
 | M9 | Dress rehearsal on real hardware | |
@@ -131,7 +131,7 @@ internal/
   publish/          website CSV writers
   schedule/         heat generation and ordering
   scoring/          drop-slowest averaging, placement, scale MPH
-  season/           wildcard points, auto-qualifiers, substitutions
+  season/           wildcard points, auto-qualifiers
   store/            SQLite, migrations, queries
   timer/            FastTrack driver, simulator, state machine
   web/              HTTP handlers, templates, static assets

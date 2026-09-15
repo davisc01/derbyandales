@@ -264,7 +264,7 @@
               await post("/api/entry/update", {
                 id: result.id,
                 excluded: "true",
-                reason: "raced in a previous championship",
+                reason: result.exclusion_reason || "raced in a previous championship",
               });
               location.reload();
             } catch (err) {

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/davisc01/derbyandales/internal/app"
-	"github.com/davisc01/derbyandales/internal/season"
 )
 
 // The season screen: wildcard points, the auto-qualifier list, and the two
@@ -27,9 +26,6 @@ func (s *Server) seasonRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/season/adjust", s.handleAdjust)
 	mux.HandleFunc("POST /api/season/adjust/remove", s.handleRemoveAdjustment)
 
-	mux.HandleFunc("GET /api/season/substitutes", s.handleSubstituteCandidates)
-	mux.HandleFunc("POST /api/season/substitute", s.handleSubstitute)
-	mux.HandleFunc("POST /api/season/substitute/undo", s.handleUndoSubstitution)
 }
 
 func (s *Server) handleSeasonPage(w http.ResponseWriter, r *http.Request) {
@@ -146,112 +142,6 @@ func (s *Server) handleRemoveAdjustment(w http.ResponseWriter, r *http.Request) 
 	seasonID := s.seasonIDForm(r)
 	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
 	if err := s.app.Season.RemoveAdjustment(r.Context(), seasonID, id, "coordinator"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-}
-
-// handleSubstituteCandidates lists who could take a given slot. The slot names
-// the race, so the caller does not have to know or send it.
-func (s *Server) handleSubstituteCandidates(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	seasonID := s.seasonIDParam(r)
-	entryID, _ := strconv.ParseInt(r.URL.Query().Get("entry_id"), 10, 64)
-
-	slots, err := s.app.DB.Qualifiers(ctx, seasonID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-	var slot *season.Slot
-	for i := range slots {
-		if slots[i].EntryID == entryID {
-			slot = &slots[i]
-		}
-	}
-	if slot == nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{
-			"error": "That car does not hold a qualifying slot.",
-		})
-		return
-	}
-	// The same refusal the substitution itself makes. Offering a list of
-	// candidates for a slot that cannot be given away would be an invitation to
-	// a dead end.
-	if !slot.OverLimit {
-		writeJSON(w, http.StatusBadRequest, map[string]string{
-			"error": slot.Driver + " is not over the entry limit, so this slot does not need substituting.",
-		})
-		return
-	}
-
-	candidates, err := s.app.DB.SubstituteCandidates(ctx, seasonID, slot.RaceID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-
-	// How many slots each candidate already holds.
-	//
-	// Nothing stops a coordinator handing the slot to somebody who is already
-	// at the limit, and nothing should — on a thin night they may be the only
-	// person left. But it would immediately create the problem this screen
-	// exists to solve, so say so rather than let it be discovered later.
-	held := map[int64]int{}
-	limit := 0
-	if rules, err := s.app.DB.Rules(ctx, seasonID); err == nil {
-		limit = rules.MaxEntries
-	}
-	for _, sl := range slots {
-		held[sl.RacerID]++
-	}
-
-	out := make([]map[string]any, 0, len(candidates))
-	for _, c := range candidates {
-		out = append(out, map[string]any{
-			"entry_id": c.EntryID,
-			"driver":   c.Driver,
-			"car_name": c.CarName,
-			"place":    c.Place,
-			"average":  c.Average,
-			"slots":    held[c.RacerID],
-			"at_cap":   limit > 0 && held[c.RacerID] >= limit,
-		})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"race":       slot.RaceNumber,
-		"driver":     slot.Driver,
-		"car_name":   slot.CarName,
-		"candidates": out,
-	})
-}
-
-func (s *Server) handleSubstitute(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	seasonID := s.seasonIDForm(r)
-	original, _ := strconv.ParseInt(r.FormValue("original_entry_id"), 10, 64)
-	substitute, _ := strconv.ParseInt(r.FormValue("substitute_entry_id"), 10, 64)
-
-	if err := s.app.Season.Substitute(r.Context(), seasonID, original, substitute, "coordinator"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-}
-
-func (s *Server) handleUndoSubstitution(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	seasonID := s.seasonIDForm(r)
-	original, _ := strconv.ParseInt(r.FormValue("original_entry_id"), 10, 64)
-
-	if err := s.app.Season.UndoSubstitution(r.Context(), seasonID, original, "coordinator"); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}

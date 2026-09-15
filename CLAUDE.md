@@ -19,8 +19,9 @@ go run ./cmd/derbyandales -demo-championship -data /tmp/x  # championship night
 laptop. Use it — most bugs in this codebase have surfaced that way rather than
 in unit tests. It seeds five nights already raced and scored plus a sixth at
 check-in, so the season and championship screens have real data on them; the
-fabricated results deliberately include an over-limit racer and an ineligible
-car, because those paths are otherwise never seen.
+fabricated results deliberately include a racer who reaches the cap — so a place
+passes down — and an ineligible car, because those paths are otherwise never
+seen. Demo racers build a new car ("Lightning Bug II") once one qualifies.
 
 ## The club's rules
 
@@ -103,6 +104,21 @@ These are the domain, and getting them wrong changes published results.
 - **Championship field size is derived**, never hardcoded:
   `entrants = races × auto_qual_places + wildcards`, `capacity = next power of 2`,
   `byes = capacity − entrants`. The club's 24/32/8/5-rounds falls out of that.
+- **Auto-qualifying is decided race by race, in order.** The top
+  `auto_qual_places` cars of a race take a championship place each, with two
+  exceptions that pass the place down to the next car:
+  - **A car that has qualified may not race again** before the championship.
+    If one does, it cannot take a second place. Check-in warns when a car that
+    already qualified is entered, and offers to mark it ineligible.
+  - **A racer at the cap** (`max_championship_entry`, 3) still races, but a top
+    finish gives them nothing: the place goes to the next car. They are also
+    out of wildcard contention.
+
+  So nobody is ever over the cap and nothing is substituted by hand. The club's
+  2026 file shows the old manual version of this — Chris Bryan on four places
+  with Greg Thrift listed as a `9*` standby — and `season.Qualifiers` produces
+  that standby resolved. A place that passes down onto a tie is run off like a
+  tie for a trophy (`TieView.ForPlace`), because only one car can have it.
 - **Championship seeding order**: race winners by average time, then the
   remaining auto-qualifiers by average time, then the wildcard racers by season
   points. Seeds 1–8 get a bye.
@@ -111,7 +127,12 @@ These are the domain, and getting them wrong changes published results.
   winners" means *the winners first* — six is the number of races. And seeds 7–8
   are not a separate rule from 9–18: they are one ordered run, and the split at
   8 is where the byes stop. The byes land on the top seeds because that is what
-  the bracket construction does, not because anything says so.
+  the bracket construction does, not because anything says so. "Race winner"
+  is the best qualifier from each race (`Slot.RaceTop`), which is the winner
+  unless their place passed down.
+- **The championship decides one trophy: the season's.** No intermission, no
+  third-place matchup, and only a tie for 1st is run off there
+  (`store.TrophyPlaces`).
 - **A championship is a normal race unless flagged as a bracket.**
   `race.format` is `standard` or `bracket`, and only a championship may be a
   bracket. Every championship from 2023 to 2025 was a normal race, so nothing
@@ -202,10 +223,11 @@ Each of these has already caused a bug here.
   matched at championship check-in by racer plus car name. An exact match needs
   no review; anything looser is flagged for a person, because a wrongly-seeded
   car lands in the wrong half and nobody finds out until the semi-final.
-- **Over limit is `> cap`; maxed out is `>= cap`.** They are different tests and
-  both are needed: a racer sitting exactly on the cap keeps every slot they hold
-  but is out of wildcard contention. Getting these the same way round silently
-  changes who reaches the championship.
+- **A race is recorded into the season twice when it has a run-off**: once when
+  its last heat lands, and again when the run-off settles it
+  (`RaceController.settleRunOff`). The run-off comes after the reveal, so the
+  first record still has the tie; without the second, a tie for 3rd would stay
+  a tie in the championship places.
 - **The published file formats come from the committed files, not from the
   exporters that made them** — the committed ones were hand-trimmed and are what
   the site renders. Asserted in `internal/publish/golden_test.go`. Two traps:
@@ -275,7 +297,7 @@ internal/
   history/    reading the club's published archive back in
   publish/    website CSV writers, page skeletons, diff and write
   scoring/    drop-slowest averaging, placement, scale MPH, CSV formatting
-  season/     wildcard points, auto-qualifier seeding, substitutions
+  season/     wildcard points, auto-qualifying (pass-down), seeding
   store/      SQLite, migrations, queries
   timer/      FastTrack driver, simulator, state machine, Test Bench
   web/        handlers, templates, static assets

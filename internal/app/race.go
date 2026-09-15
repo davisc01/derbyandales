@@ -522,6 +522,7 @@ func (rc *RaceController) recordFinish(ctx context.Context) {
 		return
 	}
 
+	rc.settleRunOff(ctx, updated)
 	rc.app.Bus.Publish(bus.TopicRace, "heat.finished", rc.State(ctx))
 	rc.app.Log.Info("heat complete", "heat", heat.Number, "lanes", len(times))
 
@@ -805,6 +806,8 @@ func (rc *RaceController) EnterTimes(ctx context.Context, heatID int64, times ma
 		}
 		rc.mu.Unlock()
 
+		rc.settleRunOff(ctx, updated)
+
 		// Typed-in times decide a matchup exactly as timed ones do. A dead
 		// heat is recorded and not an error: the times are what happened, and
 		// arming next runs the matchup again.
@@ -821,4 +824,27 @@ func (rc *RaceController) EnterTimes(ctx context.Context, heatID int64, times ma
 	rc.app.Bus.Publish(bus.TopicRace, "heat.finished", rc.State(ctx))
 	rc.app.Log.Info("heat entered by hand", "heat", heat.Number, "lanes", len(times))
 	return nil
+}
+
+// settleRunOff records a race into the season again once a run-off has settled
+// its podium.
+//
+// The race was frozen when its last heat landed, which is before the run-off —
+// the run-off comes after the reveal, by design. Left alone, the season would
+// keep the tie: two cars sharing 3rd, where the track has since said which is
+// which, and with it who takes the championship place. This is not a recompute
+// on a whim; the run-off is the end of that night's result.
+func (rc *RaceController) settleRunOff(ctx context.Context, heat store.HeatView) {
+	if !heat.RunOff() || !heat.Complete() {
+		return
+	}
+	if frozen, err := rc.app.DB.RaceFrozen(ctx, heat.RaceID); err != nil || !frozen {
+		return
+	}
+	if err := rc.app.Season.FreezeRace(ctx, heat.RaceID); err != nil {
+		rc.app.Log.Warn("recording the settled result failed", "race", heat.RaceID, "err", err)
+		return
+	}
+	_ = rc.app.DB.Audit(ctx, "system", "season.runoff",
+		fmt.Sprintf("race %d recorded again after run-off heat %d", heat.RaceID, heat.Number))
 }

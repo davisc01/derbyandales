@@ -29,10 +29,8 @@ type WildcardRow struct {
 	Rank  int
 	Total int
 
-	// MaxedOut means this racer already holds every championship slot they are
-	// allowed, so their points cannot win them another. Note the threshold is
-	// >= the cap, where over-limit is > the cap: a racer sitting exactly on the
-	// cap keeps all their slots but is out of wildcard contention.
+	// MaxedOut means this racer already holds every championship place they are
+	// allowed (count >= the cap), so their points cannot win them another.
 	MaxedOut bool
 }
 

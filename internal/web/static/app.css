@@ -522,9 +522,9 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .qualifiers th.num, .wildcard th.num { text-align: right; }
 
-/* A slot held by a racer over the entry cap has to be given away before the
-   bracket can be seeded, so it is marked rather than left to be counted. */
-.qualifiers tr.over-limit { background: rgba(240, 165, 58, .07); }
+/* A place that passed down the results to reach this car. Marked, because the
+   car is not in the top three of its race and somebody will ask why. */
+.qualifiers tr.passed-down { background: rgba(240, 165, 58, .07); }
 
 /* The racers currently taking the wildcard places. The line between in and out
    moves every race, and being able to see where it is now is the whole reason
@@ -532,27 +532,6 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 .wildcard tr.in-the-field { background: rgba(63, 191, 99, .07); }
 .wildcard tr.in-the-field td:first-child { box-shadow: inset 2px 0 0 var(--green); }
 .wildcard tr.maxed td { color: var(--ink-faint); }
-
-#substitute-dialog {
-  background: var(--panel);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 20px 22px;
-  min-width: 420px;
-  max-width: 90vw;
-}
-#substitute-dialog::backdrop { background: rgba(0, 0, 0, .55); }
-#substitute-dialog h1 { margin: 0 0 6px; font-size: 16px; }
-#substitute-dialog select {
-  background: var(--panel-2);
-  color: var(--ink);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 7px 9px;
-  font: inherit;
-  width: 100%;
-}
 
 /* --- heats worth a second look ------------------------------------------------ */
 

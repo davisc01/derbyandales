@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/davisc01/derbyandales/internal/model"
+	"github.com/davisc01/derbyandales/internal/season"
 	"github.com/davisc01/derbyandales/internal/store"
 )
 
@@ -84,17 +85,22 @@ func (a *App) seedDemoLiveRace(ctx context.Context, created model.Season, number
 		return race, fmt.Errorf("create demo race: %w", err)
 	}
 
+	qualified, err := a.qualifiedCars(ctx, created.ID)
+	if err != nil {
+		return race, err
+	}
 	for _, d := range demoRacers {
 		racer, err := a.DB.FindOrCreateRacer(ctx, created.ID, d.First, d.Last)
 		if err != nil {
 			return race, err
 		}
+		carNumber, car := demoCar(racer.ID, d.Number, d.Car, qualified)
 		now := time.Now()
 		entry := model.Entry{
 			RaceID:      race.ID,
 			RacerID:     racer.ID,
-			CarNumber:   d.Number,
-			CarName:     d.Car,
+			CarNumber:   carNumber,
+			CarName:     car,
 			IsControl:   d.Car == "CONTROL",
 			CheckedInAt: &now,
 		}
@@ -207,4 +213,33 @@ func (a *App) ForceDemoTie(ctx context.Context, raceID int64) error {
 	_ = a.DB.Audit(ctx, "system", "demo.tie",
 		fmt.Sprintf("%s: car %d given car %d's times", race.Name, top[1].Entry.CarNumber, top[0].Entry.CarNumber))
 	return nil
+}
+
+// qualifiedCars is every car that has taken a championship place this season.
+func (a *App) qualifiedCars(ctx context.Context, seasonID int64) (map[string]bool, error) {
+	slots, err := a.DB.Qualifiers(ctx, seasonID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(slots))
+	for _, sl := range slots {
+		out[season.CarKey(sl.RacerID, sl.CarName)] = true
+	}
+	return out, nil
+}
+
+// demoCar is the car a demo racer brings to a race. A car that has qualified is
+// not allowed to race again before the championship, so a racer whose car has a
+// place builds another: "Lightning Bug II", numbered a hundred up.
+func demoCar(racerID int64, number int, name string, qualified map[string]bool) (int, string) {
+	if name == "CONTROL" {
+		return number, name
+	}
+	suffixes := []string{"", " II", " III", " IV", " V", " VI", " VII"}
+	for gen, suffix := range suffixes {
+		if !qualified[season.CarKey(racerID, name+suffix)] {
+			return number + 100*gen, name + suffix
+		}
+	}
+	return number + 100*len(suffixes), name + " Mk. Next"
 }

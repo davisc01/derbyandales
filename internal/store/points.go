@@ -11,8 +11,7 @@ import (
 	"github.com/davisc01/derbyandales/internal/season"
 )
 
-// Season-wide storage: frozen race results, manual point adjustments, and
-// qualifier substitutions.
+// Season-wide storage: frozen race results and manual point adjustments.
 //
 // The old system kept all of this in a second application with its own
 // database, synchronised by exporting a CSV from one and uploading it to the
@@ -202,15 +201,11 @@ func (db *DB) Qualifiers(ctx context.Context, seasonID int64) ([]season.Slot, er
 	if err != nil {
 		return nil, err
 	}
-	subs, err := db.Substitutions(ctx, seasonID)
-	if err != nil {
-		return nil, err
-	}
 	rules, err := db.Rules(ctx, seasonID)
 	if err != nil {
 		return nil, err
 	}
-	return season.Qualifiers(plainFinishes(finishes), subs, rules), nil
+	return season.Qualifiers(plainFinishes(finishes), rules), nil
 }
 
 // Wildcard returns the season's points standings.
@@ -276,23 +271,6 @@ func (db *DB) Wildcard(ctx context.Context, seasonID int64) ([]season.WildcardRo
 		})
 	}
 	return season.Wildcard(racers, rules), nil
-}
-
-// SubstituteCandidates lists who could take an over-limit slot in a race.
-func (db *DB) SubstituteCandidates(ctx context.Context, seasonID, raceID int64) ([]season.Finish, error) {
-	finishes, err := db.SeasonFinishes(ctx, seasonID)
-	if err != nil {
-		return nil, err
-	}
-	subs, err := db.Substitutions(ctx, seasonID)
-	if err != nil {
-		return nil, err
-	}
-	rules, err := db.Rules(ctx, seasonID)
-	if err != nil {
-		return nil, err
-	}
-	return season.SubstituteCandidates(plainFinishes(finishes), raceID, subs, rules), nil
 }
 
 // CompetingRacers lists the people who have entered a car of their own in a
@@ -391,93 +369,4 @@ func (db *DB) AddAdjustment(ctx context.Context, a model.Adjustment) (model.Adju
 func (db *DB) DeleteAdjustment(ctx context.Context, id int64) error {
 	_, err := db.ExecContext(ctx, `DELETE FROM adjustment WHERE id = ?`, id)
 	return err
-}
-
-// --- substitutions ---------------------------------------------------------------
-
-// Substitutions lists a season's qualifier substitutions.
-func (db *DB) Substitutions(ctx context.Context, seasonID int64) ([]season.Substitution, error) {
-	rows, err := db.QueryContext(ctx, `
-		SELECT original_entry_id, substitute_entry_id
-		FROM qualifier_substitution WHERE season_id = ?
-		ORDER BY created_at, original_entry_id`, seasonID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []season.Substitution
-	for rows.Next() {
-		var s season.Substitution
-		if err := rows.Scan(&s.OriginalEntryID, &s.SubstituteEntryID); err != nil {
-			return nil, err
-		}
-		out = append(out, s)
-	}
-	return out, rows.Err()
-}
-
-// Substitute gives an over-limit racer's slot to another finisher from the same
-// race.
-//
-// The checks here are the ones that would otherwise produce a bracket that is
-// quietly wrong: a slot that was not over the limit, a substitute who already
-// qualified on their own, or one taken from a different race — which would move
-// a championship place from one night to another.
-func (db *DB) Substitute(ctx context.Context, seasonID, originalEntryID, substituteEntryID int64) error {
-	slots, err := db.Qualifiers(ctx, seasonID)
-	if err != nil {
-		return err
-	}
-	var slot *season.Slot
-	for i := range slots {
-		if slots[i].EntryID == originalEntryID {
-			slot = &slots[i]
-		}
-	}
-	if slot == nil {
-		return errors.New("that car does not hold a qualifying slot")
-	}
-	if !slot.OverLimit {
-		return fmt.Errorf("%s is not over the entry limit, so this slot does not need substituting", slot.Driver)
-	}
-
-	candidates, err := db.SubstituteCandidates(ctx, seasonID, slot.RaceID)
-	if err != nil {
-		return err
-	}
-	var pick *season.Finish
-	for i := range candidates {
-		if candidates[i].EntryID == substituteEntryID {
-			pick = &candidates[i]
-		}
-	}
-	if pick == nil {
-		return errors.New("that car cannot take the slot: it must be a car from the same race that did not already qualify")
-	}
-
-	_, err = db.ExecContext(ctx, `
-		INSERT INTO qualifier_substitution
-			(season_id, original_entry_id, substitute_entry_id, created_at)
-		VALUES (?,?,?,?)`,
-		seasonID, originalEntryID, substituteEntryID, unix(time.Now()))
-	if err != nil {
-		return fmt.Errorf("%s already has a substitute, or %s is already standing in for someone: undo that first",
-			slot.Driver, pick.Driver)
-	}
-	return nil
-}
-
-// UndoSubstitution puts the original slot back.
-func (db *DB) UndoSubstitution(ctx context.Context, seasonID, originalEntryID int64) error {
-	res, err := db.ExecContext(ctx,
-		`DELETE FROM qualifier_substitution WHERE season_id = ? AND original_entry_id = ?`,
-		seasonID, originalEntryID)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return errors.New("that slot has not been substituted")
-	}
-	return nil
 }

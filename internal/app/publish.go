@@ -194,7 +194,10 @@ func (pc *PublishController) PlanSeason(ctx context.Context, seasonID int64) (pu
 		files.Qualifiers = append(files.Qualifiers, publish.QualifierRow{
 			Seed: q.Seed, Driver: q.Driver, CarName: q.CarName,
 			Race: q.RaceNumber, Finish: q.Place, Average: q.Average,
-			Entries: q.Entries, OverLimit: q.OverLimit,
+			// Over Limit stays in the file because the site's page is built
+			// around the column, but it is always empty now: a place that
+			// would take a racer over the cap passes down instead.
+			Entries: q.Entries,
 		})
 	}
 	for _, row := range standings {
