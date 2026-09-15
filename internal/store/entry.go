@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/davisc01/derbyandales/internal/model"
@@ -38,6 +39,18 @@ func (db *DB) FindOrCreateRacer(ctx context.Context, seasonID int64, first, last
 		return r, fmt.Errorf("insert racer: %w", err)
 	}
 	r.ID, err = res.LastInsertId()
+	return r, err
+}
+
+// Racer loads one racer.
+func (db *DB) Racer(ctx context.Context, id int64) (model.Racer, error) {
+	var r model.Racer
+	err := db.QueryRowContext(ctx,
+		`SELECT id, season_id, first_name, last_name FROM racer WHERE id = ?`, id).
+		Scan(&r.ID, &r.SeasonID, &r.FirstName, &r.LastName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return r, ErrNotFound
+	}
 	return r, err
 }
 
@@ -190,4 +203,81 @@ func boolInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// RenameRacer corrects a racer's name everywhere it appears, which is every
+// entry they have made: the name lives on the racer, not on the entries.
+//
+// A name that already belongs to another racer this season is refused rather
+// than silently merged. Two rows with one name are either the same person —
+// which is a merge, and changes their points — or two people, and only
+// somebody who knows them can say which.
+func (db *DB) RenameRacer(ctx context.Context, racerID int64, first, last string) error {
+	first, last = strings.TrimSpace(first), strings.TrimSpace(last)
+	if first == "" && last == "" {
+		return errors.New("a racer needs a name")
+	}
+	var seasonID int64
+	if err := db.QueryRowContext(ctx, `SELECT season_id FROM racer WHERE id = ?`, racerID).Scan(&seasonID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	var other int64
+	err := db.QueryRowContext(ctx,
+		`SELECT id FROM racer WHERE season_id = ? AND first_name = ? AND last_name = ? AND id != ?`,
+		seasonID, first, last, racerID).Scan(&other)
+	if err == nil {
+		return fmt.Errorf("%s %s is already a racer this season — merge the two instead if they are the same person", first, last)
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	_, err = db.ExecContext(ctx,
+		`UPDATE racer SET first_name = ?, last_name = ? WHERE id = ?`, first, last, racerID)
+	return err
+}
+
+// MergeRacers folds one racer into another: every entry, recorded result and
+// points adjustment moves across, and the duplicate is removed.
+//
+// This is the fix for a name typed two ways at check-in, which otherwise splits
+// one person's season in two and can keep them out of a wildcard spot. It
+// reports the races in which both had a car. There the frozen points are now
+// wrong — the rule is best car only, and each half earned points for its own
+// best car — and only a recompute puts that right.
+func (db *DB) MergeRacers(ctx context.Context, keepID, dropID int64) (shared int, err error) {
+	if keepID == dropID {
+		return 0, errors.New("that is the same racer")
+	}
+	var keepSeason, dropSeason int64
+	if err := db.QueryRowContext(ctx, `SELECT season_id FROM racer WHERE id = ?`, keepID).Scan(&keepSeason); err != nil {
+		return 0, ErrNotFound
+	}
+	if err := db.QueryRowContext(ctx, `SELECT season_id FROM racer WHERE id = ?`, dropID).Scan(&dropSeason); err != nil {
+		return 0, ErrNotFound
+	}
+	if keepSeason != dropSeason {
+		return 0, errors.New("those racers are in different seasons")
+	}
+
+	if err := db.QueryRowContext(ctx, `
+		SELECT COUNT(DISTINCT a.race_id) FROM entry a
+		JOIN entry b ON b.race_id = a.race_id
+		WHERE a.racer_id = ? AND b.racer_id = ?`, keepID, dropID).Scan(&shared); err != nil {
+		return 0, err
+	}
+
+	err = db.Tx(ctx, func(tx *sql.Tx) error {
+		for _, table := range []string{"entry", "race_result", "adjustment"} {
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE `+table+` SET racer_id = ? WHERE racer_id = ?`, keepID, dropID); err != nil {
+				return err
+			}
+		}
+		_, err := tx.ExecContext(ctx, `DELETE FROM racer WHERE id = ?`, dropID)
+		return err
+	})
+	return shared, err
 }

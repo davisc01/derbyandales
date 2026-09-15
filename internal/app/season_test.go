@@ -477,3 +477,52 @@ func TestSeasonSettingsChangeWithoutRewritingFinishedRaces(t *testing.T) {
 		}
 	}
 }
+
+// A name typed two ways at check-in splits one person's season in two, which
+// can cost them a wildcard spot. Renaming fixes the spelling; merging puts the
+// season back together.
+func TestARacerSplitByATypoIsMergedBackTogether(t *testing.T) {
+	a, seasonID := seasonFixture(t)
+	ctx := context.Background()
+
+	racers, err := a.DB.CompetingRacers(ctx, seasonID)
+	if err != nil || len(racers) < 2 {
+		t.Fatalf("need two racers, have %d (%v)", len(racers), err)
+	}
+	keep, drop := racers[0], racers[1]
+
+	// Renaming onto a name already in use is a merge in disguise, and refused.
+	if err := a.Season.RenameRacer(ctx, drop.ID, keep.FirstName, keep.LastName, "test"); err == nil {
+		t.Error("a racer was renamed onto another racer's name")
+	}
+	if err := a.Season.RenameRacer(ctx, drop.ID, "  Corrected ", "Spelling", "test"); err != nil {
+		t.Fatalf("RenameRacer: %v", err)
+	}
+	if r, _ := a.DB.Racer(ctx, drop.ID); r.FullName() != "Corrected Spelling" {
+		t.Errorf("renamed racer is %q", r.FullName())
+	}
+
+	entriesOf := func(id int64) int {
+		var n int
+		a.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM entry WHERE racer_id = ?`, id).Scan(&n)
+		return n
+	}
+	total := entriesOf(keep.ID) + entriesOf(drop.ID)
+
+	if _, err := a.Season.MergeRacers(ctx, keep.ID, drop.ID, "test"); err != nil {
+		t.Fatalf("MergeRacers: %v", err)
+	}
+	if got := entriesOf(keep.ID); got != total {
+		t.Errorf("%d entries after merging, want all %d", got, total)
+	}
+	if _, err := a.DB.Racer(ctx, drop.ID); err == nil {
+		t.Error("the duplicate racer still exists")
+	}
+	after, _ := a.DB.CompetingRacers(ctx, seasonID)
+	if len(after) != len(racers)-1 {
+		t.Errorf("%d racers after merging, want %d", len(after), len(racers)-1)
+	}
+	if _, err := a.Season.MergeRacers(ctx, keep.ID, keep.ID, "test"); err == nil {
+		t.Error("a racer was merged into itself")
+	}
+}

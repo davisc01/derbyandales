@@ -410,6 +410,12 @@ the night was later split into five, so it is eleven now (see *Since M8*):
   database under a running heat is a race the software cannot win. Refused
   while racing is running.
 
+- **Racers can be renamed and merged** from the Season page. Rename refuses a
+  name another racer already has, because that is a merge in disguise. Merge
+  moves every entry, frozen result and adjustment to the racer kept, after a
+  backup; where both had a car in the same race the page asks for a recompute,
+  since each half earned points for its own best car.
+
 ## Settled
 
 - **"Raced in a previous championship" is checked from the archive.** The club's

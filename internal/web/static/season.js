@@ -85,6 +85,63 @@
     });
   }
 
+  // --- racer names ----------------------------------------------------------
+
+  const renameRacer = document.getElementById("rename-racer");
+  if (renameRacer) {
+    // Start from the name as it is, since most fixes are one letter.
+    renameRacer.addEventListener("change", function () {
+      const opt = renameRacer.selectedOptions[0];
+      document.getElementById("rename-first").value = (opt && opt.dataset.first) || "";
+      document.getElementById("rename-last").value = (opt && opt.dataset.last) || "";
+    });
+    document.getElementById("rename-save").addEventListener("click", async function () {
+      const status = document.getElementById("rename-status");
+      try {
+        await post("/api/racer/rename", {
+          racer_id: renameRacer.value,
+          first: document.getElementById("rename-first").value,
+          last: document.getElementById("rename-last").value,
+        });
+        location.reload();
+      } catch (err) {
+        say(status, err.message, true);
+      }
+    });
+  }
+
+  const mergeSave = document.getElementById("merge-save");
+  if (mergeSave) {
+    mergeSave.addEventListener("click", async function () {
+      const status = document.getElementById("merge-status");
+      const drop = document.getElementById("merge-drop");
+      const keep = document.getElementById("merge-keep");
+      if (!drop.value || !keep.value) {
+        say(status, "Choose both racers.", true);
+        return;
+      }
+      if (!confirm("Merge " + drop.selectedOptions[0].text + " into " +
+                   keep.selectedOptions[0].text + "?\n\nEvery car and result moves across " +
+                   "and the duplicate is removed. A backup is taken first.")) return;
+      try {
+        const data = await post("/api/racer/merge", { keep_id: keep.value, drop_id: drop.value });
+        if (data.shared_races > 0) {
+          // Each half earned points for its own best car in those races, and
+          // the rule is one best car per racer — so the frozen points are now
+          // too generous until somebody recomputes.
+          say(status, "Merged. They had cars in the same race " + data.shared_races +
+              " time" + (data.shared_races === 1 ? "" : "s") +
+              ", so press Recompute every race to put the points right.");
+          setTimeout(() => location.reload(), 5000);
+        } else {
+          location.reload();
+        }
+      } catch (err) {
+        say(status, err.message, true);
+      }
+    });
+  }
+
   // --- adjustments ----------------------------------------------------------
 
   const save = document.getElementById("adjust-save");

@@ -22,6 +22,8 @@ func (s *Server) seasonRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("POST /api/season/recompute", s.handleRecompute)
 	mux.HandleFunc("POST /api/season/settings", s.handleSeasonSettings)
+	mux.HandleFunc("POST /api/racer/rename", s.handleRenameRacer)
+	mux.HandleFunc("POST /api/racer/merge", s.handleMergeRacers)
 	mux.HandleFunc("POST /api/season/adjust", s.handleAdjust)
 	mux.HandleFunc("POST /api/season/adjust/remove", s.handleRemoveAdjustment)
 
@@ -294,4 +296,40 @@ func (s *Server) handleSeasonSettings(w http.ResponseWriter, r *http.Request) {
 		"needs_recompute": change.NeedsRecompute,
 		"bracket_built":   change.BracketBuilt,
 	})
+}
+
+func (s *Server) handleRenameRacer(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	id, _ := strconv.ParseInt(r.FormValue("racer_id"), 10, 64)
+	if id == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "which racer?"})
+		return
+	}
+	if err := s.app.Season.RenameRacer(r.Context(), id, r.FormValue("first"), r.FormValue("last"), "coordinator"); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"renamed": true})
+}
+
+func (s *Server) handleMergeRacers(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	keep, _ := strconv.ParseInt(r.FormValue("keep_id"), 10, 64)
+	drop, _ := strconv.ParseInt(r.FormValue("drop_id"), 10, 64)
+	if keep == 0 || drop == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "choose both racers"})
+		return
+	}
+	shared, err := s.app.Season.MergeRacers(r.Context(), keep, drop, "coordinator")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"shared_races": shared})
 }

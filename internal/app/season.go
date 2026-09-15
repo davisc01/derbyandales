@@ -402,3 +402,43 @@ func (sc *SeasonController) UpdateSettings(ctx context.Context, seasonID int64, 
 	sc.announce(seasonID, "settings", map[string]any{"changed": out.Changed})
 	return out, nil
 }
+
+// RenameRacer corrects a racer's name, with an audit entry saying what it was.
+func (sc *SeasonController) RenameRacer(ctx context.Context, racerID int64, first, last, actor string) error {
+	old, err := sc.app.DB.Racer(ctx, racerID)
+	if err != nil {
+		return err
+	}
+	if err := sc.app.DB.RenameRacer(ctx, racerID, first, last); err != nil {
+		return err
+	}
+	_ = sc.app.DB.Audit(ctx, actor, "racer.rename",
+		fmt.Sprintf("%s → %s %s", old.FullName(), strings.TrimSpace(first), strings.TrimSpace(last)))
+	sc.announce(old.SeasonID, "racer", map[string]any{"racer": racerID})
+	return nil
+}
+
+// MergeRacers folds a duplicate racer into the one being kept. A snapshot
+// first: this moves results between people and cannot be undone by hand.
+func (sc *SeasonController) MergeRacers(ctx context.Context, keepID, dropID int64, actor string) (int, error) {
+	keep, err := sc.app.DB.Racer(ctx, keepID)
+	if err != nil {
+		return 0, err
+	}
+	drop, err := sc.app.DB.Racer(ctx, dropID)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := sc.app.Backup(ctx, BackupManual); err != nil {
+		sc.app.Log.Warn("snapshot before merging racers failed", "err", err)
+	}
+	shared, err := sc.app.DB.MergeRacers(ctx, keepID, dropID)
+	if err != nil {
+		return 0, err
+	}
+	_ = sc.app.DB.Audit(ctx, actor, "racer.merge",
+		fmt.Sprintf("%s (racer %d) merged into %s (racer %d); %d races had both",
+			drop.FullName(), dropID, keep.FullName(), keepID, shared))
+	sc.announce(keep.SeasonID, "racer", map[string]any{"racer": keepID})
+	return shared, nil
+}

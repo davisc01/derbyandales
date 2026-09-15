@@ -227,6 +227,43 @@
   {{end}}
 </section>
 
+<section class="card">
+  <h1>Fix a racer's name</h1>
+  <p class="sub">
+    A name typed two ways at check-in splits one person's season in two. Rename
+    fixes a spelling. Merge puts two rows that are the same person back together,
+    moving every car and result to the one you keep.
+  </p>
+
+  <div class="console-row">
+    <select id="rename-racer">
+      <option value="">Choose a racer…</option>
+      {{range $d.Racers}}
+      <option value="{{.ID}}" data-first="{{.FirstName}}" data-last="{{.LastName}}">{{.FullName}}</option>
+      {{end}}
+    </select>
+    <input type="text" id="rename-first" placeholder="First name">
+    <input type="text" id="rename-last" placeholder="Last name">
+    <button class="btn" id="rename-save">Rename</button>
+    <span class="note" id="rename-status"></span>
+  </div>
+
+  <div class="console-row">
+    <span class="note">Merge</span>
+    <select id="merge-drop">
+      <option value="">the duplicate…</option>
+      {{range $d.Racers}}<option value="{{.ID}}">{{.FullName}}</option>{{end}}
+    </select>
+    <span class="note">into</span>
+    <select id="merge-keep">
+      <option value="">the one to keep…</option>
+      {{range $d.Racers}}<option value="{{.ID}}">{{.FullName}}</option>{{end}}
+    </select>
+    <button class="btn" id="merge-save">Merge</button>
+    <span class="note" id="merge-status"></span>
+  </div>
+</section>
+
 <dialog id="substitute-dialog">
   <form method="dialog" class="form">
     <h1 id="substitute-title">Substitute</h1>

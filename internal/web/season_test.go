@@ -216,3 +216,29 @@ func TestSeasonSettingsCanBeChangedFromTheSeasonPage(t *testing.T) {
 		t.Errorf("a season of no races was accepted: %d %v", code, resp)
 	}
 }
+
+func TestRacersCanBeRenamedAndMergedFromTheSeasonPage(t *testing.T) {
+	s, a, seasonID := seasonServer(t)
+	h := handler(t, s)
+	if rec := get(t, s, "/season"); !strings.Contains(rec.Body.String(), `id="merge-save"`) {
+		t.Fatal("the season page has no way to merge racers")
+	}
+	racers, _ := a.DB.CompetingRacers(context.Background(), seasonID)
+	keep, drop := racers[0], racers[1]
+
+	code, resp := postForm(t, h, "/api/racer/rename", url.Values{
+		"racer_id": {strconv.FormatInt(drop.ID, 10)}, "first": {"Fixed"}, "last": {"Name"},
+	})
+	if code != http.StatusOK {
+		t.Fatalf("rename: %d %v", code, resp)
+	}
+	code, resp = postForm(t, h, "/api/racer/merge", url.Values{
+		"keep_id": {strconv.FormatInt(keep.ID, 10)}, "drop_id": {strconv.FormatInt(drop.ID, 10)},
+	})
+	if code != http.StatusOK {
+		t.Fatalf("merge: %d %v", code, resp)
+	}
+	if _, err := a.DB.Racer(context.Background(), drop.ID); err == nil {
+		t.Error("the merged racer still exists")
+	}
+}
