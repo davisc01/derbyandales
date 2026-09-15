@@ -112,6 +112,21 @@
 </section>
 {{end}}
 
+{{if $d.DemoTie}}
+<section class="card">
+  <h1>Rehearse a run-off</h1>
+  <p class="sub">
+    Random demo times almost never tie, so the run-off is otherwise never seen.
+    This gives the 2nd-place car the winner's exact times so the two tie for
+    1st. Demo seasons only.
+  </p>
+  <div class="console-row">
+    <button class="btn" id="demo-tie">Make it a tie for 1st</button>
+    <span class="note" id="demo-tie-status"></span>
+  </div>
+</section>
+{{end}}
+
 {{if $d.Anomalies}}
 <section class="card anomaly-card">
   <h1>Heats worth a second look</h1>

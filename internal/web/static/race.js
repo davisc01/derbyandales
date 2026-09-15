@@ -106,6 +106,15 @@
     }
   });
 
+  wire("demo-tie", async function () {
+    try {
+      await post("/api/race/demo-tie", {});
+      location.reload();
+    } catch (err) {
+      say("demo-tie-status", err.message, true);
+    }
+  });
+
   wire("close-checkin", async function () {
     if (!confirm("Close check-in and build the heat schedule?\n\nNo more cars can be added after this.")) return;
     say("schedule-status", "Building…");

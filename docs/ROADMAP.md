@@ -420,6 +420,10 @@ the night was later split into five, so it is eleven now (see *Since M8*):
   six seconds with its number, name and driver, looping by itself and picking
   up cars photographed since the last pass. Every display scene now exists.
 
+- **A run-off can be rehearsed in the demo.** Once a demo race's heats are run
+  with nothing tied, the race page offers to give the 2nd-place car the
+  winner's exact times. Refused outside a demo season.
+
 ## Settled
 
 - **"Raced in a previous championship" is checked from the archive.** The club's

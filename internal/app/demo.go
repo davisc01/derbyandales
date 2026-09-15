@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -128,4 +129,82 @@ func (a *App) HasDemoData(ctx context.Context) bool {
 		}
 	}
 	return false
+}
+
+// ForceDemoTie makes the 2nd-placed car's runs identical to the winner's, so the
+// two tie for 1st and the run-off can be rehearsed.
+//
+// Random times almost never produce two identical averages, so without this the
+// run-off — the tie card, the run-of-show step, the heat itself — would go
+// unseen in every demo. It only works on a demo season: rewriting a real car's
+// times is exactly what the rest of the software exists to prevent.
+func (a *App) ForceDemoTie(ctx context.Context, raceID int64) error {
+	race, err := a.DB.Race(ctx, raceID)
+	if err != nil {
+		return err
+	}
+	s, err := a.DB.Season(ctx, race.SeasonID)
+	if err != nil {
+		return err
+	}
+	if !strings.Contains(s.Name, "demo data") {
+		return errors.New("a tie can only be staged in a demo season")
+	}
+	if race.Bracket() {
+		return errors.New("a bracket has no averages to tie")
+	}
+
+	standings, err := a.DB.Standings(ctx, raceID)
+	if err != nil {
+		return err
+	}
+	var top []store.Standing
+	for _, st := range standings {
+		if st.Place > 0 && st.Entry.EarnsPoints() {
+			top = append(top, st)
+		}
+		if len(top) == 2 {
+			break
+		}
+	}
+	if len(top) < 2 {
+		return errors.New("there need to be two cars with results first")
+	}
+
+	runs, err := a.DB.RunsByEntry(ctx, raceID)
+	if err != nil {
+		return err
+	}
+	first, second := runs[top[0].Entry.ID], runs[top[1].Entry.ID]
+	if len(first) != len(second) {
+		return errors.New("those two cars have not run the same number of heats yet")
+	}
+
+	heats, err := a.DB.Heats(ctx, raceID)
+	if err != nil {
+		return err
+	}
+	byNumber := map[int]store.HeatView{}
+	for _, h := range heats {
+		byNumber[h.Number] = h
+	}
+	// Each of the second car's runs takes one of the winner's times, in the
+	// same lane it already ran. The whole heat is written back so the places
+	// within it are worked out again against the other cars' times.
+	for i, run := range second {
+		h := byNumber[run.Heat]
+		times := map[int]float64{}
+		for _, l := range h.Lanes {
+			if l.EntryID != nil && l.FinishTime != nil {
+				times[l.Lane] = *l.FinishTime
+			}
+		}
+		times[run.Lane] = first[i].Time
+		if err := a.DB.RecordHeatResults(ctx, h.ID, times); err != nil {
+			return err
+		}
+	}
+	_ = a.DB.Audit(ctx, "system", "demo.tie",
+		fmt.Sprintf("%s: car %d given car %d's times", race.Name, top[1].Entry.CarNumber, top[0].Entry.CarNumber))
+	return nil
 }

@@ -351,3 +351,19 @@ func TestTheBracketSceneAndImpoundFollowTheMatchups(t *testing.T) {
 		t.Errorf("the next matchup to load has %d cars, want 2", cars)
 	}
 }
+
+// The race page for a bracket must not offer to build a round-robin schedule,
+// and says where the bracket is built instead.
+func TestTheRacePageForABracketDoesNotOfferASchedule(t *testing.T) {
+	s, a, _, champID := championshipFixture(t)
+	if err := a.Race.SetRace(context.Background(), champID); err != nil {
+		t.Fatal(err)
+	}
+	body := get(t, s, "/race").Body.String()
+	if strings.Contains(body, `id="close-checkin"`) {
+		t.Error("the race page offers a round-robin schedule for a bracket")
+	}
+	if !strings.Contains(body, "runs as a bracket") {
+		t.Error("the race page does not say the championship is a bracket")
+	}
+}

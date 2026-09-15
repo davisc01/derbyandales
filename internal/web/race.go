@@ -25,6 +25,7 @@ func (s *Server) raceRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/race/runoff", s.handleRunOff)
 	mux.HandleFunc("POST /api/race/times", s.handleEnterTimes)
 	mux.HandleFunc("POST /api/race/format", s.handleRaceFormat)
+	mux.HandleFunc("POST /api/race/demo-tie", s.handleDemoTie)
 }
 
 func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
@@ -55,6 +56,18 @@ func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Offered only in a demo season, once the heats are run and nothing is
+	// tied — the one state where a person wants to see a run-off and cannot get
+	// one.
+	demoTie := false
+	if state.RaceID != 0 && !bracketRace && allHeatsRun(heats) && len(ties) == 0 {
+		if race, err := s.app.DB.Race(ctx, state.RaceID); err == nil {
+			if sn, err := s.app.DB.Season(ctx, race.SeasonID); err == nil {
+				demoTie = strings.Contains(sn.Name, "demo data")
+			}
+		}
+	}
+
 	s.render(w, r, "race.html", pageData{
 		Title:  "Race",
 		Active: "race",
@@ -65,6 +78,8 @@ func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
 			"Anomalies": anomalies,
 			"Ties":      ties,
 			"Timer":     s.app.Timer.Status(),
+			"Bracket":   bracketRace,
+			"DemoTie":   demoTie,
 		},
 	})
 }
@@ -265,4 +280,15 @@ func (s *Server) handleRaceFormat(w http.ResponseWriter, r *http.Request) {
 	}
 	s.app.DB.Audit(r.Context(), "coordinator", "race.format", fmt.Sprintf("race %d → %s", raceID, format))
 	writeJSON(w, http.StatusOK, map[string]string{"format": string(format)})
+}
+
+// handleDemoTie stages a tie for 1st in a demo race, so the run-off can be
+// rehearsed. ForceDemoTie refuses anything but a demo season.
+func (s *Server) handleDemoTie(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	if err := s.app.ForceDemoTie(r.Context(), s.raceIDForm(r)); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"tied": true})
 }
