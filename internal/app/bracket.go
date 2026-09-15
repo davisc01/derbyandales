@@ -178,26 +178,11 @@ func (bc *BracketController) RecordResult(ctx context.Context, championshipID, m
 		return err
 	}
 
-	times := map[int64]float64{}
-	for _, l := range heat.Lanes {
-		if l.EntryID == nil || l.FinishTime == nil || l.Ignored {
-			continue
-		}
-		times[*l.EntryID] = *l.FinishTime
+	winner, err := headToHead(heat, m)
+	if err != nil {
+		return err
 	}
-	if len(times) < 2 {
-		return errors.New("that heat does not have a time for both cars yet")
-	}
-
-	top, bottom := *m.TopEntryID, *m.BottomEntryID
-	switch {
-	case times[top] < times[bottom]:
-		return bc.declare(ctx, championshipID, m, top)
-	case times[bottom] < times[top]:
-		return bc.declare(ctx, championshipID, m, bottom)
-	default:
-		return errors.New("both cars recorded the same time — run the matchup again")
-	}
+	return bc.declare(ctx, championshipID, m, winner)
 }
 
 // Declare settles a matchup by hand, for a dead heat or a car that broke.

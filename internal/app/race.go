@@ -125,11 +125,25 @@ func (rc *RaceController) State(ctx context.Context) RaceState {
 		s.HeatNo = s.Heat.Number
 	}
 	if s.RaceID != 0 {
-		if race, err := rc.app.DB.Race(ctx, s.RaceID); err == nil {
+		race, err := rc.app.DB.Race(ctx, s.RaceID)
+		if err == nil {
 			s.RaceName = race.Name
 		}
 		if p, err := rc.app.DB.Progress(ctx, s.RaceID); err == nil {
 			s.HeatTotal, s.Completed = p.Total, p.Completed
+		}
+		// A bracket builds each heat as it is armed, so the heats that exist
+		// are not the whole night. What is left is one heat per undecided
+		// matchup.
+		if race.Bracket() {
+			if all, err := rc.app.DB.Matchups(ctx, s.RaceID); err == nil {
+				s.HeatTotal = s.Completed
+				for _, m := range all {
+					if m.WinnerEntryID == nil {
+						s.HeatTotal++
+					}
+				}
+			}
 		}
 	}
 
@@ -156,6 +170,12 @@ func (rc *RaceController) GenerateSchedule(ctx context.Context, raceID int64) (*
 	season, race, err := rc.seasonAndRace(ctx, raceID)
 	if err != nil {
 		return nil, err
+	}
+	// A bracket's heats are its matchups, built one at a time as each is
+	// armed. A round-robin schedule on top of that would put every car on the
+	// track four times in a race that is supposed to eliminate them.
+	if race.Bracket() {
+		return nil, errors.New("this championship runs as a bracket — build it on the championship page instead")
 	}
 
 	if p, err := rc.app.DB.Progress(ctx, raceID); err == nil && p.Completed > 0 {
@@ -222,6 +242,16 @@ func (rc *RaceController) Start(ctx context.Context, raceID int64) error {
 		return errors.New("the timer test is more than two hours old — run it again")
 	}
 
+	race, err := rc.app.DB.Race(ctx, raceID)
+	if err != nil {
+		return err
+	}
+	if race.Bracket() {
+		if all, err := rc.app.DB.Matchups(ctx, raceID); err != nil || len(all) == 0 {
+			return errors.New("the bracket has not been built — do that on the championship page first")
+		}
+	}
+
 	rc.Stop()
 
 	loopCtx, cancel := context.WithCancel(context.Background())
@@ -286,6 +316,14 @@ func (rc *RaceController) ArmNext(ctx context.Context) error {
 
 	if raceID == 0 {
 		return errors.New("no race is running")
+	}
+
+	race, err := rc.app.DB.Race(ctx, raceID)
+	if err != nil {
+		return err
+	}
+	if race.Bracket() {
+		return rc.armNextMatchup(ctx, race)
 	}
 
 	heat, err := rc.app.DB.NextHeat(ctx, raceID)
@@ -462,6 +500,28 @@ func (rc *RaceController) recordFinish(ctx context.Context) {
 		rc.mu.Unlock()
 	}
 
+	// A bracket heat is decided before anything is shown, so the screens
+	// learn the winner with the times. A dead heat still advances: the next
+	// thing armed is the same matchup, and nobody has a choice to make.
+	if updated.BracketMatchupID != nil {
+		champion, err := rc.decideMatchup(ctx, updated)
+		if err != nil && !errors.Is(err, ErrDeadHeat) {
+			rc.app.Log.Warn("deciding the matchup", "heat", heat.Number, "err", err)
+			rc.SetAutoAdvance(false)
+		}
+		rc.app.Bus.Publish(bus.TopicRace, "heat.finished", rc.State(ctx))
+		if champion {
+			rc.finishBracket(ctx, heat.RaceID)
+			return
+		}
+		if autoNext && (err == nil || errors.Is(err, ErrDeadHeat)) {
+			rc.mu.Lock()
+			rc.advanceAt = time.Now().Add(rc.advancePause(ctx))
+			rc.mu.Unlock()
+		}
+		return
+	}
+
 	rc.app.Bus.Publish(bus.TopicRace, "heat.finished", rc.State(ctx))
 	rc.app.Log.Info("heat complete", "heat", heat.Number, "lanes", len(times))
 
@@ -579,6 +639,9 @@ func (rc *RaceController) ReRun(ctx context.Context, heatID int64) error {
 		return fmt.Errorf("heat %d has not been run yet, so there is nothing to re-run", heat.Number)
 	}
 
+	if err := rc.undoForReRun(ctx, heat); err != nil {
+		return err
+	}
 	if err := rc.app.DB.ClearHeatResults(ctx, heatID); err != nil {
 		return err
 	}
@@ -741,6 +804,19 @@ func (rc *RaceController) EnterTimes(ctx context.Context, heatID int64, times ma
 			rc.current = &updated
 		}
 		rc.mu.Unlock()
+
+		// Typed-in times decide a matchup exactly as timed ones do. A dead
+		// heat is recorded and not an error: the times are what happened, and
+		// arming next runs the matchup again.
+		if updated.BracketMatchupID != nil {
+			champion, err := rc.decideMatchup(ctx, updated)
+			if err != nil && !errors.Is(err, ErrDeadHeat) {
+				return err
+			}
+			if champion {
+				defer rc.finishBracket(ctx, heat.RaceID)
+			}
+		}
 	}
 	rc.app.Bus.Publish(bus.TopicRace, "heat.finished", rc.State(ctx))
 	rc.app.Log.Info("heat entered by hand", "heat", heat.Number, "lanes", len(times))

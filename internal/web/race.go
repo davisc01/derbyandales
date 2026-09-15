@@ -35,8 +35,15 @@ func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
 	var heats []store.HeatView
 	var anomalies []store.HeatAnomalyView
 	var ties []store.TieView
+	bracketRace := false
 	if state.RaceID != 0 {
+		race, _ := s.app.DB.Race(ctx, state.RaceID)
+		bracketRace = race.Bracket()
 		heats, _ = s.app.DB.Heats(ctx, state.RaceID)
+	}
+	// Ties and anomalies are about averages, and a bracket has none: every car
+	// in a matchup heat has exactly one run, which is trivially its slowest.
+	if state.RaceID != 0 && !bracketRace {
 		// A tie for a trophy is settled on the track, so it belongs on the race
 		// screen rather than buried in the awards page.
 		ties, _ = s.app.DB.UnsettledTies(ctx, state.RaceID)

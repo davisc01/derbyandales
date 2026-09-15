@@ -724,3 +724,77 @@ func (db *DB) Matchup(ctx context.Context, id int64) (model.BracketMatchup, erro
 	m.HeatID = nullInt(heatID)
 	return m, nil
 }
+
+// UndoMatchupWinner takes a decided matchup back to waiting, so it can be
+// raced again.
+//
+// That is what a crash in a bracket heat needs: the timer decided it the moment
+// the times landed, and a re-run has to undo that before it means anything. It
+// is refused once the winner has raced in the round above, because by then the
+// result has been built on — undoing it would leave a later race standing on a
+// car that may not have earned its place in it.
+func (db *DB) UndoMatchupWinner(ctx context.Context, championshipID, matchupID int64) error {
+	m, err := db.Matchup(ctx, matchupID)
+	if err != nil {
+		return err
+	}
+	if m.WinnerEntryID == nil {
+		return nil
+	}
+	seeds, err := db.Seeds(ctx, championshipID)
+	if err != nil {
+		return err
+	}
+	b, err := bracket.Build(len(seeds))
+	if err != nil {
+		return err
+	}
+
+	nextRound, nextPosition, top, feeds := bracket.Feeds(m.Round, m.Position, b.Rounds)
+	var next model.BracketMatchup
+	if feeds {
+		var id int64
+		if err := db.QueryRowContext(ctx,
+			`SELECT id FROM bracket_matchup WHERE race_id = ? AND round = ? AND position = ?`,
+			championshipID, nextRound, nextPosition).Scan(&id); err != nil {
+			return err
+		}
+		if next, err = db.Matchup(ctx, id); err != nil {
+			return err
+		}
+		if next.WinnerEntryID != nil {
+			return fmt.Errorf("the winner has already raced in round %d, so this result can no longer be undone — declare it by hand if it was wrong", nextRound)
+		}
+		if next.HeatID != nil {
+			if h, err := db.Heat(ctx, *next.HeatID); err == nil && h.Complete() {
+				return fmt.Errorf("the winner has already raced in round %d, so this result can no longer be undone", nextRound)
+			}
+		}
+	}
+
+	return db.Tx(ctx, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE bracket_matchup SET winner_entry_id = NULL WHERE id = ?`, matchupID); err != nil {
+			return err
+		}
+		if !feeds {
+			return nil
+		}
+		col := "bottom_entry_id"
+		if top {
+			col = "top_entry_id"
+		}
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE bracket_matchup SET `+col+` = NULL WHERE id = ?`, next.ID); err != nil {
+			return err
+		}
+		// A heat built for the round above, not yet run, has the wrong car in
+		// it now. It is rebuilt when that matchup is next armed.
+		if next.HeatID != nil {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM heat WHERE id = ?`, *next.HeatID); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}

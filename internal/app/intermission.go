@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/davisc01/derbyandales/internal/bus"
+	"github.com/davisc01/derbyandales/internal/model"
 )
 
 // The club pauses racing halfway through the heats. People come to the table,
@@ -191,6 +192,12 @@ func (rc *RaceController) EndIntermissionWithoutRacing(ctx context.Context) {
 // shouldPauseAfter reports whether the heat just completed is the one the
 // intermission follows.
 func (rc *RaceController) shouldPauseAfter(ctx context.Context, raceID, heatNumber int64) bool {
+	// The intermission is when people vote for the design and theme trophies,
+	// and the championship has neither. Nor does a bracket have a halfway
+	// heat: its heats are built one at a time.
+	if race, err := rc.app.DB.Race(ctx, raceID); err == nil && race.Kind == model.RaceChampionship {
+		return false
+	}
 	after := rc.IntermissionHeat(ctx, raceID)
 	if after <= 0 || int64(after) != heatNumber {
 		return false

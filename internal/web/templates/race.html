@@ -37,10 +37,18 @@
 
 <section class="card">
   <h1>Run the race</h1>
+  {{if $d.Bracket}}
+  <p class="note">
+    This championship runs as a bracket. Its heats are the matchups, built as
+    each one is armed &mdash; seed and build it on the
+    <a href="/championship">championship page</a>, then start racing here.
+  </p>
+  {{else}}
   <div class="console-row">
     <button class="btn" id="close-checkin">Close check-in and build the schedule</button>
     <span class="note" id="schedule-status"></span>
   </div>
+  {{end}}
   <div class="console-row">
     <button class="btn primary" id="start-race">Start racing</button>
     <button class="btn" id="stop-race">Stop</button>
