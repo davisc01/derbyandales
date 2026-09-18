@@ -330,47 +330,52 @@ person can show. Run it as an actual evening, in order, with ~24 fake entries.
    both must warn, and "Mark ineligible" must work.
 6. Misspell a racer's name on purpose, then fix it from the Season page — once
    by rename, once by merge.
-7. Put the roster and then the car slideshow on the TV; check both read from
+7. **Correct a car from the roster**: a wrong number, a wrong car name, a photo
+   of the wrong car, and one handed in under the wrong person entirely. Then
+   close check-in and correct another — removal stops there, editing must not.
+   Search the roster for one car and sort it by driver; on a real field of
+   thirty, check that finding a car is faster than reading the list.
+8. Put the roster and then the car slideshow on the TV; check both read from
    the back of the room.
 
 **Racing**
 
-8. Race real heats. Confirm arming, capture, auto-advance and a manual re-run.
+9. Race real heats. Confirm arming, capture, auto-advance and a manual re-run.
    **Watch the now-racing animation on the TV** — cars leaving when the gate
    opens, returning in finish order — which has only ever been seen in
    screenshots.
-9. **Provoke a bad read**: block a finish sensor, or lift a car before the line.
+10. **Provoke a bad read**: block a finish sensor, or lift a car before the line.
    Closing the start gate must end the heat with that lane at 9.999, say which
    lane was silent, and carry on racing.
-10. Load trays from the impound screen for several heats, standing with your back
+11. Load trays from the impound screen for several heats, standing with your back
     to the track as the official will; confirm the lanes read 4 to 1 left to
     right to match the trays, and that it stays in step with the track.
-11. At halfway, racing stops by itself. Vote from the tablet, undo a misclick,
+12. At halfway, racing stops by itself. Vote from the tablet, undo a misclick,
     force a tie in one question and settle it, then resume.
 
 **End of the night**
 
-12. Present the design and theme trophies, then run the reveal slowest to
+13. Present the design and theme trophies, then run the reveal slowest to
     fastest, handing over 1st, 2nd and 3rd as they come up.
-13. Stage a tie for a trophy (in a demo season, "Make it a tie for 1st") and run
+14. Stage a tie for a trophy (in a demo season, "Make it a tie for 1st") and run
     it off after the reveal. Then the final standings, then publish.
-14. **Publish into a scratch copy of derby-site** and run `hugo server`; confirm
+15. **Publish into a scratch copy of derby-site** and run `hugo server`; confirm
     the race page and the season standings render like a 2026 page.
-15. Back up, change something, restore the backup from the Status page, relaunch
+16. Back up, change something, restore the backup from the Status page, relaunch
     the app, and confirm it came back as it was.
 
 **Championship night** (`-demo-championship`, or a finished season)
 
-16. Review the seeding, build the bracket, and put the bracket scene on the TV.
-17. Race matchups from race control on the real timer. Force a dead heat (type
+17. Review the seeding, build the bracket, and put the bracket scene on the TV.
+18. Race matchups from race control on the real timer. Force a dead heat (type
     equal times) and confirm the matchup runs again; re-run a crashed matchup
     before its winner races on.
-18. Race to a champion. The reveal names **The D'Ale Cup**; present it with the
+19. Race to a champion. The reveal names **The D'Ale Cup**; present it with the
     finished bracket on screen; publish.
 
 **The acceptance test**
 
-19. **Hand the Tonight screen to someone who has never run a race, and have them
+20. **Hand the Tonight screen to someone who has never run a race, and have them
     run one.** That is what this project is for.
 
 ## Since M8

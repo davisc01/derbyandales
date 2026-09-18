@@ -301,9 +301,121 @@
     });
   }
 
+  // --- editing and removing a checked-in car --------------------------------
+
+  // The edit row lives under its car in the table, already filled in by the
+  // server. Opening it is a matter of unhiding it, so nothing here has to
+  // re-render a row or escape a car name.
+  function editRow(id) {
+    return document.querySelector('.entry-edit[data-edit="' + id + '"]');
+  }
+
+  function closeEdit(row) {
+    if (!row) return;
+    row.hidden = true;
+    const form = row.querySelector(".edit-form");
+    if (form) {
+      form.reset();
+      const reason = form.querySelector(".edit-reason");
+      if (reason) reason.hidden = !form.elements.excluded.checked;
+      const status = form.querySelector(".edit-status");
+      if (status) { status.textContent = ""; status.classList.remove("err-text"); }
+    }
+  }
+
+  document.querySelectorAll(".edit-entry").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const row = editRow(btn.dataset.id);
+      if (!row) return;
+      const opening = row.hidden;
+      // One open editor at a time: two half-filled forms on one table is how a
+      // correction gets saved onto the wrong car.
+      document.querySelectorAll(".entry-edit").forEach(closeEdit);
+      if (!opening) return;
+      row.hidden = false;
+      const first = row.querySelector('input[name="first_name"]');
+      const number = row.querySelector('input[name="car_number"]');
+      const focusOn = first && !first.disabled ? first : number;
+      if (focusOn) focusOn.focus();
+    });
+  });
+
+  document.querySelectorAll(".cancel-edit").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      closeEdit(btn.closest(".entry-edit"));
+    });
+  });
+
+  // An exclusion needs a reason here too, for the same reason it does on the
+  // add form: "why was my car not in the standings" is asked weeks later.
+  document.querySelectorAll(".edit-form").forEach(function (form) {
+    const excluded = form.elements.excluded;
+    const reason = form.querySelector(".edit-reason");
+    if (excluded && reason) {
+      excluded.addEventListener("change", function () {
+        reason.hidden = !excluded.checked;
+        if (excluded.checked) reason.querySelector("input").focus();
+      });
+    }
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const status = form.querySelector(".edit-status");
+      const save = form.querySelector('button[type="submit"]');
+      const setStatus = function (text, isError) {
+        if (!status) return;
+        status.textContent = text || "";
+        status.classList.toggle("err-text", !!isError);
+      };
+
+      save.disabled = true;
+      setStatus("Saving…");
+
+      const params = {
+        id: form.dataset.id,
+        car_number: form.elements.car_number.value,
+        car_name: form.elements.car_name.value.trim(),
+        note: form.elements.note.value.trim(),
+        is_control: form.elements.is_control.checked ? "true" : "false",
+        excluded: form.elements.excluded.checked ? "true" : "false",
+        reason: form.elements.reason.value.trim(),
+      };
+      // Disabled when the race is recorded, and then the driver is not ours to
+      // change — sending nothing is what tells the server to leave it alone.
+      if (!form.elements.first_name.disabled) {
+        params.first_name = form.elements.first_name.value.trim();
+        params.last_name = form.elements.last_name.value.trim();
+      }
+
+      try {
+        const file = form.elements.photo.files && form.elements.photo.files[0];
+        if (file) {
+          setStatus("Uploading the photo…");
+          const body = new FormData();
+          body.append("photo", file);
+          const res = await fetch("/api/photo", { method: "POST", body: body });
+          const uploaded = await res.json();
+          if (!res.ok) throw new Error(uploaded.error || res.statusText);
+          params.photo_id = uploaded.id;
+        } else if (form.elements.remove_photo && form.elements.remove_photo.checked) {
+          params.photo_id = "";
+        }
+
+        setStatus("Saving…");
+        await post("/api/entry/update", params);
+        location.reload();
+      } catch (err) {
+        setStatus(err.message, true);
+        save.disabled = false;
+      }
+    });
+  });
+
   document.querySelectorAll(".remove-entry").forEach(function (btn) {
     btn.addEventListener("click", async function () {
-      if (!confirm("Remove this car from check-in?")) return;
+      // Naming the car matters: the button is one of thirty identical ones.
+      const what = btn.dataset.label || "this car";
+      if (!confirm("Remove " + what + " from check-in?")) return;
       try {
         await post("/api/entry/delete", { id: btn.dataset.id });
         location.reload();
@@ -312,6 +424,97 @@
       }
     });
   });
+
+  // --- finding a car in the roster ------------------------------------------
+
+  // The roster is thirty-odd rows on a laptop at a noisy table, and the
+  // question is always about one car. Filtering and sorting happen here rather
+  // than on the server so the list answers while someone is still typing, and
+  // so a reload is never needed to get back to car-number order.
+  const rosterRows = $("entry-rows");
+  if (rosterRows) {
+    const search = $("roster-search");
+    const filter = $("roster-filter");
+    const sorter = $("roster-sort");
+    const count = $("roster-count");
+    const empty = $("roster-empty");
+    const rows = Array.prototype.slice.call(
+      rosterRows.querySelectorAll(".entry-row")
+    );
+
+    const matchesFilter = function (row) {
+      switch (filter.value) {
+        case "excluded": return row.dataset.excluded === "true";
+        case "control":  return row.dataset.control === "true";
+        case "nophoto":  return row.dataset.photo === "0";
+        // The pace car races and is ranked but is not a competitor, and an
+        // ineligible car is not in the standings at all. Neither belongs in
+        // the list of cars this filter is asked for.
+        case "racing":
+          return row.dataset.excluded !== "true" && row.dataset.control !== "true";
+        default: return true;
+      }
+    };
+
+    const matchesSearch = function (row) {
+      const q = search.value.trim().toLowerCase();
+      if (!q) return true;
+      const hay = [
+        row.dataset.number,
+        "#" + row.dataset.number,
+        row.dataset.car,
+        row.dataset.driver,
+      ].join(" ").toLowerCase();
+      return hay.indexOf(q) !== -1;
+    };
+
+    const compare = function (a, b) {
+      switch (sorter.value) {
+        case "car":
+          // A car with no name sorts last rather than to the top, where an
+          // empty string would put it.
+          return (a.dataset.car || "\uffff").toLowerCase()
+            .localeCompare((b.dataset.car || "\uffff").toLowerCase());
+        case "driver":
+          return (a.dataset.last + " " + a.dataset.driver).toLowerCase()
+            .localeCompare((b.dataset.last + " " + b.dataset.driver).toLowerCase());
+        case "checked":
+          return (+a.dataset.checked) - (+b.dataset.checked) ||
+                 (+a.dataset.number) - (+b.dataset.number);
+        default:
+          return (+a.dataset.number) - (+b.dataset.number);
+      }
+    };
+
+    const apply = function () {
+      let shown = 0;
+      rows.forEach(function (row) {
+        const visible = matchesFilter(row) && matchesSearch(row);
+        row.hidden = !visible;
+        if (visible) shown++;
+        // A hidden car must not leave its editor open above the next one.
+        if (!visible) closeEdit(editRow(row.dataset.entry));
+      });
+
+      rows.slice().sort(compare).forEach(function (row) {
+        rosterRows.appendChild(row);
+        const edit = editRow(row.dataset.entry);
+        if (edit) rosterRows.appendChild(edit);
+      });
+
+      if (empty) empty.hidden = shown > 0;
+      if (count) {
+        count.textContent = shown === rows.length
+          ? shown + (shown === 1 ? " car" : " cars")
+          : shown + " of " + rows.length;
+      }
+    };
+
+    search.addEventListener("input", apply);
+    filter.addEventListener("change", apply);
+    sorter.addEventListener("change", apply);
+    apply();
+  }
 
   // --- seasons and races ----------------------------------------------------
 

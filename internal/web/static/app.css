@@ -23,6 +23,13 @@
 
 * { box-sizing: border-box; }
 
+/* Hiding something has to actually hide it. Any rule here that gives an element
+   a display of its own outranks the browser's own [hidden] rule, and the page
+   toggles `hidden` all over: the reason a car is not eligible, the camera
+   panel, the bracket format picker, a filtered-out roster row. Every one of
+   those failing open shows the coordinator something that is not true. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -470,6 +477,57 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 .entry-photo { width: 56px; }
 .entry-photo img { width: 48px; height: 36px; object-fit: cover; border-radius: 4px; display: block; }
 .no-photo { color: var(--ink-faint); }
+
+.entry-actions { text-align: right; white-space: nowrap; }
+.entry-actions .btn + .btn { margin-left: 6px; }
+
+/* Finding one car in a roster of thirty. */
+.roster-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.roster-tools input[type="search"] { flex: 1 1 220px; min-width: 160px; }
+.roster-tools input[type="search"], .roster-tools select {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 7px 10px;
+  font: 13.5px var(--sans);
+}
+.roster-tools input[type="search"]:focus, .roster-tools select:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: -1px;
+}
+
+/* The editor opens underneath its own car, so it is never ambiguous which row
+   is being corrected. */
+.entry-edit > td { padding: 0 0 14px; }
+.entry-edit .edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--panel-2);
+  border-radius: 9px;
+  padding: 14px;
+}
+.entry-edit .edit-form label { display: flex; flex-direction: column; gap: 5px; }
+.entry-edit .edit-form input[type="text"],
+.entry-edit .edit-form input[type="number"] {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 8px 10px;
+  font: 14px var(--sans);
+}
+.entry-edit .edit-form input:focus { outline: 2px solid var(--blue); outline-offset: -1px; }
+.entry-edit .edit-form input:disabled { opacity: .55; }
+.entry-edit .edit-buttons { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.remove-photo-line { align-self: flex-end; flex: 1 1 200px; }
 
 /* --- voting ---------------------------------------------------------------- */
 

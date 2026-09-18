@@ -119,12 +119,44 @@
 
 <section class="card">
   <h1>Checked in</h1>
+  {{if $d.Entries}}
+  <div class="roster-tools">
+    <input type="search" id="roster-search" placeholder="Find a driver, car or number"
+           autocomplete="off" aria-label="Find a car">
+    <select id="roster-filter" aria-label="Show">
+      <option value="all">Everything</option>
+      <option value="racing">Counts for the standings</option>
+      <option value="excluded">Not eligible</option>
+      <option value="control">The CONTROL car</option>
+      <option value="nophoto">No photo yet</option>
+    </select>
+    <select id="roster-sort" aria-label="Sort by">
+      <option value="number">Car number</option>
+      <option value="car">Car name</option>
+      <option value="driver">Driver surname</option>
+      <option value="checked">Order checked in</option>
+    </select>
+    <span class="note" id="roster-count"></span>
+  </div>
+  {{end}}
+
   <div id="entry-list">
     {{if $d.Entries}}
     <table class="entries">
-      <tr><th></th><th>Car</th><th>Driver</th><th>Name</th><th></th><th></th></tr>
+      <thead>
+        <tr><th></th><th>Car</th><th>Driver</th><th>Name</th><th></th><th></th></tr>
+      </thead>
+      <tbody id="entry-rows">
       {{range $d.Entries}}
-      <tr data-entry="{{.ID}}" class="{{if .Excluded}}excluded{{end}}">
+      <tr data-entry="{{.ID}}" class="entry-row {{if .Excluded}}excluded{{end}}"
+          data-number="{{.CarNumber}}"
+          data-car="{{.CarName}}"
+          data-driver="{{.FullName}}"
+          data-last="{{.LastName}}"
+          data-checked="{{if .CheckedInAt}}{{.CheckedInAt.Unix}}{{else}}0{{end}}"
+          data-control="{{.IsControl}}"
+          data-excluded="{{.Excluded}}"
+          data-photo="{{if .PhotoID}}1{{else}}0{{end}}">
         <td class="entry-photo">
           {{if .PhotoID}}<img src="/photo/{{.PhotoID}}?size=thumb" alt="">{{else}}<span class="no-photo">—</span>{{end}}
         </td>
@@ -134,18 +166,87 @@
           {{if .IsControl}}<span class="badge warn">CONTROL</span>{{end}}
           {{if .Excluded}}<span class="badge off">not eligible</span>{{end}}
         </td>
-        <td class="note">{{.ExclusionReason}}</td>
-        <td><button class="btn small remove-entry" data-id="{{.ID}}">Remove</button></td>
+        <td class="note">{{if .ExclusionReason}}{{.ExclusionReason}}{{else}}{{.Note}}{{end}}</td>
+        <td class="entry-actions">
+          <button class="btn small edit-entry" data-id="{{.ID}}">Edit</button>
+          {{if $d.Scheduled}}
+          <button class="btn small" disabled
+                  title="The schedule is built. Mark the car not eligible instead.">Remove</button>
+          {{else}}
+          <button class="btn small remove-entry" data-id="{{.ID}}"
+                  data-label="#{{.CarNumber}} {{if .CarName}}{{.CarName}}{{else}}{{.FullName}}{{end}}">Remove</button>
+          {{end}}
+        </td>
+      </tr>
+
+      <tr class="entry-edit" data-edit="{{.ID}}" hidden>
+        <td colspan="6">
+          <form class="edit-form" data-id="{{.ID}}" autocomplete="off">
+            <div class="field-row">
+              <label><span class="lbl">Driver first name</span>
+                <input type="text" name="first_name" value="{{.FirstName}}" list="racer-names"
+                       {{if $d.Frozen}}disabled{{end}}></label>
+              <label><span class="lbl">Last name</span>
+                <input type="text" name="last_name" value="{{.LastName}}"
+                       {{if $d.Frozen}}disabled{{end}}></label>
+            </div>
+            {{if $d.Frozen}}
+            <p class="hint">This race is recorded and its points belong to {{.FullName}}, so the
+               driver is fixed here. A misspelled name is corrected on the
+               <a href="/season">season page</a>, which fixes it in every race at once.</p>
+            {{end}}
+            <div class="field-row">
+              <label class="narrow"><span class="lbl">Car number</span>
+                <input type="number" name="car_number" value="{{.CarNumber}}" min="1" inputmode="numeric"></label>
+              <label><span class="lbl">Car name</span>
+                <input type="text" name="car_name" value="{{.CarName}}"></label>
+            </div>
+            <div class="field-row">
+              <label><span class="lbl">Note</span>
+                <input type="text" name="note" value="{{.Note}}" placeholder="Anything worth remembering"></label>
+            </div>
+            <label class="check-line">
+              <input type="checkbox" name="is_control" {{if .IsControl}}checked{{end}}>
+              <span>This is the CONTROL pace car — it races and is ranked, but takes no
+                award and earns no points.</span>
+            </label>
+            <label class="check-line">
+              <input type="checkbox" name="excluded" {{if .Excluded}}checked{{end}}>
+              <span>Not eligible — it races, but is left out of the standings entirely.</span>
+            </label>
+            <label class="edit-reason" {{if not .Excluded}}hidden{{end}}>
+              <span class="lbl">Why not eligible</span>
+              <input type="text" name="reason" value="{{.ExclusionReason}}"
+                     placeholder="Raced in a previous championship"></label>
+            <div class="field-row">
+              <label><span class="lbl">Photo</span>
+                <input type="file" name="photo" accept="image/*">
+                <span class="hint">Picking one replaces what is there.</span></label>
+              {{if .PhotoID}}
+              <label class="check-line remove-photo-line">
+                <input type="checkbox" name="remove_photo">
+                <span>Remove the photo that is there</span></label>
+              {{end}}
+            </div>
+            <p class="edit-buttons">
+              <button class="btn primary small" type="submit">Save</button>
+              <button class="btn small cancel-edit" type="button">Cancel</button>
+              <span class="note edit-status"></span>
+            </p>
+          </form>
+        </td>
       </tr>
       {{end}}
+      </tbody>
     </table>
+    <p class="empty" id="roster-empty" hidden>Nothing matches that.</p>
     {{else}}
     <p class="empty">Nobody has checked in yet.</p>
     {{end}}
   </div>
   <p class="hint">Once check-in closes the schedule is built and cars can no
      longer be removed — a car that withdraws after that is marked not eligible
-     instead, so the heats stay intact.</p>
+     instead, so the heats stay intact. Editing keeps working either way.</p>
   <p><a class="btn" href="/race">Close check-in on the race page →</a></p>
 </section>
 {{end}}

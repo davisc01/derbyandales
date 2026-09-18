@@ -162,12 +162,17 @@ func (db *DB) Entry(ctx context.Context, id int64) (EntryView, error) {
 }
 
 // UpdateEntry writes back the mutable fields.
+//
+// racer_id is one of them: a car checked in against the wrong person is a
+// different correction from a misspelled name. RenameRacer fixes the name
+// everywhere it appears; this moves one car to somebody else and leaves both
+// their other cars alone.
 func (db *DB) UpdateEntry(ctx context.Context, e model.Entry) error {
 	_, err := db.ExecContext(ctx, `
-		UPDATE entry SET car_number=?, car_name=?, photo_id=?, is_control=?,
+		UPDATE entry SET racer_id=?, car_number=?, car_name=?, photo_id=?, is_control=?,
 			excluded=?, exclusion_reason=?, note=?
 		WHERE id=?`,
-		e.CarNumber, e.CarName, ptrArg(e.PhotoID), boolInt(e.IsControl),
+		e.RacerID, e.CarNumber, e.CarName, ptrArg(e.PhotoID), boolInt(e.IsControl),
 		boolInt(e.Excluded), e.ExclusionReason, e.Note, e.ID)
 	return err
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -57,6 +58,17 @@ func (s *Server) handleCheckinPage(w http.ResponseWriter, r *http.Request) {
 		taken = append(taken, e.CarNumber)
 	}
 
+	// Once the schedule exists a car can no longer be removed, and once the
+	// result is recorded it can no longer change driver. Both are worth saying
+	// on the row rather than only when the button is pressed.
+	var scheduled, frozen bool
+	if raceID != 0 {
+		if p, err := s.app.DB.Progress(ctx, raceID); err == nil {
+			scheduled = p.Total > 0
+		}
+		frozen, _ = s.app.DB.RaceFrozen(ctx, raceID)
+	}
+
 	s.render(w, r, "checkin.html", pageData{
 		Title:  "Check-in",
 		Active: "checkin",
@@ -68,6 +80,8 @@ func (s *Server) handleCheckinPage(w http.ResponseWriter, r *http.Request) {
 			"Races":      races,
 			"Seasons":    seasons,
 			"TakenCars":  taken,
+			"Scheduled":  scheduled,
+			"Frozen":     frozen,
 			"NextYear":   time.Now().Year() + 1,
 			"SecureHost": isSecureContext(r),
 		},
@@ -228,6 +242,9 @@ func entriesJSON(entries []store.EntryView) []map[string]any {
 			"reason":     e.ExclusionReason,
 			"note":       e.Note,
 		}
+		if e.CheckedInAt != nil {
+			row["checked_in_at"] = e.CheckedInAt.Unix()
+		}
 		if e.PhotoID != nil {
 			row["photo_id"] = *e.PhotoID
 		}
@@ -382,12 +399,20 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "unknown entry"})
 		return
 	}
+	race, err := s.app.DB.Race(ctx, existing.RaceID)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown race"})
+		return
+	}
 
 	entry := existing.Entry
-	if v := r.Form.Get("car_number"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			entry.CarNumber = n
+	if r.Form.Has("car_number") {
+		n, err := strconv.Atoi(strings.TrimSpace(r.Form.Get("car_number")))
+		if err != nil || n <= 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "the car needs a number"})
+			return
 		}
+		entry.CarNumber = n
 	}
 	if r.Form.Has("car_name") {
 		entry.CarName = strings.TrimSpace(r.Form.Get("car_name"))
@@ -410,9 +435,45 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 			entry.ExclusionReason = ""
 		}
 	}
-	if v := r.Form.Get("photo_id"); v != "" {
-		if pid, err := strconv.ParseInt(v, 10, 64); err == nil && pid > 0 {
+	// An empty photo_id is how the edit form says "no photo", which is the only
+	// way to undo a picture taken of the wrong car.
+	if r.Form.Has("photo_id") {
+		v := strings.TrimSpace(r.Form.Get("photo_id"))
+		if v == "" || v == "0" {
+			entry.PhotoID = nil
+		} else if pid, err := strconv.ParseInt(v, 10, 64); err == nil && pid > 0 {
 			entry.PhotoID = &pid
+		}
+	}
+
+	// Moving a car to a different driver. This is not the same correction as a
+	// misspelled name — that is RenameRacer on the season page, and it follows
+	// the person across every race. This moves one car and nothing else.
+	if r.Form.Has("first_name") || r.Form.Has("last_name") {
+		first := strings.TrimSpace(r.Form.Get("first_name"))
+		last := strings.TrimSpace(r.Form.Get("last_name"))
+		if first == "" && last == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "the driver needs a name"})
+			return
+		}
+		if first != existing.FirstName || last != existing.LastName {
+			// The frozen result records who scored the points. Handing the car
+			// to somebody else afterwards would leave the standings crediting
+			// the wrong person with no sign of it.
+			if frozen, err := s.app.DB.RaceFrozen(ctx, existing.RaceID); err == nil && frozen {
+				writeJSON(w, http.StatusBadRequest, map[string]string{
+					"error": "this race is already recorded and its points belong to " +
+						existing.FullName() + ". Correct a misspelled name on the season page; " +
+						"handing the car to a different driver now needs a recompute.",
+				})
+				return
+			}
+			racer, err := s.app.DB.FindOrCreateRacer(ctx, race.SeasonID, first, last)
+			if err != nil {
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+				return
+			}
+			entry.RacerID = racer.ID
 		}
 	}
 
@@ -425,8 +486,56 @@ func (s *Server) handleUpdateEntry(w http.ResponseWriter, r *http.Request) {
 		_ = s.app.DB.Audit(ctx, "coordinator", "entry.exclude",
 			"car "+strconv.Itoa(entry.CarNumber)+": "+entry.ExclusionReason)
 	}
+	// What a car was called and who drove it is the sort of thing somebody asks
+	// about afterwards, so an edit says what it changed rather than only that it
+	// happened.
+	if changed := entryChanges(existing, entry, r.Form); changed != "" {
+		_ = s.app.DB.Audit(ctx, "coordinator", "entry.edit",
+			"car "+strconv.Itoa(existing.CarNumber)+": "+changed)
+	}
 	s.app.Bus.Publish(bus.TopicRace, "checkin", map[string]any{"entry_id": id})
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// entryChanges describes an edit in the terms the coordinator used, for the
+// audit log. The exclusion is logged separately and left out here.
+func entryChanges(before store.EntryView, after model.Entry, form url.Values) string {
+	var parts []string
+	if before.CarNumber != after.CarNumber {
+		parts = append(parts, fmt.Sprintf("number %d → %d", before.CarNumber, after.CarNumber))
+	}
+	if before.CarName != after.CarName {
+		parts = append(parts, fmt.Sprintf("name %q → %q", before.CarName, after.CarName))
+	}
+	if before.RacerID != after.RacerID {
+		parts = append(parts, fmt.Sprintf("driver %s → %s %s", before.FullName(),
+			strings.TrimSpace(form.Get("first_name")), strings.TrimSpace(form.Get("last_name"))))
+	}
+	if before.IsControl != after.IsControl {
+		if after.IsControl {
+			parts = append(parts, "is now the CONTROL car")
+		} else {
+			parts = append(parts, "is no longer the CONTROL car")
+		}
+	}
+	if ptrInt64(before.PhotoID) != ptrInt64(after.PhotoID) {
+		if after.PhotoID == nil {
+			parts = append(parts, "photo removed")
+		} else {
+			parts = append(parts, "photo replaced")
+		}
+	}
+	if before.Note != after.Note {
+		parts = append(parts, "note changed")
+	}
+	return strings.Join(parts, ", ")
+}
+
+func ptrInt64(p *int64) int64 {
+	if p == nil {
+		return 0
+	}
+	return *p
 }
 
 func (s *Server) handleDeleteEntry(w http.ResponseWriter, r *http.Request) {
