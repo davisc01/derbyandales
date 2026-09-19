@@ -99,6 +99,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	s.publishRoutes(mux)
 	s.runRoutes(mux)
 	s.devicesRoutes(mux)
+	s.recordRoutes(mux)
 }
 
 // StartTLS brings up the HTTPS listener, which exists so remote check-in
@@ -284,6 +285,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	historyYears, _ := s.app.DB.ChampionshipYears(r.Context())
 	historyCars, _ := s.app.DB.PastChampionshipCars(r.Context())
+	archiveRaces, archiveRuns, _ := s.app.DB.ArchiveRaces(r.Context())
 
 	s.render(w, r, "settings.html", pageData{
 		Title:  "Settings",
@@ -292,6 +294,8 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			"Settings":     settings,
 			"HistoryYears": historyYears,
 			"HistoryCars":  historyCars,
+			"ArchiveRaces": archiveRaces,
+			"ArchiveRuns":  archiveRuns,
 			"HTTPPort":     s.app.HTTPPort,
 			"HTTPSPort":    s.app.HTTPSPort,
 			"Paths":        s.app.Paths,
@@ -454,6 +458,11 @@ func funcMap() template.FuncMap {
 		},
 		"average": scoring.FormatAverage,
 		"seconds": scoring.FormatTime,
+		"inc":     func(i int) int { return i + 1 },
+		"lower":   strings.ToLower,
+		"mph": func(trackFt float64, denom int, t float64) string {
+			return scoring.FormatMPH(scoring.ScaleMPH(trackFt, denom, t))
+		},
 		// Odds are rounded to something sayable: "1 in 256", not "1 in 256.0".
 		"odds": func(n float64) string { return strconv.FormatFloat(n, 'f', 0, 64) },
 		"signed": func(n int) string {
@@ -501,5 +510,27 @@ func (s *Server) handleImportChampionships(w http.ResponseWriter, r *http.Reques
 		cars += y.Cars
 		out = append(out, row)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"years": out, "cars": cars})
+
+	// The race nights feed the club records. A folder with championships and
+	// no heat files still did the job it was asked to, so a failure here is
+	// reported beside the championships rather than instead of them.
+	resp := map[string]any{"years": out, "cars": cars}
+	nights, err := s.app.ImportRaces(r.Context())
+	if err != nil {
+		resp["races_error"] = err.Error()
+	}
+	read, runs := 0, 0
+	var bad []map[string]string
+	for _, n := range nights {
+		if n.Problem != "" {
+			bad = append(bad, map[string]string{"race": n.Label, "problem": n.Problem})
+			continue
+		}
+		read++
+		runs += n.Runs
+	}
+	resp["races"] = read
+	resp["runs"] = runs
+	resp["race_problems"] = bad
+	writeJSON(w, http.StatusOK, resp)
 }

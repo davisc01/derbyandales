@@ -22,6 +22,7 @@
     <a href="/voting" class="{{if eq .Active "voting"}}on{{end}}">Voting</a>
     <a href="/season" class="{{if eq .Active "season"}}on{{end}}">Season</a>
     <a href="/championship" class="{{if eq .Active "championship"}}on{{end}}">Championship</a>
+    <a href="/records" class="{{if eq .Active "records"}}on{{end}}">Records</a>
     <a href="/publish" class="{{if eq .Active "publish"}}on{{end}}">Publish</a>
     <a href="/displays" class="{{if eq .Active "displays"}}on{{end}}">Displays</a>
     <a href="/timer/test" class="{{if eq .Active "timer"}}on{{end}}">Timer</a>
@@ -45,5 +46,6 @@
 {{if eq .Active "publish"}}<script src="/static/publish.js"></script>{{end}}
 {{if eq .Active "run"}}<script src="/static/run.js"></script>{{end}}
 {{if eq .Active "settings"}}<script src="/static/settings.js"></script>{{end}}
+{{if eq .Active "records"}}<script src="/static/records.js"></script>{{end}}
 </body>
 </html>{{end}}

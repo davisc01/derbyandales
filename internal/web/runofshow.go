@@ -179,7 +179,13 @@ func (s *Server) runOfShow(ctx context.Context) ([]Step, model.Race) {
 			Link: "/displays", Action: "Displays",
 		},
 		{
-			Number: 11, Title: "Publish to the website",
+			Number: 11, Title: "Wrap-up",
+			Hint: "The night in review, for the people who run the track: each lane's " +
+				"average and wins, the fastest heats, non-finishes, and what records fell.",
+			Link: "/displays", Action: "Displays",
+		},
+		{
+			Number: 12, Title: "Publish to the website",
 			Hint: "Writes the files and stops. You review and commit them yourself — " +
 				"the app never runs git.",
 			Link: "/publish", Action: "Publish",
@@ -403,28 +409,43 @@ func (s *Server) runOfShow(ctx context.Context) ([]Step, model.Race) {
 		steps[9].State = stepReady
 	}
 
-	// --- 11. publish ---------------------------------------------------------------
+	// --- 11. the wrap-up ----------------------------------------------------------
+	//
+	// Last on the screens, after the table people photograph: it is a review of
+	// the track for whoever looks after it, not part of the ceremony.
+	shownWrap, _ := s.app.DB.SceneShown(ctx, raceID, store.SceneWrapUp)
+	switch {
+	case !racedAll || len(unsettled) > 0:
+		steps[10].State = StepWaiting
+	case shownWrap:
+		steps[10].State = StepDone
+		steps[10].Detail = "Shown on a screen."
+	default:
+		steps[10].State = stepReady
+	}
+
+	// --- 12. publish ---------------------------------------------------------------
 	if _, err := s.app.Publish.SitePath(ctx); err != nil {
-		steps[10].State = StepBlocked
-		steps[10].Blocker = err.Error()
+		steps[11].State = StepBlocked
+		steps[11].Blocker = err.Error()
 	} else if !racedAll {
-		steps[10].State = StepBlocked
-		steps[10].Blocker = "The heats are not finished."
+		steps[11].State = StepBlocked
+		steps[11].Blocker = "The heats are not finished."
 	} else if len(unsettled) > 0 {
-		steps[10].State = StepBlocked
-		steps[10].Blocker = "A tie for a trophy has not been run off yet."
+		steps[11].State = StepBlocked
+		steps[11].Blocker = "A tie for a trophy has not been run off yet."
 	} else {
 		plan, err := s.app.Publish.PlanRace(ctx, raceID)
 		switch {
 		case err != nil:
-			steps[10].State = StepBlocked
-			steps[10].Blocker = err.Error()
+			steps[11].State = StepBlocked
+			steps[11].Blocker = err.Error()
 		case plan.Changes() == 0:
-			steps[10].State = StepDone
-			steps[10].Detail = "Published — nothing left to write."
+			steps[11].State = StepDone
+			steps[11].Detail = "Published — nothing left to write."
 		default:
-			steps[10].State = stepReady
-			steps[10].Detail = fmt.Sprintf("%d file%s to write",
+			steps[11].State = stepReady
+			steps[11].Detail = fmt.Sprintf("%d file%s to write",
 				plan.Changes(), plural(plan.Changes()))
 		}
 	}

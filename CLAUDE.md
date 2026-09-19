@@ -83,15 +83,27 @@ These are the domain, and getting them wrong changes published results.
   only their places differ.
 - **The end of the night runs in this order**: present the two voted trophies
   on their own → reveal the results slowest to fastest, handing over 1st, 2nd
-  and 3rd as those cars come up → run off any tie → final standings for the
-  wrap-up → publish.
+  and 3rd as those cars come up → run off any tie → final standings → the
+  wrap-up scene (the night in review) → publish.
 
   Each part of that is deliberate. The voted trophies go first because they are
   about how a car looks, and giving them out while the room is thinking about
   speed buries them. The speed trophies are handed over *during* the reveal, so
   the reveal is the ceremony rather than a preamble to one. And the tie is
   settled after the reveal, because the reveal is where the room learns there
-  is one.
+  is one. The wrap-up is last because it reviews the track, not the racers.
+  Its lane figures take every car that ran — pace car and excluded cars too,
+  since a slow lane is slow for them as well — while anything that names a car
+  (fastest heats, closest finish, most consistent) takes only cars that count.
+  Lane wins are shown against what chance gives, with the odds, and flagged
+  only past 1 in 20 after allowing for four lanes — seven wins from five
+  expected is 1 in 2, and a screen that flags it sends somebody to re-shim a
+  good track. The CONTROL car is compared with the median of its last six
+  nights, not all of them: it ran three quarters of a second slower in 2021.
+  Timer trouble is counted from `heat_event`, because the audit log names a
+  heat without its race. "Top MDnA races ever" ranks points races only, by the
+  average of every finished run by cars that count (`records.RaceSpeeds`):
+  championships are left out because their field is hand-picked for speed.
 - **The speed trophies are derived, never stored.** They are the top three of
   the standings, so a stored copy could only ever disagree with it — after a
   re-run, a struck-out lane, a corrected time. `SpeedAwards` computes them;
@@ -140,6 +152,17 @@ These are the domain, and getting them wrong changes published results.
 - **An inherited place still earns wildcard points by finishing place.** A 4th
   who inherits a qualifying place scores 4th-place points for that race; the
   club confirmed it, and it is what the published 2026 standings show.
+- **Club records go by time, never by the archive's MPH.** The track has not
+  changed, but the timer was set to 30.7 ft until 2022 and about 26.5 ft in
+  2023–24, so the published MPH columns disagree about the same run. Records
+  are derived like the speed trophies (`internal/records`): what fell is
+  whatever beat everything run before it. The pace car, excluded cars, struck
+  lanes, non-finishes and a clearly all-fastest heat never count; the demo
+  season counts only while a demo race is loaded. A night raced here replaces
+  the archive's copy of it (`store.RecordData`), or published nights would count
+  twice. A record *average* is announced in the reveal, never when the last heat
+  lands — that would give the winner away. Archive averages are recomputed
+  drop-slowest from the heats, because 2019 race 5 published all-four averages.
 - **The championship decides one trophy: The D'Ale Cup.** No intermission, no
   third-place matchup, and only a tie for 1st is run off there
   (`store.TrophyPlaces`).

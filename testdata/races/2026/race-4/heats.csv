@@ -1,0 +1,101 @@
+﻿Heat,Lane,FirstName,LastName,CarNumber,CarName,FinishTime,Scale MPH,FinishPlace
+1,1,Derby,Ales,1,CONTROL,2.76,172.9,4
+1,2,Will,Jaggers,99,Tiger Stripe,2.54,187.9,3
+1,3,Chris,Bryan,40,Cracked Up,2.434,196.1,1
+1,4,Chance,Greer,13,CHUD,2.475,192.8,2
+2,1,Kyle,Cheney,2,I'm Not Good At This,2.468,193.4,2
+2,2,Anne,Bryan,46,We Don't Bluff,2.484,192.1,3
+2,3,Chris,Bryan,91,Splat,2.46,194,1
+2,4,Amelia,Stacey,33,Pink Pony,2.556,186.7,4
+3,1,Amelia,Stacey,67,Right Lane of Poplar,2.441,195.5,4
+3,2,Justin,Palmer,89,Solo Jazz,2.391,199.6,2
+3,3,Whitney,Hochstein,9,Harry's Boogers,2.381,200.5,1
+3,4,Greg,Thrift,24,Rack 'N Roll,2.407,198.3,3
+4,1,Justin,Palmer,901,Shelby,2.406,198.4,1
+4,2,Tanner,Cook,27,The Boozer Cruiser,2.504,190.6,3
+4,3,Daniel,Hochstein,88,My First Time,2.507,190.4,4
+4,4,Kandace,Thrift,45,Blue Suede Speed,2.474,192.9,2
+5,1,Justin,Palmer,89,Solo Jazz,2.39,199.7,1
+5,2,Whitney,Hochstein,0,Carter's Purple Poop,2.395,199.3,2
+5,3,Daniel,Hochstein,4995,Amazon Special,2.398,199,3
+5,4,Duncan,Breland,2001,Arthur C Car,2.474,192.9,4
+6,1,Frances,Breland,12,Lemon Pound Cake,2.956,161.5,4
+6,2,Kyle,Cheney,2,I'm Not Good At This,2.451,194.7,1
+6,3,Anne,Bryan,3,When You're Bad,2.752,173.4,2
+6,4,Lance,Greer,14,Premature Acceleration,2.789,171.1,3
+7,1,Tanner,Cook,27,The Boozer Cruiser,2.393,199.4,2
+7,2,Whitney,Hochstein,9,Harry's Boogers,2.425,196.8,3
+7,3,Duncan,Breland,73,Loose Moose,2.365,201.8,1
+7,4,Frances,Breland,19,Jake,2.522,189.2,4
+8,1,Will,Jaggers,99,Tiger Stripe,2.614,182.6,3
+8,2,Anne,Bryan,3,When You're Bad,2.772,172.2,4
+8,3,Chad,Davis,55,TDOT Special,2.494,191.4,1
+8,4,Amelia,Stacey,67,Right Lane of Poplar,2.52,189.4,2
+9,1,Anne,Bryan,46,We Don't Bluff,2.423,197,3
+9,2,Chris,Bryan,40,Cracked Up,2.413,197.8,2
+9,3,Lance,Greer,14,Premature Acceleration,2.656,179.7,4
+9,4,Justin,Palmer,901,Shelby,2.325,205.3,1
+10,1,Whitney,Hochstein,0,Carter's Purple Poop,2.493,191.4,2
+10,2,Daniel,Hochstein,88,My First Time,2.53,188.6,3
+10,3,Greg,Thrift,24,Rack 'N Roll,2.478,192.6,1
+10,4,Frances,Breland,12,Lemon Pound Cake,2.882,165.6,4
+11,1,Whitney,Hochstein,9,Harry's Boogers,2.422,197.1,2
+11,2,Daniel,Hochstein,4995,Amazon Special,2.411,198,1
+11,3,Kandace,Thrift,45,Blue Suede Speed,2.475,192.8,3
+11,4,Derby,Ales,1,CONTROL,3.086,154.7,4
+12,1,Anne,Bryan,3,When You're Bad,2.736,174.4,4
+12,2,Chris,Bryan,91,Splat,2.44,195.6,1
+12,3,Chance,Greer,13,CHUD,2.583,184.8,3
+12,4,Justin,Palmer,89,Solo Jazz,2.473,193,2
+13,1,Chris,Bryan,40,Cracked Up,2.421,197.1,3
+13,2,Chad,Davis,55,TDOT Special,2.416,197.5,2
+13,3,Amelia,Stacey,33,Pink Pony,2.423,197,4
+13,4,Tanner,Cook,27,The Boozer Cruiser,2.404,198.5,1
+14,1,Daniel,Hochstein,88,My First Time,2.504,190.6,3
+14,2,Duncan,Breland,73,Loose Moose,2.436,195.9,1
+14,3,Duncan,Breland,2001,Arthur C Car,2.544,187.6,4
+14,4,Kyle,Cheney,2,I'm Not Good At This,2.446,195.1,2
+15,1,Daniel,Hochstein,4995,Amazon Special,2.416,197.5,1
+15,2,Greg,Thrift,24,Rack 'N Roll,2.437,195.8,2
+15,3,Frances,Breland,19,Jake,2.524,189.1,4
+15,4,Will,Jaggers,99,Tiger Stripe,2.52,189.4,3
+16,1,Chris,Bryan,91,Splat,2.452,194.6,1
+16,2,Lance,Greer,14,Premature Acceleration,2.765,172.6,4
+16,3,Amelia,Stacey,67,Right Lane of Poplar,2.517,189.6,3
+16,4,Whitney,Hochstein,0,Carter's Purple Poop,2.478,192.6,2
+17,1,Duncan,Breland,73,Loose Moose,2.368,201.6,1
+17,2,Kandace,Thrift,45,Blue Suede Speed,2.509,190.2,3
+17,3,Frances,Breland,12,Lemon Pound Cake,2.854,167.2,4
+17,4,Anne,Bryan,46,We Don't Bluff,2.409,198.1,2
+18,1,Chad,Davis,55,TDOT Special,2.492,191.5,2
+18,2,Chance,Greer,13,CHUD,2.616,182.4,4
+18,3,Justin,Palmer,901,Shelby,2.403,198.6,1
+18,4,Whitney,Hochstein,9,Harry's Boogers,2.499,191,3
+19,1,Greg,Thrift,24,Rack 'N Roll,2.446,195.1,1
+19,2,Duncan,Breland,2001,Arthur C Car,2.51,190.1,2
+19,3,Derby,Ales,1,CONTROL,3.015,158.3,4
+19,4,Anne,Bryan,3,When You're Bad,2.639,180.9,3
+20,1,Lance,Greer,14,Premature Acceleration,2.736,174.4,4
+20,2,Amelia,Stacey,33,Pink Pony,2.504,190.6,2
+20,3,Justin,Palmer,89,Solo Jazz,2.47,193.2,1
+20,4,Daniel,Hochstein,88,My First Time,2.535,188.3,3
+22,2,Amelia,Stacey,67,Right Lane of Poplar,2.536,188.2,3
+22,3,Tanner,Cook,27,The Boozer Cruiser,2.49,191.7,2
+22,4,Daniel,Hochstein,4995,Amazon Special,2.488,191.8,1
+22,1,Chance,Greer,13,CHUD,2.578,185.1,4
+23,1,Amelia,Stacey,33,Pink Pony,2.431,196.3,4
+23,2,Justin,Palmer,901,Shelby,2.33,204.8,1
+23,3,Whitney,Hochstein,0,Carter's Purple Poop,2.42,197.2,3
+23,4,Duncan,Breland,73,Loose Moose,2.367,201.6,2
+25,1,Frances,Breland,19,Jake,2.529,188.7,3
+25,2,Derby,Ales,1,CONTROL,2.975,160.4,4
+25,3,Anne,Bryan,46,We Don't Bluff,2.418,197.4,2
+25,4,Chad,Davis,55,TDOT Special,2.415,197.6,1
+21,1,Kandace,Thrift,45,Blue Suede Speed,2.481,192.4,2
+21,2,Frances,Breland,19,Jake,2.598,183.7,4
+21,3,Kyle,Cheney,2,I'm Not Good At This,2.446,195.1,1
+21,4,Chris,Bryan,40,Cracked Up,2.495,191.3,3
+24,1,Duncan,Breland,2001,Arthur C Car,2.478,192.6,3
+24,2,Frances,Breland,12,Lemon Pound Cake,2.879,165.8,4
+24,3,Will,Jaggers,99,Tiger Stripe,2.464,193.7,2
+24,4,Chris,Bryan,91,Splat,2.358,202.4,1

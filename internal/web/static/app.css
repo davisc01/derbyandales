@@ -805,3 +805,32 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 @media (max-width: 560px) {
   .device-grid { grid-template-columns: 1fr; }
 }
+
+/* --- records ------------------------------------------------------------- */
+
+.record-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.record {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.record-what { color: var(--ink-dim); font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; }
+.record-time { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.record-time span { font-size: 18px; color: var(--ink-dim); margin-left: 2px; }
+.record-mph { color: var(--ink-faint); font-size: 12.5px; }
+.record-who { font-weight: 600; margin-top: 8px; }
+.record-car { color: var(--ink-dim); font-size: 13px; }
+.record-h2 { font-size: 14px; font-weight: 600; margin: 18px 0 6px; color: var(--ink-dim); }
+.record-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 24px;
+}
+.record-cols .record-h2 { margin-top: 0; }
+.lookalikes { margin: 0; padding-left: 18px; columns: 2 260px; }

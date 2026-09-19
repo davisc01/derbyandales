@@ -1,0 +1,82 @@
+Heat,Lane,Last Name,First Name,Car#,Car Name,Times,Place,"Speed
+(MPH)"
+1,1,Palmer,Justin,1,Solo Jazz,2.62,1,199.86
+1,4,Stephens,Jordan,8,Who Let Petyr Out,2.745,2,190.76
+1,2,Fay,Wes,3,Woody Wedge,2.762,3,189.59
+1,3,Shelly,Wesley,55,55 Blue Streak,3.389,4,154.51
+2,3,Davis,Chad,56,Dumb Red Car,2.641,1,198.27
+2,1,Fay,Brian,2,USA,2.642,2,198.2
+2,2,Lemaster,Josh,4,Procrastinate,2.643,3,198.12
+2,4,Groves,Ryan,9,Tennessee Stud,2.874,4,182.2
+3,4,Bryan,Chris,10,D'ale,2.632,1,198.95
+3,2,Robinson,Wallace,5,Staph,2.691,2,194.59
+3,1,Fay,Wes,3,Woody Wedge,2.78,3,188.36
+3,3,Hutcherson,Matt,78,Dumpster Fire,2.929,4,178.78
+4,2,Lloyd,Ryan,6,Wonkey,2.587,1,202.41
+4,3,Hochstein,Daniel,83,Flaming Red,2.592,2,202.02
+4,4,Bryan,Anne,23,Ecto-1,2.676,3,195.68
+4,1,Lemaster,Josh,4,Procrastinate,2.704,4,193.65
+5,3,Palmer,Justin,1,Solo Jazz,2.69,1,194.66
+5,1,Robinson,Wallace,5,Staph,2.745,2,190.76
+5,2,Hood,Michael,7,Hell IDK,2.86,3,183.09
+5,4,Breland,Duncan,34,Breland Bakery,2.98,4,175.72
+6,1,Lloyd,Ryan,6,Wonkey,2.578,1,203.12
+6,3,Fay,Brian,2,USA,2.647,2,197.82
+6,2,Stephens,Jordan,8,Who Let Petyr Out,2.773,3,188.83
+6,4,Carruth,Richard,35,Team Alpha,3.332,4,157.15
+7,1,Hood,Michael,7,Hell IDK,2.746,1,190.69
+7,3,Fay,Wes,3,Woody Wedge,2.755,2,190.07
+7,4,Trommel,Phil,39,39 Magnum,2.804,3,186.75
+7,2,Groves,Ryan,9,Tennessee Stud,3.271,4,160.08
+8,2,Bryan,Chris,10,D'ale,2.616,1,200.17
+8,3,Lemaster,Josh,4,Procrastinate,2.651,2,197.52
+8,1,Stephens,Jordan,8,Who Let Petyr Out,2.82,3,185.69
+8,4,Collier,Mary Jean,47,Glitteriffic,2.944,4,177.87
+9,2,Bryan,Anne,23,Ecto-1,2.668,1,196.27
+9,3,Robinson,Wallace,5,Staph,2.685,2,195.02
+9,4,Hutcherson,Leah,50,Pickle Rick,2.953,3,177.32
+9,1,Groves,Ryan,9,Tennessee Stud,3.283,4,159.5
+10,3,Lloyd,Ryan,6,Wonkey,2.572,1,203.59
+10,1,Bryan,Chris,10,D'ale,2.599,2,201.48
+10,2,Breland,Duncan,34,Breland Bakery,2.873,3,182.26
+10,4,Shelly,Wesley,55,55 Blue Streak,3.513,4,149.06
+11,4,Davis,Chad,56,Dumb Red Car,2.64,1,198.35
+11,1,Bryan,Anne,23,Ecto-1,2.656,2,197.15
+11,3,Hood,Michael,7,Hell IDK,2.786,3,187.95
+11,2,Carruth,Richard,35,Team Alpha,3.412,4,153.47
+12,2,Trommel,Phil,39,39 Magnum,2.778,1,188.49
+12,3,Stephens,Jordan,8,Who Let Petyr Out,2.783,2,188.16
+12,4,Hutcherson,Matt,78,Dumpster Fire,2.834,3,184.77
+12,1,Breland,Duncan,34,Breland Bakery,2.876,4,182.07
+13,4,Hochstein,Daniel,83,Flaming Red,2.573,1,203.51
+13,2,Collier,Mary Jean,47,Glitteriffic,2.957,2,177.08
+13,3,Groves,Ryan,9,Tennessee Stud,3.465,3,151.12
+13,1,Carruth,Richard,35,Team Alpha,3.753,4,139.52
+14,3,Bryan,Chris,10,D'ale,2.718,1,192.66
+14,4,Palmer,Justin,1,Solo Jazz,2.729,2,191.88
+14,1,Trommel,Phil,39,39 Magnum,2.885,3,181.5
+14,2,Hutcherson,Leah,50,Pickle Rick,3.042,4,172.14
+15,4,Fay,Brian,2,USA,2.63,1,199.1
+15,3,Bryan,Anne,23,Ecto-1,2.649,2,197.67
+15,1,Collier,Mary Jean,47,Glitteriffic,2.977,3,175.89
+15,2,Shelly,Wesley,55,55 Blue Streak,3.539,4,147.96
+16,2,Davis,Chad,56,Dumb Red Car,2.634,1,198.8
+16,4,Fay,Wes,3,Woody Wedge,2.759,2,189.79
+16,3,Breland,Duncan,34,Breland Bakery,2.846,3,183.99
+16,1,Hutcherson,Leah,50,Pickle Rick,2.924,4,179.08
+17,4,Lemaster,Josh,4,Procrastinate,2.637,1,198.57
+17,2,Hutcherson,Matt,78,Dumpster Fire,2.829,2,185.1
+17,1,Shelly,Wesley,55,55 Blue Streak,3.568,3,146.76
+17,3,Carruth,Richard,35,Team Alpha,3.735,4,140.2
+18,2,Hochstein,Daniel,83,Flaming Red,2.567,1,203.99
+18,1,Davis,Chad,56,Dumb Red Car,2.627,2,199.33
+18,4,Robinson,Wallace,5,Staph,2.675,3,195.75
+18,3,Trommel,Phil,39,39 Magnum,2.767,4,189.24
+19,4,Lloyd,Ryan,6,Wonkey,2.565,1,204.15
+19,2,Palmer,Justin,1,Solo Jazz,2.627,2,199.33
+19,1,Hutcherson,Matt,78,Dumpster Fire,2.807,3,186.55
+19,3,Collier,Mary Jean,47,Glitteriffic,2.937,4,178.29
+20,1,Hochstein,Daniel,83,Flaming Red,2.586,1,202.49
+20,2,Fay,Brian,2,USA,2.656,2,197.15
+20,4,Hood,Michael,7,Hell IDK,2.783,3,188.16
+20,3,Hutcherson,Leah,50,Pickle Rick,2.953,4,177.32

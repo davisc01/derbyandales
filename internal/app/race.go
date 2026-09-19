@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -466,6 +467,7 @@ func (rc *RaceController) recordFinish(ctx context.Context) {
 			"heat":   heat.Number,
 			"reason": "no lane recorded a finish — the timer may have triggered with no cars on the track",
 		})
+		_ = rc.app.DB.RecordHeatEvent(ctx, heat.RaceID, heat.Number, store.HeatFalseTrigger, nil)
 		rc.SetAutoAdvance(false)
 		return
 	}
@@ -480,6 +482,7 @@ func (rc *RaceController) recordFinish(ctx context.Context) {
 		}
 		rc.app.Log.Warn("the timer did not report every lane",
 			"heat", heat.Number, "lanes", strings.Join(lanes, ","))
+		_ = rc.app.DB.RecordHeatEvent(ctx, heat.RaceID, heat.Number, store.HeatBadRead, missing)
 		rc.app.Bus.Publish(bus.TopicRace, "bad-read", map[string]any{
 			"heat":  heat.Number,
 			"lanes": missing,
@@ -647,6 +650,7 @@ func (rc *RaceController) ReRun(ctx context.Context, heatID int64) error {
 		return err
 	}
 	_ = rc.app.DB.Audit(ctx, "coordinator", "race.rerun", fmt.Sprintf("heat %d", heat.Number))
+	_ = rc.app.DB.RecordHeatEvent(ctx, heat.RaceID, heat.Number, store.HeatReRun, nil)
 	return rc.ArmHeat(ctx, heatID)
 }
 
@@ -798,6 +802,7 @@ func (rc *RaceController) EnterTimes(ctx context.Context, heatID int64, times ma
 	}
 	_ = rc.app.DB.Audit(ctx, actor, "race.manual",
 		fmt.Sprintf("heat %d: %d lanes entered by hand", heat.Number, len(times)))
+	_ = rc.app.DB.RecordHeatEvent(ctx, heat.RaceID, heat.Number, store.HeatManual, sortedLanes(times))
 
 	updated, err := rc.app.DB.Heat(ctx, heatID)
 	if err == nil {
@@ -855,4 +860,14 @@ func (rc *RaceController) settleRunOff(ctx context.Context, heat store.HeatView)
 	}
 	_ = rc.app.DB.Audit(ctx, "system", "season.runoff",
 		fmt.Sprintf("race %d recorded again after run-off heat %d", heat.RaceID, heat.Number))
+}
+
+// sortedLanes lists the lanes a set of times covers, in order.
+func sortedLanes(times map[int]float64) []int {
+	lanes := make([]int, 0, len(times))
+	for l := range times {
+		lanes = append(lanes, l)
+	}
+	sort.Ints(lanes)
+	return lanes
 }

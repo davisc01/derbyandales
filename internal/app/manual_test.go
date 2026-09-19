@@ -286,6 +286,17 @@ func TestABadReadIsRecordedRatherThanLost(t *testing.T) {
 	if !a.Race.State(ctx).Running {
 		t.Error("racing stopped after a bad read")
 	}
+
+	// And it is counted against the race for the wrap-up, lanes and all, so
+	// the end of the night can say which lanes the timer lost.
+	events, err := a.DB.HeatEvents(ctx, raceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Kind != store.HeatBadRead || events[0].Heat != run.Number ||
+		len(events[0].Lanes) == 0 {
+		t.Errorf("heat events = %+v, want one bad read naming its lanes", events)
+	}
 }
 
 // waitFor polls until done() or the deadline.

@@ -28,7 +28,18 @@
         " read, " + data.cars + " cars.";
       if (bad.length) {
         msg += " Could not read: " +
-          bad.map(function (y) { return y.year + " (" + y.problem + ")"; }).join(", ");
+          bad.map(function (y) { return y.year + " (" + y.problem + ")"; }).join(", ") + ".";
+      }
+      if (data.races_error) {
+        msg += " Race nights: " + data.races_error + ".";
+      } else {
+        msg += " " + data.races + " race night" + (data.races === 1 ? "" : "s") +
+          " read, " + data.runs + " runs.";
+      }
+      const badRaces = data.race_problems || [];
+      if (badRaces.length) {
+        msg += " Could not read: " +
+          badRaces.map(function (r) { return r.race + " (" + r.problem + ")"; }).join(", ") + ".";
       }
       status.textContent = msg;
       setTimeout(() => location.reload(), 1500);

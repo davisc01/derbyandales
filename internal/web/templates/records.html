@@ -1,0 +1,210 @@
+{{define "content"}}
+{{$d := .Data}}
+{{$b := $d.Book}}
+{{$ft := $d.TrackLengthFt}}
+{{$sd := $d.ScaleDenom}}
+
+<section class="card">
+  <h1>Club records</h1>
+  <p class="sub">
+    Every counted run since {{if $d.ArchiveRaces}}2019{{else}}this software's first night{{end}}.
+    The pace car, excluded cars and non-finishes never count. Records go by
+    time; the scale speeds are all worked out for today's track.
+  </p>
+
+  {{if $b.Demo}}
+  <p class="warn-text">
+    A demo race is loaded, so the demo season's invented times are counted
+    here. They drop out when a real race is loaded.
+  </p>
+  {{end}}
+
+  {{if not $d.ArchiveRaces}}
+  <p class="note">
+    The club's archive has not been read yet, so these go back only as far as
+    this software's own races. Read it under
+    <a href="/settings">Settings &rsaquo; The club's archive</a>.
+  </p>
+  {{end}}
+
+  {{if not $b.FastestRun}}
+  <p class="empty">No runs on record yet.</p>
+  {{else}}
+  <div class="record-grid">
+    {{with $b.FastestRun}}
+    <div class="record">
+      <div class="record-what">Fastest run</div>
+      <div class="record-time">{{seconds .Time}}<span>s</span></div>
+      <div class="record-mph">{{mph $ft $sd .Time}} mph scale &middot; lane {{.Lane}}</div>
+      <div class="record-who">{{.Driver}}</div>
+      <div class="record-car">#{{.CarNumber}} {{.CarName}} &middot; {{.Race.Label}}</div>
+    </div>
+    {{end}}
+    {{with $b.FastestAverage}}
+    <div class="record">
+      <div class="record-what">Fastest average</div>
+      <div class="record-time">{{average .Average}}<span>s</span></div>
+      <div class="record-mph">{{mph $ft $sd .Average}} mph scale</div>
+      <div class="record-who">{{.Driver}}</div>
+      <div class="record-car">#{{.CarNumber}} {{.CarName}} &middot; {{.Race.Label}}</div>
+    </div>
+    {{end}}
+  </div>
+
+  <h2 class="record-h2">Lane records</h2>
+  <table>
+    <tr><th>Lane</th><th>Time</th><th>Driver</th><th>Car</th><th>Set</th></tr>
+    {{range $b.Lanes}}
+    <tr>
+      <td>{{.Lane}}</td>
+      <td class="mono">{{seconds .Time}}</td>
+      <td>{{.Driver}}</td>
+      <td>#{{.CarNumber}} {{.CarName}}</td>
+      <td>{{.Race.Label}}</td>
+    </tr>
+    {{end}}
+  </table>
+  {{end}}
+
+  {{with $d.Book.Data.LeftOut}}
+  <p class="note">
+    Left out because every car ran its fastest of the night in it, which is
+    what a timer firing early looks like:
+    {{range $i, $h := .}}{{if $i}}, {{end}}{{$h.Race.Label}} heat {{$h.Heat}}{{end}}.
+    Re-run the heat from the race screen and it counts.
+  </p>
+  {{end}}
+</section>
+
+{{if $b.FastestRun}}
+<section class="card">
+  <h1>How the records fell</h1>
+  <div class="record-cols">
+    <div>
+      <h2 class="record-h2">Fastest run</h2>
+      <table>
+        <tr><th>Time</th><th>Driver</th><th>Car</th><th>Set</th></tr>
+        {{range $d.RunHistory}}
+        <tr>
+          <td class="mono">{{seconds .Time}}</td>
+          <td>{{.Driver}}</td>
+          <td>{{.CarName}}</td>
+          <td>{{.Race.Label}}</td>
+        </tr>
+        {{end}}
+      </table>
+    </div>
+    <div>
+      <h2 class="record-h2">Fastest average</h2>
+      <table>
+        <tr><th>Average</th><th>Driver</th><th>Car</th><th>Set</th></tr>
+        {{range $d.AvgHistory}}
+        <tr>
+          <td class="mono">{{average .Average}}</td>
+          <td>{{.Driver}}</td>
+          <td>{{.CarName}}</td>
+          <td>{{.Race.Label}}</td>
+        </tr>
+        {{end}}
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h1>Fastest cars</h1>
+  <p class="sub">Each car once, at its best.</p>
+  <div class="record-cols">
+    <div>
+      <h2 class="record-h2">Single run</h2>
+      <table>
+        <tr><th></th><th>Time</th><th>Driver</th><th>Car</th><th>Set</th></tr>
+        {{range $i, $r := $b.TopRuns}}
+        <tr>
+          <td class="note">{{inc $i}}</td>
+          <td class="mono">{{seconds $r.Time}}</td>
+          <td>{{$r.Driver}}</td>
+          <td>{{$r.CarName}}</td>
+          <td>{{$r.Race.Label}}</td>
+        </tr>
+        {{end}}
+      </table>
+    </div>
+    <div>
+      <h2 class="record-h2">Average</h2>
+      <table>
+        <tr><th></th><th>Average</th><th>Driver</th><th>Car</th><th>Set</th></tr>
+        {{range $i, $r := $b.TopAverages}}
+        <tr>
+          <td class="note">{{inc $i}}</td>
+          <td class="mono">{{average $r.Average}}</td>
+          <td>{{$r.Driver}}</td>
+          <td>{{$r.CarName}}</td>
+          <td>{{$r.Race.Label}}</td>
+        </tr>
+        {{end}}
+      </table>
+    </div>
+  </div>
+</section>
+{{end}}
+
+{{if $d.Career}}
+<section class="card">
+  <h1>Careers</h1>
+  <p class="sub">
+    Wins and podiums are points races; the championship is counted on its own.
+    Places are as published.
+  </p>
+  <table>
+    <tr><th>Driver</th><th>Wins</th><th>Podiums</th><th>D'Ale Cups</th><th>Nights</th></tr>
+    {{range $d.Career}}
+    <tr>
+      <td>{{.Driver}}</td>
+      <td class="mono">{{.Wins}}</td>
+      <td class="mono">{{.Podiums}}</td>
+      <td class="mono">{{.Cups}}</td>
+      <td class="mono">{{.Nights}}</td>
+    </tr>
+    {{end}}
+  </table>
+</section>
+{{end}}
+
+{{if $b.PersonalBests}}
+<section class="card">
+  <h1>Personal bests</h1>
+  <div class="roster-tools">
+    <input type="search" id="pb-search" placeholder="Find a driver or car" autocomplete="off">
+  </div>
+  <table id="pb-table">
+    <tr><th>Driver</th><th>Best run</th><th>Car</th><th>Set</th></tr>
+    {{range $b.PersonalBests}}
+    <tr data-search="{{lower .Driver}} {{lower .CarName}}">
+      <td>{{.Driver}}</td>
+      <td class="mono">{{seconds .Time}}</td>
+      <td>{{.CarName}}</td>
+      <td>{{.Race.Label}}</td>
+    </tr>
+    {{end}}
+  </table>
+</section>
+{{end}}
+
+{{if $b.Lookalikes}}
+<section class="card warn-card">
+  <h1>Names that may be one person</h1>
+  <p class="sub">
+    Each of these splits somebody's career and personal best in two. Nothing is
+    merged automatically, because two different people can have names this
+    close. Where it is a misspelling, correct it in the website's results files
+    and read the archive again.
+  </p>
+  <ul class="lookalikes">
+    {{range $b.Lookalikes}}
+    <li>{{index . 0}} &nbsp;/&nbsp; {{index . 1}}</li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+{{end}}

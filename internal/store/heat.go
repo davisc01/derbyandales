@@ -495,3 +495,33 @@ func (db *DB) HeatAnomalies(ctx context.Context, raceID int64) ([]HeatAnomalyVie
 	}
 	return out, nil
 }
+
+// NightRuns collects a race's runs for the wrap-up: every car that ran,
+// flagged by whether it counts. Run-offs are left out, being two cars in a
+// fifth heat rather than part of the night as scheduled, and so are struck-out
+// lanes, which a person has already said were not a fair run.
+func (db *DB) NightRuns(ctx context.Context, raceID int64) ([]scoring.NightRun, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT h.number, hl.lane, hl.finish_time, e.id, e.is_control, e.excluded
+		FROM heat_lane hl
+		JOIN heat h  ON h.id = hl.heat_id
+		JOIN entry e ON e.id = hl.entry_id
+		WHERE h.race_id = ? AND hl.finish_time IS NOT NULL AND hl.ignored = 0
+		  AND h.runoff_place IS NULL
+		ORDER BY h.number, hl.lane`, raceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []scoring.NightRun
+	for rows.Next() {
+		var r scoring.NightRun
+		var control, excluded bool
+		if err := rows.Scan(&r.Heat, &r.Lane, &r.Time, &r.EntryID, &control, &excluded); err != nil {
+			return nil, err
+		}
+		r.Counts = !control && !excluded
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}

@@ -47,8 +47,8 @@ func TestOnAnEmptyDatabaseTheFirstStepIsTheNextThingToDo(t *testing.T) {
 	s := mustServer(t)
 	steps, _ := s.runOfShow(context.Background())
 
-	if len(steps) != 11 {
-		t.Fatalf("%d steps, want 11", len(steps))
+	if len(steps) != 12 {
+		t.Fatalf("%d steps, want 12", len(steps))
 	}
 	now, ok := nowStep(steps)
 	if !ok {
@@ -513,8 +513,12 @@ func TestTheEndOfTheNightRunsInCeremonyOrder(t *testing.T) {
 	}
 
 	showScene(store.SceneFinal)
+	if got := next(); got != "Wrap-up" {
+		t.Fatalf("after the final standings the next step is %q, want the wrap-up", got)
+	}
+	showScene(store.SceneWrapUp)
 	if got := next(); got != "Publish to the website" {
-		t.Fatalf("after the final standings the next step is %q, want publishing", got)
+		t.Fatalf("after the wrap-up the next step is %q, want publishing", got)
 	}
 
 	// And the speed trophies need no separate step: they are the top of the
@@ -733,8 +737,8 @@ func TestAStandardChampionshipSkipsTheVote(t *testing.T) {
 		t.Fatal(err)
 	}
 	steps, _ := s.runOfShow(ctx)
-	if len(steps) != 9 {
-		t.Errorf("%d steps, want 9", len(steps))
+	if len(steps) != 10 {
+		t.Errorf("%d steps, want 10", len(steps))
 	}
 	for i, st := range steps {
 		if st.Number != i+1 {

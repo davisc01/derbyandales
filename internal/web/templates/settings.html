@@ -50,11 +50,12 @@
 </section>
 
 <section class="card">
-  <h1>Past championships</h1>
+  <h1>The club's archive</h1>
   <p class="sub">
-    A car gets one championship. This reads the club's own published results out
-    of the website folder, so the rule can be checked at the check-in table
-    instead of remembered.
+    Reads the club's own published results out of the website folder. The
+    championships let the one-championship-per-car rule be checked at the
+    check-in table instead of remembered; the race nights are what the
+    <a href="/records">club records</a> go back through.
   </p>
 
   {{if $d.HistoryYears}}
@@ -65,12 +66,22 @@
   </p>
   {{else}}
   <p class="note">
-    Nothing imported yet, so no car will be flagged at check-in.
+    No championships imported yet, so no car will be flagged at check-in.
+  </p>
+  {{end}}
+  {{if $d.ArchiveRaces}}
+  <p class="note ok">
+    {{$d.ArchiveRaces}} race night{{if ne $d.ArchiveRaces 1}}s{{end}} on record &mdash;
+    {{$d.ArchiveRuns}} runs.
+  </p>
+  {{else}}
+  <p class="note">
+    No race nights imported yet, so the records start with this software's first race.
   </p>
   {{end}}
 
   <div class="console-row">
-    <button class="btn" id="import-history">Read them from the website folder</button>
+    <button class="btn" id="import-history">Read it from the website folder</button>
     <span class="note" id="import-status">
       It only reads. Run it again whenever the archive changes.
     </span>

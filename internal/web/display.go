@@ -240,9 +240,35 @@ func (s *Server) raceStateJSON(r *http.Request) map[string]any {
 		}
 		lanes = append(lanes, lane)
 	}
+
+	// A broken record is announced with the result. Only asked once there are
+	// times, because a staged heat has broken nothing and this reads every run
+	// on file.
+	if timed(state.Heat.Lanes) {
+		notices, err := s.app.HeatRecords(ctx, *state.Heat)
+		if err != nil {
+			s.app.Log.Warn("checking the heat for records failed", "heat", state.Heat.ID, "err", err)
+		}
+		for _, lane := range lanes {
+			l := lane["lane"].(int)
+			if n, ok := notices[l]; ok {
+				lane["record"] = noticeJSON(n, l)
+			}
+		}
+	}
+
 	out["lanes"] = lanes
 	out["complete"] = state.Heat.Complete()
 	return out
+}
+
+func timed(lanes []store.LaneView) bool {
+	for _, l := range lanes {
+		if l.FinishTime != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // seasonFor loads the season a race belongs to, falling back to the club's
@@ -325,6 +351,14 @@ func (s *Server) handleStandings(w http.ResponseWriter, r *http.Request) {
 	season := s.seasonFor(r, raceID)
 	race, _ := s.app.DB.Race(r.Context(), raceID)
 
+	// A record average belongs to the reveal, which is where the room hears it.
+	// There is none until the race is over and its result recorded, so a car
+	// cannot be announced as a record-breaker from half a night's runs.
+	notices, err := s.app.AverageRecords(r.Context(), raceID)
+	if err != nil {
+		s.app.Log.Warn("checking the averages for records failed", "race", raceID, "err", err)
+	}
+
 	rows := make([]map[string]any, 0, len(standings))
 	for _, st := range standings {
 		row := map[string]any{
@@ -342,6 +376,9 @@ func (s *Server) handleStandings(w http.ResponseWriter, r *http.Request) {
 			row["worst"] = scoring.FormatTime(st.Worst)
 			row["mph"] = scoring.FormatMPH(
 				scoring.ScaleMPH(season.TrackLengthFt, season.ScaleDenom, st.Average))
+		}
+		if n, ok := notices[st.Entry.CarNumber]; ok && !st.Entry.IsControl && !st.Entry.Excluded {
+			row["record"] = noticeJSON(n, 0)
 		}
 		rows = append(rows, row)
 	}

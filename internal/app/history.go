@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/davisc01/derbyandales/internal/history"
+	"github.com/davisc01/derbyandales/internal/model"
 )
 
 // Importing the club's own archive.
@@ -86,4 +88,87 @@ func (a *App) ImportChampionships(ctx context.Context) ([]ImportedYear, error) {
 		fmt.Sprintf("%d championships, %d cars", years, cars))
 	a.Log.Info("imported past championships", "years", years, "cars", cars)
 	return out, nil
+}
+
+// ImportedRace is what one race night's import did.
+type ImportedRace struct {
+	Label   string
+	Runs    int
+	Problem string
+}
+
+// ImportRaces reads every published race night — heat times and standings —
+// out of the website folder. They are what the club records go back through.
+//
+// Like the championships, it only reads, and re-running it replaces each night.
+func (a *App) ImportRaces(ctx context.Context) ([]ImportedRace, error) {
+	root, err := a.Publish.SitePath(ctx)
+	if err != nil {
+		return nil, err
+	}
+	paths, err := filepath.Glob(filepath.Join(root, "content", "races", "*", "*", "heats.csv"))
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(paths)
+
+	var out []ImportedRace
+	races, runs := 0, 0
+	for _, path := range paths {
+		// .../content/races/<year>/<race-N or championship>/heats.csv
+		dir := filepath.Dir(path)
+		year, err := strconv.Atoi(filepath.Base(filepath.Dir(dir)))
+		if err != nil {
+			continue
+		}
+		kind, number, ok := raceFolder(filepath.Base(dir))
+		if !ok {
+			continue
+		}
+		label := fmt.Sprintf("%d %s", year, filepath.Base(dir))
+
+		heats, err := os.ReadFile(path)
+		if err != nil {
+			out = append(out, ImportedRace{Label: label, Problem: "the heat results could not be read"})
+			continue
+		}
+		standings, err := os.ReadFile(filepath.Join(dir, "standings.csv"))
+		if err != nil {
+			out = append(out, ImportedRace{Label: label, Problem: "there are no standings beside the heats"})
+			continue
+		}
+		cars, err := history.ParseRace(heats, standings)
+		if err != nil {
+			out = append(out, ImportedRace{Label: label, Problem: err.Error()})
+			continue
+		}
+		n, err := a.DB.ImportArchiveRace(ctx, year, kind, number, cars)
+		if err != nil {
+			return out, err
+		}
+		out = append(out, ImportedRace{Label: label, Runs: n})
+		races++
+		runs += n
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no race results found under %s", filepath.Join("content", "races"))
+	}
+
+	_ = a.DB.Audit(ctx, "coordinator", "history.import_races",
+		fmt.Sprintf("%d race nights, %d runs", races, runs))
+	a.Log.Info("imported past race nights", "races", races, "runs", runs)
+	return out, nil
+}
+
+// raceFolder reads the site's folder name for a race night.
+func raceFolder(name string) (model.RaceKind, int, bool) {
+	if name == "championship" {
+		// The championship is race number 1 of its kind, as it is here.
+		return model.RaceChampionship, 1, true
+	}
+	n, err := strconv.Atoi(strings.TrimPrefix(name, "race-"))
+	if err != nil || !strings.HasPrefix(name, "race-") {
+		return "", 0, false
+	}
+	return model.RacePoints, n, true
 }

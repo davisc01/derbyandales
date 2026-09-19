@@ -32,6 +32,8 @@ const (
 	SceneBracket  Scene = "bracket"
 	SceneImpound  Scene = "impound"
 	SceneVotingQR Scene = "voting-qr"
+	SceneRecords  Scene = "records"
+	SceneWrapUp   Scene = "wrap-up"
 )
 
 // SceneInfo describes a scene for the coordinator's picker.
@@ -51,11 +53,13 @@ func Scenes() []SceneInfo {
 		{SceneRacing, "Now racing", "Lane assignments, then the finish order.", true},
 		{SceneReveal, "Results reveal", "One car at a time, slowest to fastest.", true},
 		{SceneFinal, "Final standings", "The whole table at once, for the wrap-up.", true},
+		{SceneWrapUp, "Wrap-up", "The night in review: the lanes, the fastest heats, the closest finish, and what records fell.", true},
 		{SceneSlides, "Car photos", "Each photographed car in turn, changing by itself every few seconds.", true},
 		{SceneAwards, "Design & theme trophies", "The two voted trophies, one at a time, with the car.", true},
 		{SceneBracket, "Bracket", "The championship bracket, live, with the matchup on the track marked.", true},
 		{SceneImpound, "Impound", "This heat and the next: numbers, lanes and pictures, for loading the tray.", true},
 		{SceneVotingQR, "Voting", "Points people at the tablet during the intermission.", true},
+		{SceneRecords, "Club records", "Fastest run, fastest average, each lane's record and the most race wins.", true},
 	}
 }
 

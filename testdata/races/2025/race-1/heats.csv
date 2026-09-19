@@ -1,0 +1,109 @@
+Heat,Lane,FirstName,LastName,CarNumber,CarName,FinishTime,Scale MPH,FinishPlace
+1,1,Derby,Ales,1,CONTROL,2.718,175.6,4
+1,2,Merissa,Davis,82,Ms. Pac Man,2.416,197.5,3
+1,3,John,Hochstein,7,Carter Special,2.414,197.7,2
+1,4,Justin,Palmer,85,The Other Controller,2.395,199.3,1
+2,1,Frances,Breland,52,Double Trouble,2.758,173.1,4
+2,2,Jim,Seidman,17,The Bandit,2.406,198.4,3
+2,3,John,Hochstein,12,Harry Special,2.386,200,1
+2,4,Anne,Bryan,61,Pong,2.389,199.8,2
+3,1,Frances,Breland,23,Smurf Box Racer,9.999,47.7,4
+3,2,Jeff,Seidman,13,Frank,2.425,196.8,2
+3,3,Matt,Robinson,32,The Controller,2.491,191.6,3
+3,4,Chris,Bryan,33,Frogger,2.389,199.8,1
+4,1,Chad,Davis,80,Ghost Hunter,2.329,204.9,1
+4,2,Daniel,Hochstein,2,Buzz Lightyear,2.421,197.1,4
+4,3,Ryan,Jones,67,ExciteBrew,2.375,201,3
+4,4,Chris,Bryan,44,Tetrace,2.35,203.1,2
+5,1,Merissa,Davis,82,Ms. Pac Man,2.418,197.4,1
+5,2,Daniel,Hochstein,4995,The Amazon Special,2.445,195.2,2
+5,3,Ryan,Jones,18,Golddust,2.494,191.4,3
+5,4,Brian,Heim,78,Jaws,2.503,190.7,4
+6,1,Jim,Seidman,17,The Bandit,2.421,197.1,3
+6,2,John,Hochstein,7,Carter Special,2.345,203.5,1
+6,3,Ameila,Stacey,123,Pac Man,2.373,201.1,2
+6,4,Keith,Ferguson,3,The Switch,9.999,47.7,4
+7,1,Jeff,Seidman,13,Frank,2.431,196.3,2
+7,2,John,Hochstein,12,Harry Special,2.433,196.2,3
+7,3,Justin,Palmer,85,The Other Controller,2.407,198.3,1
+7,4,Brian,Heim,56,Speed Racer,2.973,160.5,4
+8,1,Daniel,Hochstein,2,Buzz Lightyear,2.416,197.5,4
+8,2,Matt,Robinson,32,The Controller,2.415,197.6,3
+8,3,Anne,Bryan,61,Pong,2.324,205.4,2
+8,4,Greg,Thrift,96,Greaser Greg,2.292,208.2,1
+9,1,Daniel,Hochstein,4995,The Amazon Special,2.44,195.6,1
+9,2,Ryan,Jones,67,ExciteBrew,2.454,194.5,2
+9,3,Chris,Bryan,33,Frogger,2.458,194.2,3
+9,4,Kandace,Thrift,21,I Want Kandy,2.474,192.9,4
+10,1,John,Hochstein,7,Carter Special,2.383,200.3,2
+10,2,Ryan,Jones,18,Golddust,2.435,196,4
+10,3,Chris,Bryan,44,Tetrace,2.337,204.2,1
+10,4,Abbey,Jones,73,Hot Daniel,2.385,200.1,3
+11,1,John,Hochstein,12,Harry Special,2.43,196.4,1
+11,2,Ameila,Stacey,123,Pac Man,2.475,192.8,2
+11,3,Brian,Heim,78,Jaws,2.504,190.6,3
+11,4,Duncan,Breland,5,Random Encounters,3.036,157.2,4
+12,1,Matt,Robinson,32,The Controller,2.458,194.2,2
+12,2,Justin,Palmer,85,The Other Controller,2.327,205.1,1
+12,3,Keith,Ferguson,3,The Switch,2.528,188.8,3
+12,4,Duncan,Breland,8,Son of a Box,2.541,187.8,4
+13,1,Ryan,Jones,67,ExciteBrew,2.452,194.6,2
+13,2,Anne,Bryan,61,Pong,2.411,198,1
+13,3,Brian,Heim,56,Speed Racer,2.808,170,3
+13,4,Derby,Ales,1,CONTROL,2.862,166.8,4
+14,1,Ryan,Jones,18,Golddust,2.522,189.2,3
+14,2,Chris,Bryan,33,Frogger,2.447,195,2
+14,3,Greg,Thrift,96,Greaser Greg,2.38,200.5,1
+14,4,Frances,Breland,52,Double Trouble,2.781,171.6,4
+15,1,Ameila,Stacey,123,Pac Man,2.433,196.2,3
+15,2,Chris,Bryan,44,Tetrace,2.337,204.2,1
+15,3,Kandace,Thrift,21,I Want Kandy,2.377,200.8,2
+15,4,Frances,Breland,23,Smurf Box Racer,2.512,190,4
+16,1,Justin,Palmer,85,The Other Controller,2.397,199.1,1
+16,2,Brian,Heim,78,Jaws,2.489,191.8,4
+16,3,Abbey,Jones,73,Hot Daniel,2.472,193.1,3
+16,4,Chad,Davis,80,Ghost Hunter,2.404,198.5,2
+17,1,Anne,Bryan,61,Pong,2.331,204.8,2
+17,2,Keith,Ferguson,3,The Switch,2.322,205.5,1
+17,3,Duncan,Breland,5,Random Encounters,3.173,150.4,4
+17,4,Merissa,Davis,82,Ms. Pac Man,2.349,203.2,3
+18,1,Chris,Bryan,33,Frogger,2.419,197.3,1
+18,2,Brian,Heim,56,Speed Racer,2.842,167.9,4
+18,3,Duncan,Breland,8,Son of a Box,2.646,180.4,3
+18,4,Jim,Seidman,17,The Bandit,2.485,192.1,2
+19,1,Chris,Bryan,44,Tetrace,2.331,204.8,2
+19,2,Greg,Thrift,96,Greaser Greg,2.3,207.5,1
+19,3,Derby,Ales,1,CONTROL,2.807,170,4
+19,4,Jeff,Seidman,13,Frank,2.348,203.3,3
+20,1,Brian,Heim,78,Jaws,2.505,190.5,3
+20,2,Kandace,Thrift,21,I Want Kandy,2.464,193.7,1
+20,3,Frances,Breland,52,Double Trouble,2.769,172.4,4
+20,4,Daniel,Hochstein,2,Buzz Lightyear,2.492,191.5,2
+21,1,Keith,Ferguson,3,The Switch,9.999,47.7,4
+21,2,Abbey,Jones,73,Hot Daniel,2.391,199.6,2
+21,3,Frances,Breland,23,Smurf Box Racer,2.55,187.2,3
+21,4,Daniel,Hochstein,4995,The Amazon Special,2.35,203.1,1
+22,1,Brian,Heim,56,Speed Racer,9.999,47.7,4
+22,2,Duncan,Breland,5,Random Encounters,3.223,148.1,3
+22,3,Chad,Davis,80,Ghost Hunter,2.413,197.8,1
+22,4,John,Hochstein,7,Carter Special,2.429,196.5,2
+23,1,Greg,Thrift,96,Greaser Greg,2.321,205.6,1
+23,2,Duncan,Breland,8,Son of a Box,2.561,186.4,4
+23,3,Merissa,Davis,82,Ms. Pac Man,2.347,203.4,2
+23,4,John,Hochstein,12,Harry Special,2.359,202.3,3
+24,1,Kandace,Thrift,21,I Want Kandy,2.444,195.3,1
+24,2,Derby,Ales,1,CONTROL,2.842,167.9,4
+24,3,Jim,Seidman,17,The Bandit,2.479,192.5,2
+24,4,Matt,Robinson,32,The Controller,2.533,188.4,3
+25,3,Jeff,Seidman,13,Frank,2.346,203.4,1
+25,1,Abbey,Jones,73,Hot Daniel,2.421,197.1,3
+25,2,Frances,Breland,52,Double Trouble,2.783,171.5,4
+25,4,Ryan,Jones,67,ExciteBrew,2.378,200.7,2
+26,2,Frances,Breland,23,Smurf Box Racer,2.627,181.7,3
+26,3,Daniel,Hochstein,2,Buzz Lightyear,2.454,194.5,1
+26,4,Ryan,Jones,18,Golddust,2.497,191.1,2
+26,1,Duncan,Breland,5,Random Encounters,3.621,131.8,4
+27,1,Duncan,Breland,8,Son of a Box,2.5,190.9,4
+27,2,Chad,Davis,80,Ghost Hunter,2.342,203.8,1
+27,3,Daniel,Hochstein,4995,The Amazon Special,2.354,202.7,2
+27,4,Ameila,Stacey,123,Pac Man,2.392,199.5,3

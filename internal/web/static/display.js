@@ -166,6 +166,10 @@
           return await renderBracket();
         case "slideshow":
           return await renderSlideshow();
+        case "records":
+          return await renderRecords();
+        case "wrap-up":
+          return await renderWrapUp();
         case "blank":
           return renderBlank();
         default:
@@ -315,7 +319,15 @@
           result.appendChild(el("div", "lane-dnf-time", l.time + "s"));
         } else {
           result.appendChild(el("div", "lane-time", l.time + "s"));
-          result.appendChild(el("div", "lane-mph", l.mph + " mph scale"));
+          if (l.record) {
+            // A record takes the speed's place: it is the bigger news, and the
+            // row must not grow and push the lanes below it off the screen.
+            row.classList.add("record-" + l.record.kind);
+            result.appendChild(el("div", "lane-record", l.record.label));
+            result.appendChild(el("div", "lane-record-was", l.record.previous));
+          } else {
+            result.appendChild(el("div", "lane-mph", l.mph + " mph scale"));
+          }
         }
       } else if (!l.bye) {
         result.appendChild(el("div", "lane-mph", "ready"));
@@ -718,6 +730,14 @@
         if (s.place <= revealTrophies && !s.tied && !s.is_control) {
           who.appendChild(el("div", "reveal-trophy", trophyFor(s.place)));
         }
+        // Said here, as the car comes up, rather than when the last heat
+        // landed: announcing a record average then would give away the winner
+        // before the reveal had begun.
+        if (s.record) {
+          const rec = el("div", "reveal-record", s.record.label);
+          rec.appendChild(el("span", "reveal-record-was", s.record.previous));
+          who.appendChild(rec);
+        }
         row.appendChild(who);
 
         const time = el("div");
@@ -742,6 +762,261 @@
   }
 
   let revealTitle = "Results";
+
+  // The night in review. Last on the screens, after the ceremony, for the
+  // people who look after the track as much as for the room: which lanes ran
+  // fast, where the non-finishes were, and the moments worth remembering.
+  async function renderWrapUp() {
+    const data = await getJSON("/api/race/wrapup");
+    const { wrap, body } = sceneShell(data.race || "Wrap-up", "The night in review");
+    if (!data.heats) {
+      body.appendChild(el("p", "display-hint", "Nothing has been raced yet."));
+      return swap(wrap);
+    }
+
+    function who(c) {
+      return (c.car_name || "#" + c.car_number) + " \u00b7 " + c.driver;
+    }
+    function panel(title) {
+      const box = el("div", "wu-panel");
+      box.appendChild(el("div", "wu-title", title));
+      return box;
+    }
+
+    const grid = el("div", "wu-grid");
+
+    // Lanes, fastest first. In a normal race every car runs every lane once,
+    // so these averages compare like with like: a gap here is the track.
+    const lanes = panel("Lanes, fastest first");
+    const table = el("div", "wu-lanes");
+    ["Lane", "Average", "Won", "Expected", "DNFs"].forEach(function (h) {
+      table.appendChild(el("div", "wu-th", h));
+    });
+    const odd = [];
+    (data.lanes || []).forEach(function (l) {
+      const cls = l.unusual ? " wu-unusual" : "";
+      table.appendChild(el("div", "wu-lane-no" + cls, l.lane));
+      table.appendChild(el("div", "wu-num", l.average ? l.average + "s" : "\u2014"));
+      table.appendChild(el("div", "wu-num" + cls, l.wins));
+      table.appendChild(el("div", "wu-num wu-dim", l.expected));
+      table.appendChild(el("div", "wu-num" + (l.dnfs ? " wu-dnf" : ""), l.dnfs));
+      if (l.unusual) odd.push(l);
+    });
+    lanes.appendChild(table);
+    // Wins against expected is noisy over twenty heats, so a lane is only
+    // called out when luck is a poor explanation — with the odds, so nobody
+    // re-shims a track over a 1 in 3.
+    odd.forEach(function (l) {
+      const more = l.wins > parseFloat(l.expected);
+      lanes.appendChild(el("div", "wu-warn",
+        "Lane " + l.lane + " won " + (more ? "more" : "fewer") + " than chance would give: 1 in " +
+        l.one_in + ". Worth a look at the track."));
+    });
+    lanes.appendChild(el("div", "wu-foot",
+      data.heats + " heats \u00b7 " + data.runs + " runs \u00b7 " + data.dnfs + " did not finish"));
+    grid.appendChild(lanes);
+
+    const fast = panel("Fastest heats");
+    (data.fastest_heats || []).forEach(function (h, i) {
+      const row = el("div", "wu-fast");
+      row.appendChild(el("div", "wu-rank", i + 1));
+      const mid = el("div", "wu-mid");
+      // The car leads, as it does on the racing screen, with the driver and
+      // where it happened on lines of their own so neither is cut short.
+      mid.appendChild(el("div", "wu-who", h.car_name || "#" + h.car_number));
+      mid.appendChild(el("div", "wu-sub", h.driver));
+      mid.appendChild(el("div", "wu-sub", "Heat " + h.heat + " \u00b7 lane " + h.lane));
+      row.appendChild(mid);
+      row.appendChild(el("div", "wu-time", h.time + "s"));
+      fast.appendChild(row);
+    });
+    grid.appendChild(fast);
+
+    const moments = panel("Moments");
+    function moment(label, text, sub) {
+      const row = el("div", "wu-moment");
+      row.appendChild(el("div", "wu-label", label));
+      row.appendChild(el("div", "wu-who", text));
+      if (sub) row.appendChild(el("div", "wu-sub wu-wrap", sub));
+      moments.appendChild(row);
+    }
+    if (data.margin) {
+      moment("Winning margin", data.margin.gap + "s",
+        data.margin.winner + " over " + data.margin.runner_up);
+    }
+    if (data.closest) {
+      moment("Closest finish", data.closest.gap + "s in heat " + data.closest.heat,
+        who(data.closest.winner) + " over " + (data.closest.runner_up.car_name || data.closest.runner_up.driver));
+    }
+    if (data.steadiest) {
+      moment("Most consistent", who(data.steadiest),
+        "every run within " + data.steadiest.gap + "s (" + data.steadiest.best + "\u2013" + data.steadiest.worst + ")");
+    }
+    if (moments.children.length > 1) grid.appendChild(moments);
+
+    const recs = panel("Records tonight");
+    (data.records || []).forEach(function (r) {
+      const row = el("div", "wu-moment");
+      row.appendChild(el("div", "wu-label wu-record wu-record-" + r.kind, r.label));
+      row.appendChild(el("div", "wu-who", (r.time ? r.time + "s \u00b7 " : "") + who(r.who)));
+      row.appendChild(el("div", "wu-sub wu-wrap", r.previous));
+      recs.appendChild(row);
+    });
+    const pbs = data.personal_bests || [];
+    if (pbs.length) {
+      const row = el("div", "wu-moment");
+      row.appendChild(el("div", "wu-label wu-record wu-record-pb",
+        pbs.length + (pbs.length === 1 ? " personal best" : " personal bests")));
+      row.appendChild(el("div", "wu-sub wu-wrap", pbs.join(", ")));
+      recs.appendChild(row);
+    }
+    if (recs.children.length === 1) {
+      recs.appendChild(el("div", "wu-sub", "None broken tonight."));
+    }
+    grid.appendChild(recs);
+
+    // Timer health: everything that went wrong, heat by heat, or a plain
+    // statement that nothing did.
+    // Timer health sits under the lanes: both are about the track rather than
+    // the racing, and the lanes table leaves room beneath it.
+    const tm = data.timer || {};
+    const health = el("div", "wu-timer");
+    health.appendChild(el("div", "wu-title wu-subtitle", "Timer"));
+    function trouble(label, item, extra) {
+      if (!item || !item.count) return;
+      const row = el("div", "wu-moment");
+      row.appendChild(el("div", "wu-label", label));
+      let text = item.count + (item.count === 1 ? " heat" : " heats") + ": " + item.heats.join(", ");
+      if (extra) text += extra;
+      row.appendChild(el("div", "wu-sub", text));
+      health.appendChild(row);
+    }
+    function laneList(item) {
+      if (!item || !item.lanes) return "";
+      const parts = Object.keys(item.lanes).map(function (l) {
+        return "lane " + l + (item.lanes[l] > 1 ? " \u00d7" + item.lanes[l] : "");
+      });
+      return " \u00b7 " + parts.join(", ");
+    }
+    trouble("Bad reads", tm.bad_reads, laneList(tm.bad_reads));
+    trouble("False triggers", tm.false_triggers);
+    trouble("Re-run", tm.reruns);
+    trouble("Typed in by hand", tm.typed);
+    if ((tm.flagged || []).length) {
+      trouble("Still flagged as a fault", { count: tm.flagged.length, heats: tm.flagged });
+    }
+    if (health.children.length === 1) {
+      health.appendChild(el("div", "wu-sub wu-ok", "No trouble \u2014 every heat read cleanly, first time."));
+    }
+    lanes.appendChild(health);
+
+    // The club's fastest nights, and where tonight landed. Tonight is marked
+    // in the list when it made it, and given its place below when it did not.
+    if (data.top_races) {
+      const tr = data.top_races;
+      const box = panel("Top MDnA races ever");
+      (tr.top || []).forEach(function (r) {
+        const row = el("div", "wu-race" + (r.tonight ? " wu-race-tonight" : ""));
+        row.appendChild(el("div", "wu-rank", r.rank));
+        row.appendChild(el("div", "wu-who", r.race + (r.tonight ? " \u2014 tonight" : "")));
+        row.appendChild(el("div", "wu-race-avg", r.average + "s"));
+        box.appendChild(row);
+      });
+      const tonight = tr.this_race;
+      if (tonight && tonight.championship) {
+        box.appendChild(el("div", "wu-sub wu-this", "Championships are not ranked: their field is the season's fastest cars."));
+      } else if (tonight && !(tr.top || []).some(function (r) { return r.tonight; })) {
+        const row = el("div", "wu-this");
+        row.appendChild(el("div", "wu-label", "This race"));
+        row.appendChild(el("div", "wu-who", ordinal(tonight.rank) + " place"));
+        row.appendChild(el("div", "wu-sub", tonight.average + "s average \u00b7 of " + tr.of + " race nights"));
+        box.appendChild(row);
+      }
+      grid.appendChild(box);
+    }
+
+    // The CONTROL car: the same car every night, so the one measure of the
+    // track itself rather than of anybody's car.
+    if (data.control) {
+      const c = data.control;
+      const ctl = panel("CONTROL car");
+      ctl.appendChild(el("div", "wu-time", c.average + "s"));
+      if (c.versus) {
+        ctl.appendChild(el("div", "wu-who", c.versus));
+        ctl.appendChild(el("div", "wu-sub", "usual " + c.usual + "s, the median of its last " + c.nights +
+          (c.nights === 1 ? " night" : " nights")));
+      }
+      if (c.spread) {
+        ctl.appendChild(el("div", "wu-sub", "tonight's runs within " + c.spread + "s (" + c.best +
+          "\u2013" + c.worst + ")" + (c.dnfs ? " \u00b7 " + c.dnfs + " did not finish" : "")));
+      }
+      if ((c.recent || []).length) {
+        const hist = el("div", "wu-history");
+        c.recent.forEach(function (n) {
+          const cell = el("div", "wu-hist");
+          cell.appendChild(el("div", "wu-hist-time", n.average));
+          cell.appendChild(el("div", "wu-hist-race", n.race.replace(/^20(\d\d) /, "\u2019$1 ")));
+          hist.appendChild(cell);
+        });
+        ctl.appendChild(hist);
+      }
+      grid.appendChild(ctl);
+    }
+
+    body.appendChild(grid);
+    swap(wrap);
+  }
+
+  // The club records, for the room: something to look at between segments
+  // that gives people a number to beat.
+  async function renderRecords() {
+    const data = await getJSON("/api/records");
+    const { wrap, body } = sceneShell("Club records", data.demo ? "Including the demo season" : "");
+
+    if (!data.fastest_run) {
+      body.appendChild(el("p", "display-hint", "No records yet."));
+      return swap(wrap);
+    }
+
+    function card(what, r) {
+      const box = el("div", "rec-card");
+      box.appendChild(el("div", "rec-what", what));
+      box.appendChild(el("div", "rec-time", r.time + "s"));
+      box.appendChild(el("div", "rec-who", r.driver));
+      box.appendChild(el("div", "rec-car", (r.car_name || "#" + r.car_number) + " \u00b7 " + r.race));
+      return box;
+    }
+
+    const top = el("div", "rec-top");
+    top.appendChild(card("Fastest run", data.fastest_run));
+    if (data.fastest_average) top.appendChild(card("Fastest average", data.fastest_average));
+    body.appendChild(top);
+
+    const lanes = el("div", "rec-lanes");
+    (data.lanes || []).forEach(function (l) {
+      const box = el("div", "rec-lane");
+      box.appendChild(el("div", "rec-what", "Lane " + l.lane));
+      box.appendChild(el("div", "rec-lane-time", l.time + "s"));
+      box.appendChild(el("div", "rec-car", l.driver));
+      lanes.appendChild(box);
+    });
+    body.appendChild(lanes);
+
+    if ((data.career || []).length) {
+      const list = el("div", "rec-career");
+      list.appendChild(el("div", "rec-what", "Most race wins"));
+      data.career.forEach(function (c) {
+        const row = el("div", "rec-career-row");
+        row.appendChild(el("span", "rec-career-name", c.driver));
+        let tally = c.wins + (c.wins === 1 ? " win" : " wins");
+        if (c.cups) tally += " \u00b7 " + c.cups + (c.cups === 1 ? " D'Ale Cup" : " D'Ale Cups");
+        row.appendChild(el("span", "rec-career-tally", tally));
+        list.appendChild(row);
+      });
+      body.appendChild(list);
+    }
+    swap(wrap);
+  }
 
   // The intermission screen: what to vote for and where the tablet is. There
   // is deliberately no countdown — the intermission ends when the coordinator
@@ -872,7 +1147,8 @@
       // Any race change redraws whatever this screen is showing. The reveal is
       // operator-paced, so it is left alone.
       if (scene === "now-racing" || scene === "roster" || scene === "voting-qr" ||
-          scene === "final-standings" || scene === "impound" || scene === "bracket") render();
+          scene === "final-standings" || scene === "impound" || scene === "bracket" ||
+          scene === "records" || scene === "wrap-up") render();
     });
 
     source.addEventListener("bracket", function () {

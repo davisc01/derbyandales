@@ -90,3 +90,20 @@ different exporters over seven years:
   name and is stripped. The stripping has to be narrow: 2024 has a car called
   **Drive-By**.
 - 2020 is absent, and 2026's championship has not been run.
+
+## `races/`
+
+Six published race nights, heats and standings, copied verbatim from
+`derby-site/content/races/`. They feed the club records, and were picked for
+what each one does to a reader:
+
+- **2019/race-1** — header cells wrapped across lines; `Last Name,First Name`.
+- **2021/race-4** — a non-finish written as `9.9999`.
+- **2023/race-1** — no car numbers in the standings, racers with two cars each,
+  and a disqualified car marked by `- DQ` on its name. Only the average tells
+  Chris Bryan's two cars apart.
+- **2025/race-1** — a typo in the heats ("Ameila") that the standings get right,
+  and a car that raced but is not in the standings.
+- **2025/championship** — the same, in a championship.
+- **2026/race-4** — two excluded cars missing from the standings, one of them
+  the fastest average of the night.
