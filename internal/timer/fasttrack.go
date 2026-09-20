@@ -98,6 +98,7 @@ func FastTrack() *Profile {
 
 		ResetDuringMark: ftResetLaser,
 		RemoteStart:     ftPulseLaser,
+		ForceResults:    ftForceResults,
 	}
 }
 

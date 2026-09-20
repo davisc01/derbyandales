@@ -106,6 +106,26 @@
     }
   });
 
+  // Ask the timer to report a race it may be holding.
+  //
+  // The answer is the point, not the times: silence means the timer never
+  // started this heat, which is a different problem from one it is sitting on.
+  wire("force-results", async function () {
+    if (!confirm(
+      "Ask the timer to report now?\n\n" +
+      "Only do this once the cars have finished. It ends the race on the " +
+      "timer, so a heat still running would be cut short."
+    )) return;
+    say("run-status", "Asking the timer\u2026");
+    try {
+      const out = await post("/api/timer/force", {});
+      say("run-status", out.detail || "", !out.reported);
+    } catch (err) {
+      say("run-status", err.message, true);
+    }
+    refreshHeat();
+  });
+
   wire("demo-tie", async function () {
     try {
       await post("/api/race/demo-tie", {});
@@ -271,9 +291,25 @@
       const d = ev.data || {};
       say("run-status", d.reason || "Suspect result; racing paused.", true);
     }
+    if (ev.kind === "heat.quiet") {
+      const d = ev.data || {};
+      say("run-status", d.reason || "Nothing from the timer since this heat was armed.", true);
+    }
     refreshHeat();
   });
-  source.addEventListener("timer", refreshHeat);
+
+  source.addEventListener("timer", function (e) {
+    let ev;
+    try { ev = JSON.parse(e.data); } catch (err) { ev = null; }
+    // A result the timer sent that nothing was armed to receive. It used to be
+    // dropped in silence, which is how a heat that really ran disappeared.
+    if (ev && ev.kind === "malfunction") {
+      const detail = ((ev.data && ev.data.args) || []).join("; ");
+      say("run-status", "The timer reported a result with no heat armed" +
+        (detail ? " \u2014 " + detail : "") + ". Check the log, or re-run the heat.", true);
+    }
+    refreshHeat();
+  });
 
   refreshHeat();
   setInterval(refreshHeat, 1000);

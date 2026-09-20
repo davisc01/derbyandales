@@ -281,9 +281,13 @@ func (d *Device) handle(ev Event) {
 			// A result with nothing armed means someone rolled a car down the
 			// track between heats. Recording it would overwrite a finished
 			// result, so it is dropped — but said out loud.
+			// The time goes in the message. Dropping the result is right —
+			// it would otherwise overwrite a finished heat — but dropping it
+			// silently is how a heat that really did run disappears with
+			// nobody able to say what the cars actually did.
 			d.emit(Event{
 				Kind: EvMalfunction,
-				Args: []string{fmt.Sprintf("result for lane %d ignored: no heat is armed", r.Lane)},
+				Args: []string{fmt.Sprintf("lane %d reported %.3fs but no heat is armed", r.Lane, r.Time)},
 				At:   ev.At,
 			})
 			return
@@ -457,6 +461,19 @@ func (d *Device) PollReset() error {
 		return nil
 	}
 	return d.Send(d.profile.ResetDuringMark)
+}
+
+// ForceResults asks the timer to report what it has rather than waiting for
+// the race to end on its own.
+//
+// It answers the question a timer with no readable gate cannot otherwise be
+// asked: has this heat happened? A timer holding times gives them up; one that
+// never started a race says nothing at all, and that silence is the answer.
+func (d *Device) ForceResults() error {
+	if d.profile.ForceResults == "" {
+		return fmt.Errorf("timer: %s cannot be asked for results early", d.profile.Name)
+	}
+	return d.Send(d.profile.ForceResults)
 }
 
 // RemoteStart releases the cars, where a powered gate is fitted.

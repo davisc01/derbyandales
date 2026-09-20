@@ -362,3 +362,176 @@ func TestDemoSeasonIsLabelled(t *testing.T) {
 		t.Errorf("season name %q should say it is demo data", seasons[0].Name)
 	}
 }
+
+// The three answers the timer can give, and the fact that each needs a
+// different thing from the coordinator: record it, go and find the times, or
+// run the heat again. Getting the wording wrong here sends somebody to wait
+// for results that are never coming.
+func TestForceResultsDescribesEachAnswer(t *testing.T) {
+	tc := testApp(t).Timer
+
+	recorded := tc.describeForced(ForceResultsOutcome{Lanes: 4})
+	if !recorded.Reported || !strings.Contains(recorded.Detail, "recorded") {
+		t.Errorf("lanes reported should read as recorded: %+v", recorded)
+	}
+
+	// The timer had the times but nothing was armed to catch them. They are
+	// not lost — they are in the log — and saying so is the difference between
+	// a re-run and a shrug.
+	dropped := tc.describeForced(ForceResultsOutcome{Dropped: 4})
+	if !dropped.Reported {
+		t.Errorf("the timer did report; it was this end that dropped them: %+v", dropped)
+	}
+	if !strings.Contains(dropped.Detail, "log") {
+		t.Errorf("detail %q should say where the times went", dropped.Detail)
+	}
+
+	// The heat completed while we listened, without this call counting the
+	// lanes itself. It still happened, and must not read as "never started".
+	finished := tc.describeForced(ForceResultsOutcome{Finished: true})
+	if !finished.Reported || strings.Contains(finished.Detail, "never started") {
+		t.Errorf("a finished heat must not read as one that never ran: %+v", finished)
+	}
+
+	nothing := tc.describeForced(ForceResultsOutcome{})
+	if nothing.Reported {
+		t.Errorf("nothing came back: %+v", nothing)
+	}
+	if !strings.Contains(nothing.Detail, "never started") {
+		t.Errorf("detail %q should name the cause", nothing.Detail)
+	}
+	if !strings.Contains(nothing.Detail, "lane lights") {
+		t.Errorf("detail %q should point at the tell that catches this live", nothing.Detail)
+	}
+}
+
+// Silence is the other answer, and it means something different: the timer
+// never started this race, so the heat has to be run again rather than waited
+// for. Saying so is the whole point of the button.
+func TestForceResultsSaysSoWhenTheTimerNeverStarted(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	if err := a.Timer.Connect(ctx, "", timer.SimulatorKey); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := a.Timer.ForceResults(ctx)
+	if err != nil {
+		t.Fatalf("ForceResults: %v", err)
+	}
+	if out.Reported {
+		t.Fatalf("nothing has run; the timer cannot have reported: %+v", out)
+	}
+	if !strings.Contains(out.Detail, "never started") {
+		t.Errorf("detail %q should say the race never started", out.Detail)
+	}
+	if !strings.Contains(out.Detail, "again") {
+		t.Errorf("detail %q should tell the coordinator what to do next", out.Detail)
+	}
+}
+
+// On a timer whose gate cannot be read, a heat that never started looks exactly
+// like one still being staged. The coordinator gets asked, once, and only after
+// long enough that ordinary staging does not trip it.
+func TestQuietHeatAsksOnceAndOnlyWhenTheGateIsUnreadable(t *testing.T) {
+	a, raceID := raceFixture(t)
+	ctx := context.Background()
+	dev := a.Timer.Device()
+
+	if _, err := a.Race.GenerateSchedule(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Race.Start(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(a.Race.Stop)
+	waitFor(t, 5*time.Second, func() bool {
+		return dev.State() == timer.StateMark
+	}, "the first heat never armed")
+
+	// The simulated timer reports its gate, so silence is not ambiguous and
+	// nobody should be bothered.
+	if a.Race.claimQuietHeat(dev) {
+		t.Error("a timer that reports its gate must not raise this")
+	}
+
+	// The club's K1 cannot, which is the case this exists for.
+	dev.GateUnreadable()
+	a.Race.mu.Lock()
+	a.Race.armedAt = time.Now().Add(-SilentHeatPrompt - time.Second)
+	a.Race.mu.Unlock()
+
+	if !a.Race.claimQuietHeat(dev) {
+		t.Fatal("a heat armed long ago with nothing heard should be raised")
+	}
+	if a.Race.claimQuietHeat(dev) {
+		t.Error("it must be raised once, not on every tick")
+	}
+}
+
+// Staging four cars in a bar is not quick. A prompt that fires during normal
+// staging is one that gets ignored by the second race of the season.
+func TestQuietHeatStaysSilentWhileTheHeatIsStillYoung(t *testing.T) {
+	a, raceID := raceFixture(t)
+	ctx := context.Background()
+	dev := a.Timer.Device()
+
+	if _, err := a.Race.GenerateSchedule(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Race.Start(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(a.Race.Stop)
+	waitFor(t, 5*time.Second, func() bool {
+		return dev.State() == timer.StateMark
+	}, "the first heat never armed")
+
+	dev.GateUnreadable()
+	if a.Race.claimQuietHeat(dev) {
+		t.Error("a heat armed moments ago is being staged, not lost")
+	}
+}
+
+// The timer's setup is re-asserted on every heat, not just on connect.
+//
+// A timer that browns out and restarts mid-night comes back in its power-on
+// mode — eliminator mode on, the old result format — and everything it sends
+// after that is unparseable. At a venue running a TV and a Pi off one
+// extension cord, that is not a hypothetical.
+func TestArmingReassertsTheTimerSetup(t *testing.T) {
+	a, raceID := raceFixture(t)
+	ctx := context.Background()
+	sim := a.Timer.Simulator()
+
+	if _, err := a.Race.GenerateSchedule(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+
+	count := func(cmd string) int {
+		n := 0
+		for _, c := range sim.Commands() {
+			if c == cmd {
+				n++
+			}
+		}
+		return n
+	}
+	before := count("RE")
+
+	if err := a.Race.Start(ctx, raceID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(a.Race.Stop)
+	waitFor(t, 5*time.Second, func() bool {
+		return a.Timer.Device().State() == timer.StateMark
+	}, "the first heat never armed")
+
+	if got := count("RE"); got <= before {
+		t.Errorf("eliminator mode was reset %d times before arming and %d after; "+
+			"arming must re-assert it", before, got)
+	}
+	if count("N1") == 0 {
+		t.Error("the result format was never set")
+	}
+}

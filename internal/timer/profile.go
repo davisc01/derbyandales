@@ -148,6 +148,12 @@ type Profile struct {
 
 	// RemoteStart releases the cars, where an automatic gate is fitted.
 	RemoteStart string
+
+	// ForceResults makes the timer report what it has rather than waiting for
+	// the race to end on its own. It is how a heat that has gone quiet is told
+	// apart from one the timer never started: a timer holding times gives them
+	// up, and a timer with no race to report says nothing at all.
+	ForceResults string
 }
 
 // MaskCommands returns the commands that leave exactly the given lanes active.

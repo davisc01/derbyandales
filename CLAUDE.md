@@ -240,12 +240,34 @@ Each of these has already caused a bug here.
   the timer says nothing about has no fallback at all, because `Overdue` needs
   `StateRunning` and nothing reaches that state without a result. Such a heat
   waits for a person.
-- **`Device.Setup()` must run on connect**, and for a long time did not — `RE`,
-  `N1` and `N2` were never sent to real hardware at all. `RE` is the one that
-  matters: a timer left in eliminator mode from a previous night stays in it,
-  and reports in a format nothing here parses. It runs before polling starts,
-  because `N2`'s `X` and `RM`'s mode line ending in `1` would both be read as
-  gate readings if they landed inside a poll's reply window.
+- **`Device.Setup()` must run on connect *and on every arm***, and for a long
+  time ran nowhere at all — `RE`, `N1` and `N2` were never sent to real
+  hardware. `RE` is the one that matters: a timer left in eliminator mode from
+  a previous night stays in it, and reports in a format nothing here parses.
+  On connect it runs before polling starts, because `N2`'s `X` and `RM`'s mode
+  line ending in `1` would both be read as gate readings if they landed inside
+  a poll's reply window. It runs again at every arm because a timer that
+  browns out mid-night comes back in its power-on mode, and the venue runs a
+  TV and a Pi off one extension cord.
+- **A heat that never started and one still being staged look identical** on a
+  timer whose gate cannot be read: both are silence. Only a person can tell
+  them apart, so `claimQuietHeat` asks rather than asserts, once, after
+  `SilentHeatPrompt`. `ForceResults` (`RA`) is the other half: times back mean
+  the heat happened, silence means the timer never started it, and those need
+  opposite responses. Measured on the club's timer — it answers `RA` in about
+  70 ms, gives a race up once, and says nothing at all when it has none.
+- **The start switch is the club's real failure**, not the software. The lane
+  lights flash once as the gate is released and that flash *is* the timer
+  starting; an open that does not register produces no flash, no times, and
+  no bytes on the wire. Reproduced on the bench by opening the gate
+  hesitantly. It is a snap-action microswitch, so a slow edge is not the
+  problem — insufficient travel past the trip point is. Nothing in software
+  can arm that timer, so the software's whole job here is to notice and say so.
+- **A result the machine refuses is still a result.** Dropping it is right —
+  it would overwrite a finished heat — but it used to be dropped in silence:
+  `EvMalfunction` had no consumer anywhere, so a heat that really ran vanished
+  with nobody able to say what the cars did. The times now go in the message
+  and the message goes to the log and the race screen.
 - **`MG` is answered `AC`, unterminated**, where every other command answers
   `*` on a line of its own. Recorded from the timer. A result line is followed
   by a stray unterminated `@`, which upstream strips outright and we ignore

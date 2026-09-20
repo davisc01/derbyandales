@@ -43,6 +43,12 @@ type RaceController struct {
 	// hard stop: auto-advance must not step over it.
 	intermission   bool
 	intermissionAt time.Time
+
+	// armedAt is when the current heat was armed, and silentAsked records that
+	// the coordinator has already been asked about it. On a timer whose gate
+	// cannot be read there is no other sign that a heat never started.
+	armedAt     time.Time
+	silentAsked bool
 }
 
 // DefaultAutoAdvance is how long a finished heat stays on the screens before
@@ -361,6 +367,16 @@ func (rc *RaceController) arm(ctx context.Context, heat store.HeatView) error {
 		return err
 	}
 
+	// Re-assert the timer's setup on every heat rather than only on connect.
+	// A timer that browns out and restarts mid-night comes back in its
+	// power-on mode — eliminator mode back on, the old result format — and
+	// nothing here would parse what it sent after that. Four commands and a
+	// fifth of a second is a cheap premium against losing the rest of a night,
+	// and it is never fatal: the port is open, the race happens either way.
+	if err := dev.Setup(); err != nil {
+		rc.app.Log.Warn("re-asserting the timer's setup", "heat", heat.Number, "err", err)
+	}
+
 	if err := dev.ArmHeat(heat.LaneMask(), season.LaneCount); err != nil {
 		return fmt.Errorf("arm the timer: %w", err)
 	}
@@ -370,6 +386,8 @@ func (rc *RaceController) arm(ctx context.Context, heat store.HeatView) error {
 
 	rc.mu.Lock()
 	rc.current = &heat
+	rc.armedAt = time.Now()
+	rc.silentAsked = false
 	rc.mu.Unlock()
 
 	rc.app.Bus.Publish(bus.TopicRace, "heat.armed", rc.State(ctx))
@@ -581,6 +599,54 @@ func (rc *RaceController) tick(ctx context.Context, dev *timer.Device) {
 		dev.Machine().ReturnToMark()
 		rc.app.Bus.Publish(bus.TopicRace, "overdue", rc.State(ctx))
 	}
+
+	// A heat armed a long time ago with nothing heard from the timer.
+	if rc.claimQuietHeat(dev) {
+		rc.app.Log.Warn("nothing from the timer since the heat was armed")
+		rc.app.Bus.Publish(bus.TopicRace, "heat.quiet", map[string]any{
+			"reason": "Nothing from the timer since this heat was armed. If the cars " +
+				"have already run, it may never have started — ask the timer for results.",
+		})
+	}
+}
+
+// SilentHeatPrompt is how long a heat may sit armed with nothing heard from the
+// timer before the coordinator is asked about it.
+//
+// Deliberately long. Staging four cars in a bar is not quick, and a prompt that
+// cries wolf during ordinary staging is one that gets ignored by the second
+// race of the season.
+const SilentHeatPrompt = 2 * time.Minute
+
+// claimQuietHeat reports whether this heat has gone quiet, and claims the right
+// to say so exactly once.
+//
+// It only applies to a timer whose gate cannot be read. With a readable gate,
+// silence means the cars have not gone yet and there is nothing to report; on
+// the club's K1 that same silence covers both "still staging" and "the gate
+// never started it", and only a person can tell those apart. So this asks
+// rather than asserts.
+func (rc *RaceController) claimQuietHeat(dev *timer.Device) bool {
+	if dev.GateKnowable() {
+		return false
+	}
+	switch dev.State() {
+	case timer.StateMark, timer.StateSet:
+	default:
+		// Results are already arriving, or nothing is armed.
+		return false
+	}
+
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	if rc.current == nil || rc.silentAsked || rc.armedAt.IsZero() {
+		return false
+	}
+	if time.Since(rc.armedAt) < SilentHeatPrompt {
+		return false
+	}
+	rc.silentAsked = true
+	return true
 }
 
 // ArmRunOff builds the run-off that settles a tie for a trophy, and arms it.

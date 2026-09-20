@@ -247,6 +247,13 @@ func (tc *TimerController) pump(dev *timer.Device) {
 			"at":    ev.At,
 			"state": string(dev.State()),
 		})
+		if ev.Kind == timer.EvMalfunction {
+			// The .app has no terminal, so this is the only place a dropped
+			// result is written down. It used to go nowhere at all: the timer
+			// would report a heat nobody was listening for and the coordinator
+			// saw an empty screen with no way to find out why.
+			tc.app.Log.Warn("timer malfunction", "detail", ev.Args)
+		}
 		if ev.Kind == timer.EvLostConnection {
 			tc.app.Log.Warn("timer connection lost", "detail", ev.Args)
 			return
@@ -407,6 +414,94 @@ func (tc *TimerController) RunTestHeat(ctx context.Context, timeout time.Duratio
 	c := b.RunTestHeat(ctx, timeout)
 	tc.saveBench(ctx, b.Result())
 	return c, nil
+}
+
+// ForceResultsWait is how long to listen after asking the timer to report.
+// The club's K1 answers in about 70 ms; this is generous enough that silence
+// really means silence.
+const ForceResultsWait = 1500 * time.Millisecond
+
+// ForceResults asks the timer to report a race it may be holding.
+//
+// The answer matters more than the times. A timer that reports has run the
+// heat; one that stays quiet never started it — and on a timer whose gate
+// cannot be read, this is the only way to tell those two apart. They need
+// opposite responses from the coordinator: record it, or re-stage and run it
+// again.
+type ForceResultsOutcome struct {
+	Reported bool `json:"reported"`
+	Lanes    int  `json:"lanes"`
+	Dropped  int  `json:"dropped"`
+	// Finished records the timer ending the heat without this call having
+	// counted the lanes itself — the heat was completed by something else
+	// while we listened. It still means the race happened.
+	Finished bool   `json:"finished"`
+	Detail   string `json:"detail"`
+}
+
+func (tc *TimerController) ForceResults(ctx context.Context) (ForceResultsOutcome, error) {
+	dev := tc.Device()
+	if dev == nil {
+		return ForceResultsOutcome{}, fmt.Errorf("no timer is connected")
+	}
+
+	// Subscribe before asking, or a timer that answers in 70 ms beats the
+	// listener into existence.
+	events, unsubscribe := dev.Subscribe()
+	defer unsubscribe()
+
+	if err := dev.ForceResults(); err != nil {
+		return ForceResultsOutcome{}, err
+	}
+	tc.app.Log.Info("asked the timer to report early")
+
+	deadline := time.NewTimer(ForceResultsWait)
+	defer deadline.Stop()
+
+	var out ForceResultsOutcome
+	for {
+		select {
+		case <-ctx.Done():
+			return out, ctx.Err()
+
+		case <-deadline.C:
+			return tc.describeForced(out), nil
+
+		case ev, ok := <-events:
+			if !ok {
+				return out, fmt.Errorf("the timer disconnected")
+			}
+			switch ev.Kind {
+			case timer.EvLaneResult:
+				out.Lanes++
+			case timer.EvMalfunction:
+				// A result the machine refused, because nothing is armed.
+				out.Dropped++
+			case timer.EvRaceFinished:
+				out.Finished = true
+				return tc.describeForced(out), nil
+			}
+		}
+	}
+}
+
+func (tc *TimerController) describeForced(out ForceResultsOutcome) ForceResultsOutcome {
+	out.Reported = out.Lanes > 0 || out.Dropped > 0 || out.Finished
+	switch {
+	case out.Lanes > 0:
+		out.Detail = fmt.Sprintf("The timer reported %d lanes. The heat is recorded.", out.Lanes)
+	case out.Finished:
+		out.Detail = "The timer ended the heat. Check the times on the screen before carrying on."
+	case out.Dropped > 0:
+		out.Detail = fmt.Sprintf("The timer reported %d lanes, but no heat was armed to "+
+			"receive them. The times are in the log; arm the heat and re-run it, or "+
+			"type them in.", out.Dropped)
+	default:
+		out.Detail = "The timer had nothing to report, so it never started this race. " +
+			"Re-stage the cars and run the heat again — and watch the lane lights " +
+			"flash as you release the gate, which is the timer starting."
+	}
+	return out
 }
 
 // Override records a coordinator deciding to race despite a failed check.

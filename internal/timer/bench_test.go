@@ -455,3 +455,116 @@ func TestBenchResetVerdictComesFromTheTimersAnswer(t *testing.T) {
 		t.Errorf("verdict %q, want warn — nothing came back, so nothing is known", c.Verdict)
 	}
 }
+
+// Asking the timer to report early is the only way to tell a heat the timer is
+// sitting on from one it never started, on a timer whose gate cannot be read.
+func TestForceResultsIsSentToTheTimer(t *testing.T) {
+	dev, sim := newTestDevice(t, DefaultSimOptions())
+
+	if err := dev.ForceResults(); err != nil {
+		t.Fatalf("ForceResults: %v", err)
+	}
+	assertSent(t, sim, ftForceResults)
+}
+
+// A timer with no such command must say so rather than appear to have asked.
+func TestForceResultsRefusedWhenTheTimerHasNoSuchCommand(t *testing.T) {
+	p := SimulatorProfile()
+	p.ForceResults = ""
+	sim := NewSimulator(DefaultSimOptions())
+	dev := Open(p, sim, Options{})
+	t.Cleanup(func() { dev.Close() })
+
+	if err := dev.ForceResults(); err == nil {
+		t.Fatal("expected an error, not a silent no-op")
+	}
+}
+
+// A result arriving with nothing armed is dropped on purpose — it would
+// otherwise overwrite a finished heat — but the times have to survive into the
+// message, or a heat that really ran vanishes with nobody able to say what the
+// cars did.
+func TestDroppedResultSaysWhatTheCarsDid(t *testing.T) {
+	dev, sim := newTestDevice(t, DefaultSimOptions())
+	events := subscribe(t, dev)
+
+	// Nothing is armed: the machine is idle.
+	sim.EmitSingleLane(3, 2.456)
+
+	// The timer reports every lane on one line, so there is a message per lane
+	// and the one that matters is the lane a car actually ran in.
+	var said []string
+	deadline := time.After(2 * time.Second)
+	for looking := true; looking; {
+		select {
+		case ev := <-events:
+			if ev.Kind == EvMalfunction {
+				said = append(said, strings.Join(ev.Args, " "))
+			}
+		case <-deadline:
+			looking = false
+		}
+	}
+
+	all := strings.Join(said, " | ")
+	if !strings.Contains(all, "lane 3 reported 2.456s") {
+		t.Errorf("the dropped time for lane 3 is missing from:\n%s", all)
+	}
+	if !strings.Contains(all, "no heat is armed") {
+		t.Errorf("nothing said why the result was dropped:\n%s", all)
+	}
+}
+
+// The recovery that matters: a timer holding a race hands the times over when
+// asked, instead of the heat being lost because nobody could make it report.
+func TestForceResultsMakesAHeldRaceReport(t *testing.T) {
+	opts := DefaultSimOptions()
+	// Long enough that the timer would never report on its own within the test:
+	// anything that arrives, arrives because it was asked for.
+	opts.ResultDelay = 30 * time.Second
+	dev, sim := newTestDevice(t, opts)
+	events := subscribe(t, dev)
+
+	if err := dev.ArmHeat(0b1111, 4); err != nil {
+		t.Fatalf("ArmHeat: %v", err)
+	}
+	sim.CloseGate()
+	time.Sleep(600 * time.Millisecond)
+	sim.OpenGate()
+
+	if err := dev.ForceResults(); err != nil {
+		t.Fatalf("ForceResults: %v", err)
+	}
+	waitOn(t, events, dev, 3*time.Second, EvRaceFinished)
+
+	lanes, missing := dev.Finish()
+	if len(lanes) != 4 {
+		t.Fatalf("got %d lanes, want 4", len(lanes))
+	}
+	if len(missing) != 0 {
+		t.Errorf("no lane should be missing: %v", missing)
+	}
+}
+
+// And a timer with no race in flight says nothing, which is what tells the
+// coordinator the heat never started rather than that it is still coming.
+func TestForceResultsIsSilentWhenNoRaceHasRun(t *testing.T) {
+	dev, _ := newTestDevice(t, DefaultSimOptions())
+	events := subscribe(t, dev)
+
+	if err := dev.ForceResults(); err != nil {
+		t.Fatalf("ForceResults: %v", err)
+	}
+
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case ev := <-events:
+			if ev.Kind == EvLaneResult || ev.Kind == EvRaceFinished {
+				t.Fatalf("the timer reported %s with no race having run", ev.Kind)
+			}
+		case <-deadline:
+			return
+		}
+	}
+}

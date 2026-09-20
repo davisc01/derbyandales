@@ -53,6 +53,7 @@
     <button class="btn primary" id="start-race">Start racing</button>
     <button class="btn" id="stop-race">Stop</button>
     <button class="btn" id="next-heat">Arm next heat</button>
+    <button class="btn" id="force-results">Ask the timer for results</button>
     <label class="inline" style="margin-left:8px">
       <input type="checkbox" id="auto-advance" {{if $s.AutoNext}}checked{{end}}>
       <span class="lbl" style="margin-left:6px">Advance automatically</span>
@@ -62,6 +63,11 @@
   <p class="hint">Racing needs a connected timer whose test has passed. If a
      check failed and you know why, record an override on the
      <a href="/timer/test">timer page</a> and carry on.</p>
+  <p class="hint">If the cars have run and nothing appeared, ask the timer for
+     results. Times back mean the heat happened; silence means the timer never
+     started it — re-stage and run it again. On this club's timer the tell is
+     the lane lights: they flash once as the gate is released, and that flash is
+     the timer starting.</p>
 </section>
 
 <section class="card">

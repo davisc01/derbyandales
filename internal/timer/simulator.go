@@ -198,6 +198,17 @@ func (s *Simulator) handle(cmd string) {
 			s.emit("RG0\n")
 		}
 
+	case ftForceResults:
+		// "Give up waiting and report what you have." A timer with a race in
+		// flight hands the times over; one with no race to report says nothing
+		// at all, and that silence is the answer the coordinator needs.
+		s.mu.Lock()
+		running := s.running
+		s.mu.Unlock()
+		if running {
+			s.EmitResults()
+		}
+
 	case ftResetLaser:
 		if !s.opts.NoResetAck {
 			s.emit("*\n")
@@ -241,7 +252,14 @@ func (s *Simulator) setGate(closed bool) {
 	if start {
 		go func() {
 			time.Sleep(s.opts.ResultDelay)
-			s.EmitResults()
+			// The race may already have been reported early, on request. A
+			// real timer reports a race once.
+			s.mu.Lock()
+			still := s.running
+			s.mu.Unlock()
+			if still {
+				s.EmitResults()
+			}
 		}()
 	}
 }

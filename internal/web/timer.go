@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/davisc01/derbyandales/internal/app"
 	"github.com/davisc01/derbyandales/internal/timer"
 )
 
@@ -43,6 +44,7 @@ func (s *Server) timerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/timer/trace", s.handleTimerTrace)
 	mux.HandleFunc("POST /api/timer/trace/save", s.handleTimerTraceSave)
 	mux.HandleFunc("POST /api/timer/send", s.handleTimerSend)
+	mux.HandleFunc("POST /api/timer/force", s.handleTimerForceResults)
 }
 
 func (s *Server) handleTimerBench(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +170,24 @@ func (s *Server) handleTimerOverride(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.app.Timer.Status())
+}
+
+// handleTimerForceResults asks the timer to report a race it may be holding.
+//
+// The reply is the diagnosis: times mean the heat happened, silence means the
+// timer never started it. On a timer that cannot report its gate there is no
+// other way to tell, and the two need opposite responses.
+func (s *Server) handleTimerForceResults(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()),
+		app.ForceResultsWait+5*time.Second)
+	defer cancel()
+
+	out, err := s.app.Timer.ForceResults(ctx)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) handleTimerTrace(w http.ResponseWriter, r *http.Request) {
