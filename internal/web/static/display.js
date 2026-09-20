@@ -110,6 +110,7 @@
     awardIndex = 0;
     awardRows = [];
     stopSlides();
+    resetRacing();
     render();
   }
 
@@ -198,11 +199,93 @@
     swap(wrap);
   }
 
+  // --- the now-racing screen, as choreography -------------------------------
+  //
+  // Rows come in from the left and leave to the right, because that is the
+  // way the cars go. These timings are paired with the animations in
+  // display.css — changing one without the other leaves the screen either
+  // cutting a slide off or sitting on a gap.
+
+  // How long a finished heat stays up once the last car has landed. The
+  // coordinator arms the next heat as soon as the times appear, and the room
+  // is still reading the one that just ran.
+  const RESULT_HOLD_MS = 7000;
+  // Results come in one car at a time, in finish order: the screen is
+  // announcing who won the heat, not drawing a table.
+  const RESULT_STEP_MS = 600;
+  // Staging is not an announcement. The lanes come in together, offset just
+  // enough to read as four cars rather than one slab.
+  const STAGE_STEP_MS = 90;
+  const ROW_IN_MS = 500;   // `arrive` in display.css
+  const ROW_OUT_MS = 550;  // `depart`
+  const ROW_OUT_STEP_MS = 60;
+
+  // Somebody who has asked for less motion gets the same information without
+  // the sliding: every stagger collapses and the screen keeps its pace.
+  function stillScreen() {
+    return !!(window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
   // Lane assignments before the heat, finish order and times after it.
   // What the now-racing screen was last showing, so a redraw can tell the
   // difference between "nothing changed" and "they have just been released".
   let racingPhase = "";
   let racingHeat = 0;
+  // When the last result row will have finished arriving, which is when its
+  // seven seconds start.
+  let resultVisibleAt = 0;
+  // A next heat armed while the result is still being read waits here.
+  let racingHold = null;
+  // Set while the rows are sliding out. A redraw in the middle would cut the
+  // slide off, and the render that follows it reads the state fresh anyway.
+  let racingSwapping = false;
+  let racingSwapTimer = null;
+
+  // Whenever this screen stops showing the racing, so a timer cannot fire into
+  // a scene that has been replaced.
+  function resetRacing() {
+    if (racingHold) clearTimeout(racingHold);
+    if (racingSwapTimer) clearTimeout(racingSwapTimer);
+    racingHold = null;
+    racingSwapTimer = null;
+    racingSwapping = false;
+    racingPhase = "";
+    racingHeat = 0;
+    resultVisibleAt = 0;
+  }
+
+  // The rows on screen leave to the right, one after another, and the render
+  // that follows brings whatever is next in from the left.
+  function exitRows() {
+    const lanes = root.querySelector(".lanes");
+    const rows = lanes ? Array.prototype.slice.call(lanes.children) : [];
+    // Whatever comes back arrives from the left rather than appearing.
+    racingPhase = "";
+    racingHeat = 0;
+    resultVisibleAt = 0;
+    if (!rows.length) return redrawRacing();
+    racingSwapping = true;
+    lanes.classList.remove("arriving");
+    lanes.classList.add("leaving");
+    const step = stillScreen() ? 0 : ROW_OUT_STEP_MS;
+    rows.forEach(function (row, i) {
+      row.style.setProperty("--depart", i * step + "ms");
+    });
+    const gone = stillScreen() ? 0 : ROW_OUT_MS + (rows.length - 1) * step;
+    racingSwapTimer = setTimeout(function () {
+      racingSwapTimer = null;
+      racingSwapping = false;
+      redrawRacing();
+    }, gone);
+  }
+
+  function redrawRacing() {
+    renderRacing({ afterExit: true }).catch(function () {
+      // The server went quiet mid-swap. The offline bar says so, and the next
+      // event redraws.
+    });
+  }
 
   // Who is in a lane: the car's name large, its number and driver beneath.
   // The car is what the room is watching go down the track, and a car name is
@@ -222,16 +305,70 @@
     return car;
   }
 
-  async function renderRacing() {
+  async function renderRacing(opts) {
+    // The rows are mid-slide. Whatever this event was, the render that follows
+    // the slide reads the state again.
+    if (racingSwapping) return;
+
+    const afterExit = !!(opts && opts.afterExit);
     const state = await getJSON("/api/race/state");
 
     // During the intermission the screen says so rather than sitting on a
-    // finished heat for twenty minutes while people are at the bar.
+    // finished heat for twenty minutes while people are at the bar. It is a
+    // hard stop, so it outranks a result being held.
     if (state.intermission) {
+      resetRacing();
       return renderVoting();
     }
 
-    if (!state.lanes || !state.lanes.length) {
+    // Three phases, and the screen behaves differently in each.
+    //
+    //   staged   cars are on the track, gate shut, lane assignments showing
+    //   running  the gate is open and they are gone — the screen clears with
+    //            them, because there is nothing to report for two seconds and
+    //            a frozen table is worse than an empty one
+    //   result   they are back, in the order they finished
+    const lanes0 = state.lanes || [];
+    const finished = lanes0.some(function (l) { return l.time !== undefined; });
+    let phase = "staged";
+    if (finished) {
+      phase = "result";
+    } else if (state.gate === "open" && state.running) {
+      phase = "running";
+    }
+
+    // A result is being held on screen. Nothing replaces it until its seven
+    // seconds are up — except the cars actually being released, because what
+    // is happening on the track outranks what just happened on it.
+    if (racingHold) {
+      if (phase !== "running") return;
+      clearTimeout(racingHold);
+      racingHold = null;
+      return exitRows();
+    }
+
+    // Between two heats the finished one slides out to the right before the
+    // next comes in from the left, and a result waits out its hold first. A
+    // re-run is the same heat number arriving again, and gets the same swap.
+    if (!afterExit && phase === "staged" &&
+        (racingPhase === "result" ||
+         (racingPhase === "staged" && racingHeat !== state.heat_no))) {
+      if (racingPhase === "result") {
+        const wait = resultVisibleAt + RESULT_HOLD_MS - Date.now();
+        if (wait > 0) {
+          racingHold = setTimeout(function () {
+            racingHold = null;
+            exitRows();
+          }, wait);
+          return;
+        }
+      }
+      return exitRows();
+    }
+
+    if (!lanes0.length) {
+      racingPhase = "";
+      racingHeat = 0;
       const { wrap, body } = sceneShell(state.race_name || "Derby and Ales");
       body.appendChild(el("p", "display-hint", "Waiting for the next heat…"));
       return swap(wrap);
@@ -243,33 +380,24 @@
         : "Heat " + state.heat_no;
     const { wrap, body } = sceneShell(state.race_name || "Now racing", sub);
 
-    // Three phases, and the screen behaves differently in each.
-    //
-    //   staged   cars are on the track, gate shut, lane assignments showing
-    //   running  the gate is open and they are gone — the screen clears with
-    //            them, because there is nothing to report for two seconds and
-    //            a frozen table is worse than an empty one
-    //   result   they are back, in the order they finished
-    const finished = state.lanes.some(function (l) { return l.time !== undefined; });
-    let phase = "staged";
-    if (finished) {
-      phase = "result";
-    } else if (state.gate === "open" && state.running) {
-      phase = "running";
-    }
-
     if (phase === "running") {
       // Nothing to read while they are on the track. The cars leave to the
-      // right, staggered, and the screen is empty until the times land.
+      // right, staggered, and the screen is empty until the times land. A
+      // redraw once they have gone — or a swap that already sent them out —
+      // must not send them out a second time from where they started.
       const gone = el("div", "lanes leaving");
-      state.lanes.forEach(function (l, i) {
-        if (l.bye) return;
-        const row = el("div", "lane-row running");
-        row.style.setProperty("--depart", i * 60 + "ms");
-        row.appendChild(el("div", "lane-no", l.lane));
-        row.appendChild(laneWho(l));
-        gone.appendChild(row);
-      });
+      const left = afterExit || (racingPhase === "running" && racingHeat === state.heat_no);
+      if (!left) {
+        const step = stillScreen() ? 0 : ROW_OUT_STEP_MS;
+        state.lanes.forEach(function (l, i) {
+          if (l.bye) return;
+          const row = el("div", "lane-row");
+          row.style.setProperty("--depart", i * step + "ms");
+          row.appendChild(el("div", "lane-no", l.lane));
+          row.appendChild(laneWho(l));
+          gone.appendChild(row);
+        });
+      }
       body.appendChild(gone);
       racingPhase = phase;
       racingHeat = state.heat_no;
@@ -289,15 +417,15 @@
         return a.lane - b.lane;
       });
     }
-    // Only animate them back in on the transition, not on every redraw — a
-    // vote arriving should not send the whole table skating across the screen.
-    const arriving = phase === "result" &&
-      (racingPhase === "running" || racingHeat !== state.heat_no);
+    // Only animate them in on a change, not on every redraw — a vote arriving
+    // should not send the whole table skating across the screen.
+    const arriving = phase !== racingPhase || racingHeat !== state.heat_no;
     if (arriving) lanes.classList.add("arriving");
+    const step = stillScreen() ? 0 : (phase === "result" ? RESULT_STEP_MS : STAGE_STEP_MS);
 
     rows.forEach(function (l, i) {
       const row = el("div", "lane-row");
-      row.style.setProperty("--arrive", i * 90 + "ms");
+      row.style.setProperty("--arrive", i * step + "ms");
       row.dataset.lane = l.lane;
       if (l.bye) row.classList.add("bye");
       if (l.place === 1) row.classList.add("p1");
@@ -341,6 +469,13 @@
     });
 
     body.appendChild(lanes);
+    // The hold starts when the last car is on screen, not when the times
+    // landed: the point is seven seconds of everybody being able to read it.
+    if (phase === "result") {
+      resultVisibleAt = arriving
+        ? Date.now() + (rows.length - 1) * step + (stillScreen() ? 0 : ROW_IN_MS)
+        : resultVisibleAt || Date.now();
+    }
     racingPhase = phase;
     racingHeat = state.heat_no;
     swap(wrap);

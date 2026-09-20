@@ -519,7 +519,12 @@ html, body { height: 100%; }
    seconds and a frozen table reads as a broken one. Result: they come back in,
    in the order they finished rather than by lane. */
 
-.lanes.leaving .lane-row.running {
+/* Out to the right and in from the left, the way the cars run. The stagger
+   between rows comes from the script, because it differs by phase: a result is
+   read out one car at a time, while a staged heat is four cars arriving
+   together. The durations here are the ones display.js waits on. */
+
+.lanes.leaving .lane-row {
   animation: depart .55s cubic-bezier(.4, 0, .9, .3) forwards;
   animation-delay: var(--depart, 0ms);
 }
@@ -540,13 +545,14 @@ html, body { height: 100%; }
 }
 
 /* Somebody watching a screen for three hours in a loud room did not ask for
-   this, and the results still have to arrive. */
+   this, and the results still have to arrive. The script collapses its
+   staggers to match, so nothing waits on an animation that is not running. */
 @media (prefers-reduced-motion: reduce) {
-  .lanes.leaving .lane-row.running,
+  .lanes.leaving .lane-row,
   .lanes.arriving .lane-row {
     animation: none;
   }
-  .lanes.leaving .lane-row.running { opacity: 0; }
+  .lanes.leaving .lane-row { opacity: 0; }
 }
 
 /* --- the championship bracket -------------------------------------------------
