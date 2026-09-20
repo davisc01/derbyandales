@@ -241,6 +241,32 @@
   // slide off, and the render that follows it reads the state fresh anyway.
   let racingSwapping = false;
   let racingSwapTimer = null;
+  // What is on screen already. A finished heat is announced by the timer and
+  // by the race controller within a millisecond of each other, and the gate
+  // closing announces it again; each of those redraws the screen. Landing in
+  // the middle of a result coming in, the second one replaced the rows with a
+  // finished copy of themselves — the stagger vanished and the times simply
+  // appeared. Nothing is redrawn unless it would differ.
+  let racingSig = "";
+
+  // The heat whose result has already had its seven seconds before the voting
+  // screen took over. The intermission starts the instant that heat's times
+  // land, so the state carrying the result carries the intermission with it —
+  // and the screen used to jump straight to the vote without ever showing who
+  // won the heat that had just run. It deliberately survives resetRacing: once
+  // that result has been shown, coming back to this scene means the vote.
+  let intermissionAfter = 0;
+
+  function racingSignature(state, phase) {
+    const lanes = (state.lanes || []).map(function (l) {
+      return [l.lane, l.car_number, l.car_name, l.driver, l.time, l.mph, l.place,
+        l.bye ? 1 : 0, l.record ? l.record.kind + l.record.label : ""].join("~");
+    });
+    // The gate and the timer's own state are deliberately not in here: they
+    // are in `phase` where they matter, and the gate being closed after a heat
+    // must not count as the result having changed.
+    return [phase, state.heat_no, state.heat_total, state.race_name].concat(lanes).join("|");
+  }
 
   // Whenever this screen stops showing the racing, so a timer cannot fire into
   // a scene that has been replaced.
@@ -253,6 +279,7 @@
     racingPhase = "";
     racingHeat = 0;
     resultVisibleAt = 0;
+    racingSig = "";
   }
 
   // The rows on screen leave to the right, one after another, and the render
@@ -264,6 +291,7 @@
     racingPhase = "";
     racingHeat = 0;
     resultVisibleAt = 0;
+    racingSig = "";
     if (!rows.length) return redrawRacing();
     racingSwapping = true;
     lanes.classList.remove("arriving");
@@ -278,6 +306,19 @@
       racingSwapping = false;
       redrawRacing();
     }, gone);
+  }
+
+  // The last heat before the intermission gets its seven seconds like any
+  // other, and then the rows leave to the right and the voting screen takes
+  // over. Marking the heat first is what stops the render after the slide
+  // showing the result all over again.
+  function holdThenVote(heat) {
+    if (racingHold) return;
+    racingHold = setTimeout(function () {
+      racingHold = null;
+      intermissionAfter = heat;
+      exitRows();
+    }, Math.max(0, resultVisibleAt + RESULT_HOLD_MS - Date.now()));
   }
 
   function redrawRacing() {
@@ -313,14 +354,6 @@
     const afterExit = !!(opts && opts.afterExit);
     const state = await getJSON("/api/race/state");
 
-    // During the intermission the screen says so rather than sitting on a
-    // finished heat for twenty minutes while people are at the bar. It is a
-    // hard stop, so it outranks a result being held.
-    if (state.intermission) {
-      resetRacing();
-      return renderVoting();
-    }
-
     // Three phases, and the screen behaves differently in each.
     //
     //   staged   cars are on the track, gate shut, lane assignments showing
@@ -337,6 +370,27 @@
       phase = "running";
     }
 
+    // During the intermission the screen says so rather than sitting on a
+    // finished heat for twenty minutes while people are at the bar. The one
+    // thing it waits for is the heat that has just run: the intermission
+    // starts as that result lands, and the room is owed it. It is announced
+    // and held like any other, and the vote follows it.
+    if (state.intermission) {
+      if (phase !== "result" || state.heat_no === intermissionAfter) {
+        resetRacing();
+        return renderVoting();
+      }
+      // Usually the result is already on screen: the intermission is a second
+      // event about the same heat, and only the vote's place in the queue is
+      // new. Nothing is redrawn in that case, or the rows would restart.
+      if (racingPhase === "result" && racingHeat === state.heat_no) {
+        holdThenVote(state.heat_no);
+        return;
+      }
+    } else if (intermissionAfter) {
+      intermissionAfter = 0;
+    }
+
     // A result is being held on screen. Nothing replaces it until its seven
     // seconds are up — except the cars actually being released, because what
     // is happening on the track outranks what just happened on it.
@@ -346,6 +400,11 @@
       racingHold = null;
       return exitRows();
     }
+
+    // The same heat, in the same state, as is already on screen. Redrawing it
+    // would restart whatever is playing.
+    const sig = racingSignature(state, phase);
+    if (sig === racingSig) return;
 
     // Between two heats the finished one slides out to the right before the
     // next comes in from the left, and a result waits out its hold first. A
@@ -369,6 +428,7 @@
     if (!lanes0.length) {
       racingPhase = "";
       racingHeat = 0;
+      racingSig = sig;
       const { wrap, body } = sceneShell(state.race_name || "Derby and Ales");
       body.appendChild(el("p", "display-hint", "Waiting for the next heat…"));
       return swap(wrap);
@@ -401,6 +461,7 @@
       body.appendChild(gone);
       racingPhase = phase;
       racingHeat = state.heat_no;
+      racingSig = sig;
       return swap(wrap);
     }
 
@@ -478,7 +539,11 @@
     }
     racingPhase = phase;
     racingHeat = state.heat_no;
+    racingSig = sig;
     swap(wrap);
+
+    // The vote is waiting behind this result.
+    if (phase === "result" && state.intermission) holdThenVote(state.heat_no);
   }
 
   async function renderRoster() {
