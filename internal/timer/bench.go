@@ -331,11 +331,13 @@ func (b *Bench) checkFeatures(ctx context.Context) {
 	if len(missing) > 0 {
 		c.Evidence += "\n\nNot available:\n  " + strings.Join(missing, "\n  ")
 	}
-	// Masking is how a bye lane is silenced. Without it, an empty lane reports
-	// 0.000 and looks like a car that failed to finish.
+	// Masking is how a bye lane is silenced. Said out loud, but not as a
+	// warning: it is another feature a timer either has or does not, and the
+	// results survive without it — a bye lane is not in the armed lane mask,
+	// so the 0.000 it reports is discarded rather than scored. The check
+	// itself succeeded; the timer answered.
 	if len(bits) >= 7 && bits[6] == '0' {
-		c.Verdict = VerdictWarn
-		c.Detail += " — this timer cannot mask lanes, so byes will report as non-finishes"
+		c.Detail += " — no lane masking, so empty lanes report 0.000 and are discarded"
 	}
 	b.record(c)
 }
@@ -549,8 +551,12 @@ func (b *Bench) checkStartSwitch(ctx context.Context) {
 		// why they are only live for a moment after the poller asks — and this
 		// check must not be the thing that widens that window.
 		b.dev.GateUnreadable()
-		c.Verdict = VerdictWarn
-		c.Detail = "This timer will not report its start switch: it answers the " +
+		// Skipped, not a warning. This is what the timer is, not something
+		// that has gone wrong with it: there is no setting to change and
+		// nothing to chase. An amber light that shows up every race night
+		// regardless is how people learn to ignore amber lights.
+		c.Verdict = VerdictSkipped
+		c.Detail = "This timer does not report its start switch: it answers the " +
 			"gate query with X. On a FastTrack older than the enhanced result " +
 			"format that is the firmware, not a setting to switch on. " + gateConsequence
 		c.Evidence = "Sent " + cmd + ", received " + reply
@@ -562,13 +568,20 @@ func (b *Bench) checkStartSwitch(ctx context.Context) {
 		// Alive, and with nothing to say about the gate. Record it, so the
 		// gate check below skips with a reason rather than failing.
 		b.dev.GateUnreadable()
-		c.Verdict = VerdictWarn
+		// Same again: alive, and simply without the feature.
+		c.Verdict = VerdictSkipped
 		c.Detail = "The timer echoes the gate query but never answers it, so it " +
-			"cannot tell us about its start switch. " + gateConsequence
+			"does not report its start switch. " + gateConsequence
 		c.Evidence = err.Error()
 	default:
+		// This one stays amber. A FastTrack echoes every command, so a gate
+		// query that draws no reply at all — not even the echo — is the link
+		// misbehaving rather than a feature the timer lacks, and it is worth
+		// somebody's attention before the racing starts.
 		c.Verdict = VerdictWarn
-		c.Detail = "The timer said nothing at all to the gate query."
+		c.Detail = "The timer said nothing at all to the gate query, not even the " +
+			"echo every command normally gets back. Suspect the cable or the " +
+			"USB adapter."
 		c.Evidence = err.Error()
 	}
 	b.record(c)

@@ -371,8 +371,10 @@ func TestBenchTellsAnEchoedGateQueryFromASilentTimer(t *testing.T) {
 	}
 
 	c := benchCheck(t, r, CheckStartSwitch)
-	if c.Verdict != VerdictWarn {
-		t.Fatalf("start switch: verdict %q, want warn", c.Verdict)
+	if c.Verdict != VerdictSkipped {
+		t.Fatalf("start switch: verdict %q, want skipped — a missing feature is "+
+			"not a fault, and a permanent amber light teaches people to ignore "+
+			"amber lights", c.Verdict)
 	}
 	if !strings.Contains(c.Detail, "echoes") {
 		t.Errorf("detail %q should say the timer is answering, just not about the gate", c.Detail)
@@ -410,11 +412,11 @@ func TestBenchReportsATimerThatWillNotReportItsStartSwitch(t *testing.T) {
 	b := NewBench(dev, "", 4, nil)
 
 	c := benchCheck(t, b.RunAutomatic(context.Background()), CheckStartSwitch)
-	if c.Verdict != VerdictWarn {
-		t.Fatalf("verdict %q, want warn", c.Verdict)
+	if c.Verdict != VerdictSkipped {
+		t.Fatalf("verdict %q, want skipped", c.Verdict)
 	}
-	if !strings.Contains(c.Detail, "will not report its start switch") {
-		t.Errorf("detail %q should say what the timer will not do", c.Detail)
+	if !strings.Contains(c.Detail, "does not report its start switch") {
+		t.Errorf("detail %q should say what the timer does not do", c.Detail)
 	}
 	if !strings.Contains(c.Detail, "not a setting") {
 		t.Errorf("detail %q should not leave the operator looking for a setting", c.Detail)
@@ -606,4 +608,73 @@ func TestGateCheckStaysPendingWhenTheGateCanBeRead(t *testing.T) {
 	if c := benchCheck(t, r, CheckGate); c.Verdict != VerdictPending {
 		t.Errorf("verdict %q, want pending", c.Verdict)
 	}
+}
+
+// The bench has to be worth believing on a race night, which means amber has
+// to be rare and mean something.
+//
+// A healthy timer shows nothing but green. A timer that merely lacks a feature
+// — the club's K1 cannot report its start switch, and no firmware setting will
+// change that — shows green and grey, but never amber: a warning that appears
+// every single race night regardless is one that gets ignored, and then the
+// real one gets ignored with it.
+func TestOnlyRealProblemsShowAmber(t *testing.T) {
+	amber := func(t *testing.T, r Result) []string {
+		t.Helper()
+		var out []string
+		for _, c := range r.Checks {
+			if c.Verdict == VerdictWarn {
+				out = append(out, c.Name+": "+c.Detail)
+			}
+		}
+		return out
+	}
+
+	t.Run("a healthy timer is all green", func(t *testing.T) {
+		dev, _ := newTestDevice(t, DefaultSimOptions())
+		// Named as though it were on a real port: a simulated timer skips the
+		// port check for the honest reason that there is no port.
+		r := NewBench(dev, "/dev/cu.usbserial-1420", 4, nil).RunAutomatic(context.Background())
+
+		for _, c := range r.Checks {
+			if c.Interactive {
+				continue // those are somebody's job, not a verdict yet
+			}
+			if c.Verdict != VerdictPass {
+				t.Errorf("%s: verdict %q, detail %q — a healthy timer should be green",
+					c.Name, c.Verdict, c.Detail)
+			}
+		}
+	})
+
+	t.Run("a timer without gate reporting raises nothing", func(t *testing.T) {
+		opts := DefaultSimOptions()
+		opts.GateUnsupported = true
+		dev, _ := newTestDevice(t, opts)
+		r := NewBench(dev, "", 4, nil).RunAutomatic(context.Background())
+
+		if got := amber(t, r); len(got) > 0 {
+			t.Errorf("a missing feature must not warn, every night, forever:\n  %s",
+				strings.Join(got, "\n  "))
+		}
+		// Still said out loud, though — skipped with the reason, not hidden.
+		if c := benchCheck(t, r, CheckStartSwitch); c.Verdict != VerdictSkipped {
+			t.Errorf("start switch: verdict %q, want skipped", c.Verdict)
+		}
+		if !r.Passed() || !r.Ready() {
+			t.Error("a timer that simply lacks a feature is ready to race")
+		}
+	})
+
+	t.Run("a timer that has gone quiet still warns", func(t *testing.T) {
+		opts := DefaultSimOptions()
+		opts.GateSilent = true
+		dev, _ := newTestDevice(t, opts)
+		r := NewBench(dev, "", 4, nil).RunAutomatic(context.Background())
+
+		// Echoing without answering is a known shape too, so it is grey.
+		if c := benchCheck(t, r, CheckStartSwitch); c.Verdict != VerdictSkipped {
+			t.Errorf("start switch: verdict %q, want skipped", c.Verdict)
+		}
+	})
 }

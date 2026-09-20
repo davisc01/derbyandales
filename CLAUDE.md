@@ -197,6 +197,14 @@ These are the domain, and getting them wrong changes published results.
 - **Report honestly.** The preflight timer check says "Never tested" rather than
   passing. A simulated timer never reports a clean pass. A green tick that means
   nothing is worse than no tick.
+- **Amber has to be rare, or it stops meaning anything.** A healthy timer shows
+  nothing but green. A feature the timer simply does not have is **skipped**
+  with the reason — grey, not amber — because a warning that appears every race
+  night regardless is one that gets ignored, and the real one gets ignored with
+  it. The rule is what the operator can do about it: *known absent* is grey,
+  *wrong or unknown* is amber. The club's K1 not reporting its start switch is
+  grey; the same timer going silent mid-check is amber.
+  `TestOnlyRealProblemsShowAmber` holds the line.
 - **Never block a race.** Every check that can fail can be overridden with a
   reason, which goes to the audit log. A jammed gate switch must not stop a race
   from happening.
