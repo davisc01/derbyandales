@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/davisc01/derbyandales/internal/app"
 	"github.com/davisc01/derbyandales/internal/model"
 	"github.com/davisc01/derbyandales/internal/schedule"
 	"github.com/davisc01/derbyandales/internal/scoring"
@@ -63,7 +64,7 @@ func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
 	if state.RaceID != 0 && !bracketRace && allHeatsRun(heats) && len(ties) == 0 {
 		if race, err := s.app.DB.Race(ctx, state.RaceID); err == nil {
 			if sn, err := s.app.DB.Season(ctx, race.SeasonID); err == nil {
-				demoTie = strings.Contains(sn.Name, "demo data")
+				demoTie = app.IsDemoSeason(sn.Name)
 			}
 		}
 	}

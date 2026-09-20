@@ -19,6 +19,14 @@ import (
 // It is never created automatically: it takes an explicit flag or button, and
 // the season is named so nobody mistakes it for real results.
 
+// demoMark is in the name of every demo season, and is the only thing that
+// separates demo data from the club's own. It is checked before anything is
+// fabricated or deleted, so a real season can never be either.
+const demoMark = "demo data"
+
+// IsDemoSeason reports whether a season is demo data.
+func IsDemoSeason(name string) bool { return strings.Contains(name, demoMark) }
+
 // demoRacers are invented names, deliberately not the club's real racers.
 var demoRacers = []struct {
 	First, Last, Car string
@@ -60,7 +68,7 @@ func (a *App) SeedDemoRace(ctx context.Context, year int) (model.Race, error) {
 // real results.
 func (a *App) seedDemoSeasonRow(ctx context.Context, year int) (model.Season, error) {
 	s := store.DefaultSeason(year)
-	s.Name = fmt.Sprintf("%d Season (demo data)", year)
+	s.Name = fmt.Sprintf("%d Season (%s)", year, demoMark)
 
 	created, err := a.DB.CreateSeason(ctx, s)
 	if err != nil {
@@ -130,7 +138,7 @@ func (a *App) HasDemoData(ctx context.Context) bool {
 		return false
 	}
 	for _, s := range seasons {
-		if strings.Contains(s.Name, "demo data") {
+		if IsDemoSeason(s.Name) {
 			return true
 		}
 	}
@@ -153,7 +161,7 @@ func (a *App) ForceDemoTie(ctx context.Context, raceID int64) error {
 	if err != nil {
 		return err
 	}
-	if !strings.Contains(s.Name, "demo data") {
+	if !IsDemoSeason(s.Name) {
 		return errors.New("a tie can only be staged in a demo season")
 	}
 	if race.Bracket() {
@@ -242,4 +250,162 @@ func demoCar(racerID int64, number int, name string, qualified map[string]bool) 
 		}
 	}
 	return number + 100*len(suffixes), name + " Mk. Next"
+}
+
+// AddDemoRace creates a demo race with the whole invented field already checked
+// in, and points the screens at it.
+//
+// It is how a race night is rehearsed without a field of real cars: there is a
+// race to schedule, run, vote in and publish within a few seconds of asking. A
+// demo season is reused if one is already there, so pressing the button twice
+// gives a second night in the same season rather than a second season.
+func (a *App) AddDemoRace(ctx context.Context) (model.Race, error) {
+	season, err := a.demoSeason(ctx)
+	if err != nil {
+		return model.Race{}, err
+	}
+
+	races, err := a.DB.Races(ctx, season.ID)
+	if err != nil {
+		return model.Race{}, err
+	}
+	// One past the highest race night there, rather than one past the count:
+	// a race night is unique on its number, and deleting one in the middle of
+	// a rehearsal would otherwise make the next one collide with a night that
+	// is still there.
+	number := 1
+	for _, r := range races {
+		if r.Kind == model.RacePoints && r.Number >= number {
+			number = r.Number + 1
+		}
+	}
+
+	race, err := a.seedDemoLiveRace(ctx, season, number)
+	if err != nil {
+		return race, err
+	}
+	// The screens follow the controller, so the new race is the one they show
+	// rather than whatever was loaded before it.
+	if err := a.Race.SetRace(ctx, race.ID); err != nil {
+		a.Log.Warn("demo race created but not loaded", "race", race.Name, "err", err)
+	}
+	return race, nil
+}
+
+// demoSeason finds the demo season, creating it if this is the first one.
+func (a *App) demoSeason(ctx context.Context) (model.Season, error) {
+	seasons, err := a.DB.Seasons(ctx)
+	if err != nil {
+		return model.Season{}, err
+	}
+	for _, s := range seasons {
+		if IsDemoSeason(s.Name) {
+			return s, nil
+		}
+	}
+	return a.seedDemoSeasonRow(ctx, time.Now().Year())
+}
+
+// DemoSummary is what the settings page shows about the demo data on hand.
+type DemoSummary struct {
+	Season string `json:"season"`
+	Races  int    `json:"races"`
+	Cars   int    `json:"cars"`
+	// Loaded is true when the race the screens are showing is a demo one, so
+	// the page can say what clearing it would take away.
+	Loaded bool `json:"loaded"`
+}
+
+// DemoData reports the demo season on hand, if there is one.
+func (a *App) DemoData(ctx context.Context) *DemoSummary {
+	seasons, err := a.DB.Seasons(ctx)
+	if err != nil {
+		return nil
+	}
+	for _, s := range seasons {
+		if !IsDemoSeason(s.Name) {
+			continue
+		}
+		out := &DemoSummary{Season: s.Name}
+		races, err := a.DB.Races(ctx, s.ID)
+		if err != nil {
+			return out
+		}
+		out.Races = len(races)
+		current := a.Race.CurrentRaceID()
+		for _, r := range races {
+			if r.ID == current {
+				out.Loaded = true
+			}
+			entries, err := a.DB.Entries(ctx, r.ID)
+			if err == nil {
+				out.Cars += len(entries)
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// ClearDemoData deletes every demo season and everything raced in it.
+//
+// Only a season carrying the demo mark is touched, so the club's own results
+// cannot be deleted by this even if both are in the same database. The archive
+// read in from the website is left alone as well: it is the club's, not the
+// demo's. A snapshot is taken first, because "clear" is the one button here
+// that destroys work, and the race being cleared is stopped and unloaded first
+// so no screen is left pointing at a race that no longer exists.
+//
+// Photos are left where they are. They are stored by content hash and shared,
+// so a picture taken against a demo entry may be a real car's.
+func (a *App) ClearDemoData(ctx context.Context) (DemoSummary, error) {
+	var removed DemoSummary
+
+	seasons, err := a.DB.Seasons(ctx)
+	if err != nil {
+		return removed, err
+	}
+	var demo []model.Season
+	for _, s := range seasons {
+		if IsDemoSeason(s.Name) {
+			demo = append(demo, s)
+		}
+	}
+	if len(demo) == 0 {
+		return removed, errors.New("there is no demo data to clear")
+	}
+
+	if _, err := a.Backup(ctx, BackupDemoClear); err != nil {
+		// Worth saying, not worth refusing over: the data being deleted is
+		// fabricated, and the backups are for the club's real nights.
+		a.Log.Warn("could not snapshot before clearing demo data", "err", err)
+	}
+
+	current := a.Race.CurrentRaceID()
+	for _, s := range demo {
+		races, err := a.DB.Races(ctx, s.ID)
+		if err != nil {
+			return removed, err
+		}
+		removed.Races += len(races)
+		for _, r := range races {
+			if r.ID == current {
+				// Racing stops before the race it is running is deleted.
+				a.Race.Stop()
+				a.Race.Unload(ctx)
+			}
+		}
+		if err := a.DB.DeleteSeason(ctx, s.ID); err != nil {
+			return removed, err
+		}
+		removed.Season = s.Name
+	}
+
+	// Back to whatever real race was in progress, if there is one.
+	a.Race.LoadMostRecentRace(ctx)
+
+	_ = a.DB.Audit(ctx, "coordinator", "demo.clear",
+		fmt.Sprintf("%d season(s), %d race(s)", len(demo), removed.Races))
+	a.Log.Info("demo data cleared", "seasons", len(demo), "races", removed.Races)
+	return removed, nil
 }

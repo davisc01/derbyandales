@@ -92,6 +92,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	s.timerRoutes(mux)
 	s.displayRoutes(mux)
 	s.raceRoutes(mux)
+	s.demoRoutes(mux)
 	s.checkinRoutes(mux)
 	s.voteRoutes(mux)
 	s.seasonRoutes(mux)
@@ -299,6 +300,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 			"HTTPPort":     s.app.HTTPPort,
 			"HTTPSPort":    s.app.HTTPSPort,
 			"Paths":        s.app.Paths,
+			"Demo":         s.app.DemoData(r.Context()),
 		},
 	})
 }

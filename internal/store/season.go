@@ -255,3 +255,24 @@ func (db *DB) SetRaceFormat(ctx context.Context, raceID int64, format model.Race
 		return err
 	})
 }
+
+// DeleteSeason removes a season and everything recorded under it: its races,
+// their entries, heats, runs, results, votes and awards all cascade.
+//
+// It exists for clearing out demo data and nothing else. A real season is the
+// club's record of a year, and nothing in this software offers to delete one —
+// the caller is responsible for knowing which kind it has.
+func (db *DB) DeleteSeason(ctx context.Context, id int64) error {
+	res, err := db.ExecContext(ctx, `DELETE FROM season WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete season: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

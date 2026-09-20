@@ -89,6 +89,44 @@
 </section>
 
 <section class="card">
+  <h1>Demo data</h1>
+  <p class="sub">
+    An invented season, so a race night can be rehearsed — checked in, raced,
+    voted on, published — without twenty real cars and a timer. The season is
+    named <span class="mono">(demo data)</span>, which is what keeps it out of
+    the club records and lets it be deleted again.
+  </p>
+
+  {{if $d.Demo}}
+  <p class="note ok">
+    {{$d.Demo.Season}} &mdash; {{$d.Demo.Races}} race{{if ne $d.Demo.Races 1}}s{{end}},
+    {{$d.Demo.Cars}} car{{if ne $d.Demo.Cars 1}}s{{end}} checked in.
+    {{if $d.Demo.Loaded}}It is the race the screens are showing.{{end}}
+  </p>
+  {{else}}
+  <p class="note">No demo data. The club's own seasons are the only thing here.</p>
+  {{end}}
+
+  <div class="console-row">
+    <button class="btn" id="demo-race">Create a demo race</button>
+    <span class="note" id="demo-status">
+      A field of twenty invented cars, checked in and ready to schedule.
+    </span>
+  </div>
+
+  <div class="console-row">
+    <button class="btn danger" id="demo-clear" {{if not $d.Demo}}disabled{{end}}>
+      Delete the demo data
+    </button>
+    <span class="note">
+      Deletes the demo season and every race in it. A snapshot is taken first,
+      and nothing outside the demo season is touched &mdash; not the club's
+      seasons, and not the archive read in from the website.
+    </span>
+  </div>
+</section>
+
+<section class="card">
   <h1>Where things live</h1>
   <table class="urls">
     <tr><th>Database</th><td><code>{{$d.Paths.DB}}</code></td></tr>

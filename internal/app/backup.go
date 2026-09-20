@@ -37,6 +37,10 @@ const (
 	// which is where a whole season's results become the night's running order.
 	BackupBracketSeed BackupReason = "bracket-seed"
 	BackupManual      BackupReason = "manual"
+	// BackupDemoClear is taken before the demo data is deleted. The data
+	// itself is fabricated, but a night spent rehearsing on it is not, and
+	// somebody who clears it on race day at the wrong moment needs a way back.
+	BackupDemoClear BackupReason = "demo-clear"
 	// BackupPreRestore is the database as it stood when somebody chose to go
 	// back to an older snapshot — so going back can itself be undone.
 	BackupPreRestore BackupReason = "pre-restore"

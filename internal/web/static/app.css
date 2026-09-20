@@ -203,6 +203,10 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 .btn.small { padding: 4px 10px; font-size: 12.5px; }
 .btn.primary { background: var(--green); border-color: var(--green); color: #0d1a10; font-weight: 600; }
 .btn.primary:hover { filter: brightness(1.08); }
+/* For a button that deletes something. Outlined rather than filled: it should
+   read as the odd one out on the page, not as the one to press. */
+.btn.danger { border-color: var(--red); color: var(--red); }
+.btn.danger:hover:not(:disabled) { background: rgba(229, 82, 74, .12); }
 .btn:disabled { opacity: .5; cursor: default; }
 
 /* --- narrow screens -------------------------------------------------------- */

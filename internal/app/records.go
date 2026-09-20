@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"sort"
-	"strings"
 
 	"github.com/davisc01/derbyandales/internal/records"
 	"github.com/davisc01/derbyandales/internal/store"
@@ -81,7 +80,7 @@ func (a *App) DemoLoaded(ctx context.Context) bool {
 	if err != nil {
 		return false
 	}
-	return strings.Contains(season.Name, "demo data")
+	return IsDemoSeason(season.Name)
 }
 
 // BrokenTonight is a record one of tonight's runs broke.

@@ -814,6 +814,19 @@ func (rc *RaceController) SetRace(ctx context.Context, raceID int64) error {
 	return nil
 }
 
+// Unload points the controller at no race at all.
+//
+// It exists for the demo data being cleared out from under it: every screen
+// reads the race through this controller, and an id that no longer exists would
+// have them asking for a deleted row on every redraw.
+func (rc *RaceController) Unload(ctx context.Context) {
+	rc.mu.Lock()
+	rc.raceID = 0
+	rc.current = nil
+	rc.mu.Unlock()
+	rc.app.Bus.Publish(bus.TopicRace, "race-loaded", rc.State(ctx))
+}
+
 // EnterTimes records a heat's times by hand.
 //
 // Two jobs, and they are the same job. A correction — a lane the timer missed,
