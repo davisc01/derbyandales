@@ -195,10 +195,24 @@ func (b *Bench) RunAutomatic(ctx context.Context) Result {
 			}
 		}
 		b.mu.Unlock()
-		if !found {
-			c.Verdict = VerdictPending
-			b.record(c)
+		if found {
+			continue
 		}
+		// Do not leave a check pending that cannot be satisfied. The club's
+		// timer will not report its gate at any price, so asking somebody to
+		// go and open one is asking them to fail: they work the gate, nothing
+		// happens, and they are left wondering what they did wrong. Skipping
+		// it with the reason is the honest version, and it lets the run reach
+		// a finished state instead of sitting on a check nobody can pass.
+		if c.ID == CheckGate && !b.dev.GateKnowable() {
+			c.Verdict = VerdictSkipped
+			c.Detail = "This timer cannot report its gate, so there is nothing to " +
+				"watch. " + gateConsequence
+			b.record(c)
+			continue
+		}
+		c.Verdict = VerdictPending
+		b.record(c)
 	}
 
 	return b.Result()

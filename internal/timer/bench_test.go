@@ -568,3 +568,42 @@ func TestForceResultsIsSilentWhenNoRaceHasRun(t *testing.T) {
 		}
 	}
 }
+
+// A check nobody can pass must not be left pending.
+//
+// The club's timer will not report its gate at any price. Offering "open and
+// close the gate to test" invites the operator to work the gate, see nothing
+// happen, and wonder what they did wrong — and leaves the run sitting on a
+// check that can never complete.
+func TestGateCheckIsSkippedUpFrontWhenTheGateCannotBeRead(t *testing.T) {
+	opts := DefaultSimOptions()
+	opts.GateUnsupported = true
+	dev, _ := newTestDevice(t, opts)
+
+	r := NewBench(dev, "", 4, nil).RunAutomatic(context.Background())
+
+	c := benchCheck(t, r, CheckGate)
+	if c.Verdict != VerdictSkipped {
+		t.Fatalf("verdict %q, want skipped — nobody can pass this one", c.Verdict)
+	}
+	if !strings.Contains(c.Detail, "cannot report its gate") {
+		t.Errorf("detail %q should say why there is nothing to do", c.Detail)
+	}
+
+	// The checks that a person genuinely can do are still theirs to do.
+	for _, id := range []CheckID{CheckLaneMapping, CheckTestHeat} {
+		if got := benchCheck(t, r, id); got.Verdict != VerdictPending {
+			t.Errorf("%s: verdict %q, want pending", id, got.Verdict)
+		}
+	}
+}
+
+// On a timer that can report its gate, the check is still a job for a person.
+func TestGateCheckStaysPendingWhenTheGateCanBeRead(t *testing.T) {
+	dev, _ := newTestDevice(t, DefaultSimOptions())
+	r := NewBench(dev, "", 4, nil).RunAutomatic(context.Background())
+
+	if c := benchCheck(t, r, CheckGate); c.Verdict != VerdictPending {
+		t.Errorf("verdict %q, want pending", c.Verdict)
+	}
+}

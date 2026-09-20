@@ -164,11 +164,27 @@
       try {
         const result = await post("/api/timer/bench");
         renderChecks(result.checks || []);
-        const failed = (result.checks || []).filter((c) => c.verdict === "fail");
-        note(
-          "bench-status",
-          failed.length ? failed.length + " check(s) failed." : "All automatic checks passed."
-        );
+        // A warning is not a pass. Saying "all checks passed" over the top of
+        // one is the sort of green tick that gets believed on a race night and
+        // then turns out to have meant nothing.
+        const checks = result.checks || [];
+        const failed = checks.filter((c) => c.verdict === "fail").length;
+        const warned = checks.filter((c) => c.verdict === "warn").length;
+        const skipped = checks.filter((c) => c.verdict === "skipped").length;
+        let summary;
+        if (failed) {
+          summary = failed + (failed === 1 ? " check failed." : " checks failed.");
+          if (warned) summary += " " + warned + " to read.";
+        } else if (warned) {
+          summary = warned === 1
+            ? "Passed, with one thing worth reading."
+            : "Passed, with " + warned + " things worth reading.";
+        } else if (skipped) {
+          summary = "All automatic checks passed; " + skipped + " did not apply.";
+        } else {
+          summary = "All automatic checks passed.";
+        }
+        note("bench-status", summary, failed > 0);
       } catch (err) {
         note("bench-status", err.message, true);
       } finally {
