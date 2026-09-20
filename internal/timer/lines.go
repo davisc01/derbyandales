@@ -50,6 +50,7 @@ type Reader struct {
 
 	mu       sync.Mutex
 	lastRecv time.Time
+	partial  bool
 }
 
 // NewReader starts reading from port. Call Close to stop.
@@ -75,6 +76,17 @@ func (r *Reader) Lines() <-chan Line { return r.lines }
 
 // Err yields the first read error, including a lost connection.
 func (r *Reader) Err() <-chan error { return r.errs }
+
+// Pending reports whether a partial, unterminated line is being held.
+//
+// A FastTrack terminates nothing, so that line is still coming: it will be
+// assembled by the timeout and land after whatever is asked next. Anyone who
+// needs a clean exchange has to wait for it rather than treat it as an answer.
+func (r *Reader) Pending() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.partial
+}
 
 // Silent reports how long it has been since any byte arrived.
 func (r *Reader) Silent() time.Duration {
@@ -184,6 +196,7 @@ func (r *Reader) run() {
 				text = text[i+1:]
 			}
 			pending.WriteString(text)
+			r.setPartial(pending.Len() > 0)
 
 			stopIdle()
 			if pending.Len() > 0 {
@@ -196,8 +209,15 @@ func (r *Reader) run() {
 				r.emit(Line{Text: line, At: r.now(), Inferred: true})
 			}
 			pending.Reset()
+			r.setPartial(false)
 		}
 	}
+}
+
+func (r *Reader) setPartial(partial bool) {
+	r.mu.Lock()
+	r.partial = partial
+	r.mu.Unlock()
 }
 
 func (r *Reader) emit(l Line) {

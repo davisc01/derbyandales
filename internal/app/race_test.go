@@ -252,11 +252,14 @@ func TestFullRaceRunsToCompletion(t *testing.T) {
 		}
 	}
 
-	// Finishing a race takes a snapshot and moves it on to voting.
-	race, _ := a.DB.Race(ctx, raceID)
-	if race.Status == "racing" {
-		t.Error("a completed race should have moved past racing")
-	}
+	// Finishing a race takes a snapshot and moves it on to voting. That happens
+	// on the controller's own tick rather than with the last heat, so it is
+	// waited for: reading the status the instant the heats run out is a race
+	// between this loop and that one.
+	waitFor(t, 3*time.Second, func() bool {
+		race, err := a.DB.Race(ctx, raceID)
+		return err == nil && race.Status != "racing"
+	}, "a completed race should have moved past racing")
 }
 
 // MinGateSettle is how long the simulated gate is held closed so the real

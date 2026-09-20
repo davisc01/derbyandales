@@ -151,6 +151,19 @@ func (tc *TimerController) Connect(ctx context.Context, portName, profileKey str
 	tc.activeBench = nil
 	tc.mu.Unlock()
 
+	// Put the timer into a known state before anything else talks to it. This
+	// is not optional: the club's K1 comes up in whatever mode it was left in,
+	// so without the reset a timer left in eliminator mode from a previous
+	// night reports results in a format nothing here parses. It is done before
+	// polling starts because two of the replies — "X" to N2 on a timer too old
+	// for it, and RM's mode line ending in 1 — would be read as gate readings
+	// if they landed inside a poll's reply window.
+	if err := dev.Setup(); err != nil {
+		// Not fatal: the port is open, and the test bench is where a timer that
+		// will not take its setup should be reported, with the evidence.
+		tc.app.Log.Warn("timer setup", "err", err)
+	}
+
 	// Remember the choice so the next launch reconnects without being asked.
 	_ = tc.app.DB.SetSetting(ctx, store.KeyTimerPort, portName)
 	_ = tc.app.DB.SetSetting(ctx, store.KeyTimerProfile, profileKey)
@@ -268,6 +281,13 @@ func (tc *TimerController) startPolling() {
 				if busy {
 					// An interactive check has the port; do not talk over it.
 					continue
+				}
+				// A timer that has answered "this gate cannot be read" will not
+				// change its mind, and on a 9600 baud line every poll is a round
+				// trip competing with the results. Stop asking; reconnecting is
+				// what starts it again.
+				if !dev.GateKnowable() {
+					return
 				}
 				if err := dev.PollGate(); err != nil {
 					return

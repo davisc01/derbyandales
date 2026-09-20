@@ -48,6 +48,12 @@ type SimOptions struct {
 	NoLaserReset bool
 	// GateUnsupported makes RG answer "X".
 	GateUnsupported bool
+	// GateSilent makes RG echo and then say nothing, which is what a timer
+	// with no start-switch reporting at all does. It looks like a dead port
+	// unless the echo is counted.
+	GateSilent bool
+	// NoResetAck makes the reset command echo without the "*" acknowledgement.
+	NoResetAck bool
 	// ResultDelay is how long after the gate opens results appear.
 	ResultDelay time.Duration
 	// Seed makes the generated times reproducible.
@@ -169,10 +175,18 @@ func (s *Simulator) handle(cmd string) {
 		s.mu.Lock()
 		s.masked = make(map[int]bool)
 		s.mu.Unlock()
+		// The club's K1 answers the unmask with "AC" and never terminates it,
+		// where every other command answers "*" on a line of its own. Recorded
+		// from the real timer: it is what glues onto the next command's echo if
+		// anything asks a question before the reader has given up waiting.
+		s.emit("AC") // deliberately unterminated
 
 	case ftReadGate:
 		if s.opts.GateUnsupported {
 			s.emit("X\n")
+			return
+		}
+		if s.opts.GateSilent {
 			return
 		}
 		s.mu.Lock()
@@ -185,7 +199,9 @@ func (s *Simulator) handle(cmd string) {
 		}
 
 	case ftResetLaser:
-		s.emit("*\n")
+		if !s.opts.NoResetAck {
+			s.emit("*\n")
+		}
 
 	case ftPulseLaser:
 		// Releases the cars on a track with an automatic gate.

@@ -439,6 +439,15 @@ func (d *Device) PollGate() error {
 	return d.Send(d.profile.GateWatcher.Command)
 }
 
+// GateUnreadable records that this timer will never report its gate, for the
+// case the profile's "not supported" reply does not cover: a timer that echoes
+// the query and then says nothing. The consequence is the same either way, so
+// the rest of the app should hear about it the same way.
+func (d *Device) GateUnreadable() {
+	d.machine.GateNotSupported()
+	d.emit(Event{Kind: EvGateNotSupported})
+}
+
 // gateReplyWindow is how long after asking the gate detectors stay live.
 const gateReplyWindow = 150 * time.Millisecond
 

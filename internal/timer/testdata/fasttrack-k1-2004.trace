@@ -1,0 +1,106 @@
+# Derby and Ales timer trace
+# recorded 2026-09-20T11:27:34-05:00
+# >> sent to timer, << received from timer
+
+    0.014 >> RE
+    0.034 << RE
+    0.034 << *
+    0.075 >> N1
+    0.082 << N1
+    0.098 << *
+    0.136 >> N2
+    0.146 << N2
+    0.146 << X
+    0.197 >> RF
+    0.210 << RF
+    0.226 << 1111 1111
+    0.226 << *
+    0.511 >> RG
+    0.530 << RG
+    0.530 << X
+    9.704 >> RV
+    9.714 << RV
+    9.746 << Copyright (C) 2004 Micro Wizard
+    9.794 << K1 Version 1.09D Serial Number 29596
+   10.045 >> RF
+   10.066 << RF
+   10.066 << 1111 1111
+   10.066 << *
+   10.066 >> MG
+   10.082 << MG
+   10.097 >> MA
+   10.114 << ACMA
+   10.114 << *
+   10.129 >> MG
+   10.146 << MG
+   10.159 >> MB
+   10.178 << ACMB
+   10.178 << *
+   10.190 >> MG
+   10.210 << MG
+   10.221 >> MC
+   10.226 << ACMC
+   10.242 << *
+   10.252 >> MG
+   10.258 << MG
+   10.283 >> MD
+   10.290 << ACMD
+   10.306 << *
+   10.314 >> MG
+   10.322 << MG
+   10.539 << AC   (no newline; completed by timeout)
+   10.589 >> LR
+   10.610 << LR
+   10.610 << *
+   10.864 >> RV
+   10.882 << RV
+   10.914 << Copyright (C) 2004 Micro Wizard
+   10.946 << K1 Version 1.09D Serial Number 29596
+   11.213 >> RV
+   11.234 << RV
+   11.266 << Copyright (C) 2004 Micro Wizard
+   11.298 << K1 Version 1.09D Serial Number 29596
+   11.549 >> RV
+   11.570 << RV
+   11.602 << Copyright (C) 2004 Micro Wizard
+   11.634 << K1 Version 1.09D Serial Number 29596
+   11.885 >> RV
+   11.906 << RV
+   11.938 << Copyright (C) 2004 Micro Wizard
+   11.970 << K1 Version 1.09D Serial Number 29596
+   12.221 >> RV
+   12.242 << RV
+   12.274 << Copyright (C) 2004 Micro Wizard
+   12.306 << K1 Version 1.09D Serial Number 29596
+   12.557 >> RG
+   12.578 << RG
+   12.578 << X
+  632.474 >> RE
+  632.481 << RE
+  632.497 << *
+  633.570 >> N1
+  633.586 << N1
+  633.586 << *
+  634.642 >> N2
+  634.658 << N2
+  634.658 << X
+  635.724 >> RM
+  635.730 << RM
+  635.761 << 0 000000 0 0 1
+  635.761 << *
+  636.803 >> RG
+  636.817 << RG
+  636.817 << X
+  637.871 >> MG
+  637.889 << MG
+  638.090 << AC   (no newline; completed by timeout)
+  638.942 >> MA
+  638.961 << MA
+  638.961 << *
+  640.019 >> LR
+  640.033 << LR
+  640.033 << *
+  641.101 >> RV
+  641.121 << RV
+  641.153 << Copyright (C) 2004 Micro Wizard
+  641.185 << K1 Version 1.09D Serial Number 29596

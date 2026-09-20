@@ -501,8 +501,8 @@ func (s *Server) topRaces(ctx context.Context, raceID int64) map[string]any {
 
 	row := func(r records.RaceSpeed) map[string]any {
 		return map[string]any{
-			"rank":    r.Rank,
-			"race":    r.Race.Label(),
+			"rank": r.Rank,
+			"race": r.Race.Label(),
 			// Always three places: in a ranking, 2.46 beside 2.461 reads as
 			// the faster of the two.
 			"average": strconv.FormatFloat(r.Average, 'f', 3, 64),

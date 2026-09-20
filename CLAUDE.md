@@ -214,7 +214,52 @@ Each of these has already caused a bug here.
 - **Subscribe before acting** in tests, or a fast simulator finishes before the
   listener exists.
 - **The FastTrack timer echoes every command back**, and masked lanes still
-  report `0.000`. Both are load-bearing.
+  report `0.000`. Both are load-bearing. The echo is also the only thing that
+  separates a dead port from a timer with nothing to say, so a check that
+  swallows it silently cannot report honestly: `Bench.ask` counts echoes and
+  returns `errEchoOnly`.
+- **The club's timer cannot report its start switch, and never will.** It is a
+  K1 from 2004, firmware 1.09D, serial 29596. Measured on it directly: `RG`
+  answers `X`, and so does `N2` — and the start-switch status is part of the
+  enhanced format `N2` carries, which is 2012-and-newer hardware only. So this
+  is firmware, not a setting: there is no menu entry to go hunting for. `RE`
+  and `N1` are both accepted, and `RF` reports `1111 1111`, which says nothing
+  either way because none of the eight feature bits is the start switch.
+  Therefore the gate query is never the thing to measure the link with — that
+  is `RV`, which it answers in about 50 ms. `checkStartSwitch` asks about the
+  gate separately and records the answer with `Device.GateUnreadable`, or the
+  interactive gate check sends somebody to re-check wiring that was fine.
+- **The timer withholds its results until the start switch closes again.**
+  Measured: a heat armed with the switch left open sat silent for 57 seconds
+  and produced the result line the instant the switch was closed. The club
+  keeps the switch closed at all times and opens it only while cars are
+  running, so this fires on every heat. It means the rule above — a heat ends
+  when the gate closes again — is enforced by the timer itself here rather
+  than by us: the result line *is* the gate-close signal, which is why racing
+  has always worked despite the gate being unreadable. It also means a heat
+  the timer says nothing about has no fallback at all, because `Overdue` needs
+  `StateRunning` and nothing reaches that state without a result. Such a heat
+  waits for a person.
+- **`Device.Setup()` must run on connect**, and for a long time did not — `RE`,
+  `N1` and `N2` were never sent to real hardware at all. `RE` is the one that
+  matters: a timer left in eliminator mode from a previous night stays in it,
+  and reports in a format nothing here parses. It runs before polling starts,
+  because `N2`'s `X` and `RM`'s mode line ending in `1` would both be read as
+  gate readings if they landed inside a poll's reply window.
+- **`MG` is answered `AC`, unterminated**, where every other command answers
+  `*` on a line of its own. Recorded from the timer. A result line is followed
+  by a stray unterminated `@`, which upstream strips outright and we ignore
+  because no detector matches it.
+- **The gate detectors are deliberately loose** — `0$` matches a serial number
+  — which is why they are only live for `gateReplyWindow` after a poll. Nothing
+  may widen that window.
+- **One command's answer is the next one's answer** if the port is not left to
+  fall quiet first. `MG`'s unterminated `AC` is still being assembled when the
+  next command goes out 26 ms later, and lands glued to its echo: the reset
+  check really did report `received ACLR`. `Bench.ask` waits on the last byte
+  in (`Device.Silent`), not on whether the reader is holding a line — at the
+  moment the next command goes out the `AC` has arrived but not yet been
+  framed, so asking the reader answers no.
 - **`0.000` means "did not finish"** and is rewritten to `9.999` so it sorts
   last. Left alone it looks like the fastest run of the night.
 - **A heat ends on whichever comes first: every lane reporting, or the start

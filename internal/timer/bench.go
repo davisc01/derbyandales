@@ -2,6 +2,7 @@ package timer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -37,6 +38,7 @@ const (
 	CheckMask        CheckID = "mask"
 	CheckReset       CheckID = "reset"
 	CheckLatency     CheckID = "latency"
+	CheckStartSwitch CheckID = "start_switch"
 	CheckGate        CheckID = "gate"
 	CheckLaneMapping CheckID = "lane_mapping"
 	CheckTestHeat    CheckID = "test_heat"
@@ -170,8 +172,9 @@ func (b *Bench) RunAutomatic(ctx context.Context) Result {
 		b.checkFeatures(ctx)
 		b.checkLaneCount()
 		b.checkMask()
-		b.checkReset()
+		b.checkReset(ctx)
 		b.checkLatency(ctx)
+		b.checkStartSwitch(ctx)
 	}
 
 	// Placeholders so the UI can show what is still outstanding.
@@ -284,7 +287,7 @@ var featureBits = []string{
 func (b *Bench) checkFeatures(ctx context.Context) {
 	c := Check{ID: CheckFeatures, Name: "Timer features"}
 
-	reply, err := b.ask(ctx, ftReturnFeats, 1500*time.Millisecond, func(line string) bool {
+	reply, _, err := b.ask(ctx, ftReturnFeats, 1500*time.Millisecond, func(line string) bool {
 		return isFeatureReply(line)
 	})
 	if err != nil {
@@ -391,7 +394,11 @@ func (b *Bench) checkMask() {
 	b.record(c)
 }
 
-func (b *Bench) checkReset() {
+// resetAckTimeout is how long to wait for the timer to acknowledge a reset.
+// A FastTrack answers with "*" straight away; this is generous.
+const resetAckTimeout = 600 * time.Millisecond
+
+func (b *Bench) checkReset(ctx context.Context) {
 	c := Check{ID: CheckReset, Name: "Heat reset"}
 	p := b.dev.Profile()
 
@@ -405,33 +412,58 @@ func (b *Bench) checkReset() {
 		c.Verdict = VerdictSkipped
 		c.Detail = "Reset is suppressed because " + b.dev.ResetSuppressionReason() + "."
 	default:
-		if err := b.dev.Send(p.ResetDuringMark); err != nil {
-			c.Verdict, c.Detail = VerdictFail, "Could not send "+p.ResetDuringMark+": "+err.Error()
-		} else {
+		// The verdict comes from what the timer said back, not from the write
+		// succeeding. A write to a serial port succeeds with the far end
+		// unplugged, so "Reset accepted" from a successful write is a green
+		// tick that means nothing.
+		ack, _, err := b.ask(ctx, p.ResetDuringMark, resetAckTimeout, func(string) bool { return true })
+		var sendErr errSend
+		switch {
+		case err == nil:
 			c.Verdict = VerdictPass
-			c.Detail = "Reset accepted."
-			c.Evidence = "Sent: " + p.ResetDuringMark
+			c.Detail = "The timer acknowledged the reset."
+			c.Evidence = "Sent " + p.ResetDuringMark + ", received " + ack
+		case errors.As(err, &sendErr):
+			c.Verdict, c.Detail = VerdictFail, "Could not send "+p.ResetDuringMark+": "+err.Error()
+		default:
+			c.Verdict = VerdictWarn
+			c.Detail = "Sent " + p.ResetDuringMark + ", but the timer did not acknowledge it."
+			c.Evidence = err.Error()
 		}
 	}
 	b.record(c)
 }
 
+// checkLatency times the round trip on the one command every timer of this
+// make answers.
+//
+// It deliberately does not use the gate query: that is an option a timer may
+// have switched off, and measuring the link with it reports a disabled feature
+// as a slow cable. Start-switch reporting has its own check.
 func (b *Bench) checkLatency(ctx context.Context) {
 	c := Check{ID: CheckLatency, Name: "Response time"}
+
+	probe := b.dev.Profile().Prober.Command
+	if probe == "" {
+		c.Verdict = VerdictSkipped
+		c.Detail = "This timer has no command to time."
+		b.record(c)
+		return
+	}
 
 	const samples = 5
 	var total time.Duration
 	var worst time.Duration
 	for i := 0; i < samples; i++ {
-		start := time.Now()
-		if _, err := b.ask(ctx, ftReadGate, time.Second, func(string) bool { return true }); err != nil {
+		_, elapsed, err := b.ask(ctx, probe, time.Second, func(string) bool { return true })
+		if err != nil {
 			c.Verdict = VerdictWarn
-			c.Detail = "The timer did not answer a status request."
+			c.Detail = "The timer stopped answering. It identified itself a moment " +
+				"ago, so check the cable and the USB adapter before racing."
 			c.Evidence = err.Error()
 			b.record(c)
 			return
 		}
-		elapsed := time.Since(start)
 		total += elapsed
 		if elapsed > worst {
 			worst = elapsed
@@ -440,6 +472,7 @@ func (b *Bench) checkLatency(ctx context.Context) {
 	avg := total / samples
 
 	c.Detail = fmt.Sprintf("average %s, worst %s", formatLatency(avg), formatLatency(worst))
+	c.Evidence = fmt.Sprintf("%d round trips on %s", samples, probe)
 	switch {
 	case worst > 500*time.Millisecond:
 		c.Verdict = VerdictWarn
@@ -450,36 +483,197 @@ func (b *Bench) checkLatency(ctx context.Context) {
 	b.record(c)
 }
 
-// ask sends a command and waits for a line satisfying want.
-func (b *Bench) ask(ctx context.Context, cmd string, timeout time.Duration, want func(string) bool) (string, error) {
+// gateNotSupportedReply reports whether a reply is the profile's way of saying
+// the start-switch option is switched off — "X" on a FastTrack.
+func gateNotSupportedReply(p *Profile, line string) bool {
+	for _, det := range p.GateWatcher.Detectors {
+		if det.Event != EvGateNotSupported {
+			continue
+		}
+		if _, _, ok := det.Apply(line); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// startSwitchTimeout is how long to wait for a reply to the gate query.
+const startSwitchTimeout = time.Second
+
+// gateConsequence says what an unreadable gate costs, which is less than it
+// sounds: racing works, because a heat is finished by the results arriving.
+const gateConsequence = "Racing still works — a heat finishes when the lanes " +
+	"report — but there will be no 'ready to race' indication on the screens, " +
+	"and a heat the timer says nothing about has to be re-run or its times " +
+	"typed in, because closing the gate can no longer end it."
+
+// checkStartSwitch asks whether this timer reports its start switch at all.
+//
+// It is an option on a FastTrack, not a given: DerbyNet records a K1 that
+// answers "X" to RG, meaning the option is switched off, and the feature bits
+// do not cover it either way. A timer that echoes the query and then says
+// nothing is the same story. Finding that out here is the difference between
+// "this timer does not report its gate" and sending somebody out to re-check
+// wiring that was fine all along.
+func (b *Bench) checkStartSwitch(ctx context.Context) {
+	c := Check{ID: CheckStartSwitch, Name: "Start-switch reporting"}
+	cmd := b.dev.Profile().GateWatcher.Command
+	if cmd == "" {
+		c.Verdict = VerdictSkipped
+		c.Detail = "This timer has no way to be asked about its gate."
+		b.record(c)
+		return
+	}
+
+	reply, _, err := b.ask(ctx, cmd, startSwitchTimeout, func(string) bool { return true })
+
+	var echoOnly errEchoOnly
+	switch {
+	case err == nil && gateNotSupportedReply(b.dev.Profile(), reply):
+		// The reply is read here rather than through the gate detectors. Those
+		// patterns are loose enough that "0$" matches a serial number, which is
+		// why they are only live for a moment after the poller asks — and this
+		// check must not be the thing that widens that window.
+		b.dev.GateUnreadable()
+		c.Verdict = VerdictWarn
+		c.Detail = "This timer will not report its start switch: it answers the " +
+			"gate query with X. On a FastTrack older than the enhanced result " +
+			"format that is the firmware, not a setting to switch on. " + gateConsequence
+		c.Evidence = "Sent " + cmd + ", received " + reply
+	case err == nil:
+		c.Verdict = VerdictPass
+		c.Detail = "The timer reports its start switch."
+		c.Evidence = "Sent " + cmd + ", received " + reply
+	case errors.As(err, &echoOnly):
+		// Alive, and with nothing to say about the gate. Record it, so the
+		// gate check below skips with a reason rather than failing.
+		b.dev.GateUnreadable()
+		c.Verdict = VerdictWarn
+		c.Detail = "The timer echoes the gate query but never answers it, so it " +
+			"cannot tell us about its start switch. " + gateConsequence
+		c.Evidence = err.Error()
+	default:
+		c.Verdict = VerdictWarn
+		c.Detail = "The timer said nothing at all to the gate query."
+		c.Evidence = err.Error()
+	}
+	b.record(c)
+}
+
+// portQuietTime is how long the port must be silent before a question is asked
+// while a line is still being assembled. It is longer than NewlineTimeout on
+// purpose: that unterminated line is what would otherwise land on top of the
+// next answer.
+const portQuietTime = NewlineTimeout + 50*time.Millisecond
+
+// settleCap bounds the wait, so a timer that never stops talking cannot hang
+// the bench. A check that asks anyway and times out reports something; one
+// that waits forever reports nothing.
+const settleCap = 2 * time.Second
+
+// settle waits for the port to be quiet for portQuietTime.
+func (b *Bench) settle() {
+	deadline := time.Now().Add(settleCap)
+	for time.Now().Before(deadline) {
+		quiet := b.dev.Silent()
+		if quiet >= portQuietTime {
+			return
+		}
+		time.Sleep(portQuietTime - quiet)
+	}
+}
+
+// ask sends a command and waits for a line satisfying want. It reports how long
+// the timer took, measured from the send, so the wait for a quiet port is not
+// counted as the timer being slow.
+func (b *Bench) ask(ctx context.Context, cmd string, timeout time.Duration, want func(string) bool) (string, time.Duration, error) {
 	lines, stop := b.dev.collect()
 	defer stop()
 
+	// Let the port fall quiet, then discard whatever it was still saying.
+	//
+	// The club's K1 answers the unmask command with an unterminated "AC", so
+	// bytes that arrived before this question are still being assembled and
+	// would be handed over as its answer — which is how the reset check came
+	// to report "received ACLR", the previous command's acknowledgement glued
+	// to this one's echo. Waiting on the last byte in, rather than on whether
+	// the reader is holding one, is what catches it: at the moment the next
+	// command goes out the "AC" has arrived but not yet been framed.
+	b.settle()
+	drain(lines)
+
+	sentAt := time.Now()
 	if err := b.dev.Send(cmd); err != nil {
-		return "", fmt.Errorf("send %s: %w", cmd, err)
+		return "", 0, errSend{cmd: cmd, err: err}
 	}
 
 	deadline := time.NewTimer(timeout)
 	defer deadline.Stop()
 
 	var seen []string
+	echoes := 0
 	for {
 		select {
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return "", 0, ctx.Err()
 		case <-deadline.C:
-			return "", fmt.Errorf("no reply to %s within %v (saw %q)",
+			// An echo and nothing else is a different fault from silence, and
+			// the two need different responses: the timer is alive and has
+			// simply got nothing to say about this command. Counting the echoes
+			// rather than dropping them is what tells them apart — reported as
+			// `saw ""`, they look identical.
+			if echoes > 0 && len(seen) == 0 {
+				return "", 0, errEchoOnly{cmd: cmd, timeout: timeout, echoes: echoes}
+			}
+			return "", 0, fmt.Errorf("no reply to %s within %v (saw %q)",
 				cmd, timeout, strings.Join(seen, " | "))
 		case line := <-lines:
 			if line == cmd {
+				echoes++
 				continue // the timer's echo of what we sent
 			}
 			seen = append(seen, line)
 			if want(line) {
-				return line, nil
+				return line, time.Since(sentAt), nil
 			}
 		}
 	}
+}
+
+// drain discards lines the port handed over before the question was asked.
+func drain(lines <-chan string) {
+	for {
+		select {
+		case <-lines:
+		default:
+			return
+		}
+	}
+}
+
+// errSend reports a command that could not be written to the port at all,
+// which is a different verdict from one the timer did not answer.
+type errSend struct {
+	cmd string
+	err error
+}
+
+func (e errSend) Error() string { return "send " + e.cmd + ": " + e.err.Error() }
+func (e errSend) Unwrap() error { return e.err }
+
+// errEchoOnly reports a command the timer echoed back and then never answered.
+type errEchoOnly struct {
+	cmd     string
+	timeout time.Duration
+	echoes  int
+}
+
+func (e errEchoOnly) Error() string {
+	if e.echoes == 1 {
+		return fmt.Sprintf("%s was echoed back within %v but never answered", e.cmd, e.timeout)
+	}
+	return fmt.Sprintf("%s was echoed back %d times within %v but never answered",
+		e.cmd, e.echoes, e.timeout)
 }
 
 // --- interactive checks ------------------------------------------------------
@@ -669,7 +863,12 @@ func (b *Bench) RunTestHeat(ctx context.Context, timeout time.Duration) Check {
 			return b.record(c)
 
 		case <-polling.C:
-			_ = b.dev.PollGate()
+			// Only worth asking of a timer that answers. On a 9600 baud line a
+			// pointless poll every quarter second is traffic competing with the
+			// result line we are waiting for.
+			if b.dev.GateKnowable() {
+				_ = b.dev.PollGate()
+			}
 
 		case ev, ok := <-events:
 			if !ok {
