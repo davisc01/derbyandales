@@ -1,8 +1,17 @@
-// Shared client behaviour: the live connection indicator, and the small
-// actions on the status page.
+// Shared client behaviour: the live connection indicator, the one event stream
+// every page on this tab shares, and the small actions on the status page.
 //
-// Every page holds one EventSource. The browser reconnects on its own, so an
-// unplugged HDMI stick or a wifi blip recovers without anyone touching it.
+// Every page holds one EventSource — one, not one each. The browser reconnects
+// on its own, so an unplugged HDMI stick or a wifi blip recovers without
+// anyone touching it.
+//
+// Sharing it is not tidiness. A browser allows six connections per host over
+// HTTP/1.1 and an SSE stream never returns one, so when this script and the
+// page's own script each opened a stream, three open tabs used the entire
+// budget: the next page load, every photo and every poll queued behind them
+// and Chrome sat there spinning with the server perfectly healthy. On the
+// HTTPS address the limit does not apply — that connection is HTTP/2, which
+// multiplexes — which is part of why this only ever bit on one browser.
 
 (function () {
   "use strict";
@@ -16,9 +25,29 @@
   }
 
   let source;
+  // Listeners registered by a page script before the stream exists.
+  const waiting = [];
+
+  // raceEvents is what the page scripts attach to instead of opening their own
+  // stream. It takes the same addEventListener call an EventSource does, so a
+  // page reads the same either way — and a page served without this script,
+  // like a display or the ballot, still opens one of its own.
+  window.raceEvents = {
+    addEventListener: function (topic, fn) {
+      if (source) {
+        source.addEventListener(topic, fn);
+        return;
+      }
+      waiting.push([topic, fn]);
+    },
+  };
 
   function connect() {
     source = new EventSource("/events");
+    while (waiting.length) {
+      const pair = waiting.shift();
+      source.addEventListener(pair[0], pair[1]);
+    }
 
     source.onopen = function () {
       setConn("live", "live");

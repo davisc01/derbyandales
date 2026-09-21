@@ -181,7 +181,50 @@
     }
   }
 
-  const source = new EventSource("/events?topics=vote,race");
+  // Tonight's theme. Saved on its own rather than with a page form, because
+  // the rest of this page is live and a full-page post would throw away the
+  // tallies mid-intermission.
+  (function theme() {
+    const field = document.getElementById("race-theme");
+    const save = document.getElementById("save-theme");
+    const status = document.getElementById("theme-status");
+    if (!field || !save) return;
+
+    async function store() {
+      save.disabled = true;
+      status.classList.remove("err-text");
+      try {
+        const res = await fetch("/api/vote/theme", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ theme: field.value }).toString(),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || res.statusText);
+        status.textContent = data.theme
+          ? "Saved — the ballot and the trophy reveal say " + data.theme + "."
+          : "Cleared. No theme tonight.";
+      } catch (err) {
+        status.textContent = err.message;
+        status.classList.add("err-text");
+      }
+      save.disabled = false;
+    }
+
+    save.addEventListener("click", store);
+    // Enter saves, because it is one field and nobody will go looking for the
+    // button with a tablet in the other hand.
+    field.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        store();
+      }
+    });
+  })();
+
+  // app.js holds this tab's one event stream; see the note there about why
+  // a second one per page cost Chrome its whole connection budget.
+  const source = window.raceEvents || new EventSource("/events?topics=vote,race");
   source.addEventListener("vote", function (e) {
     let ev;
     try { ev = JSON.parse(e.data); } catch (err) { return; }

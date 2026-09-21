@@ -35,7 +35,9 @@
 
   // --- live status ----------------------------------------------------------
 
-  const source = new EventSource("/events?topics=timer");
+  // app.js holds this tab's one event stream; see the note there about why
+  // a second one per page cost Chrome its whole connection budget.
+  const source = window.raceEvents || new EventSource("/events?topics=timer");
 
   source.addEventListener("timer", function (e) {
     let ev;

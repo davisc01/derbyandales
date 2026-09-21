@@ -38,7 +38,9 @@
     pending = setTimeout(function () { location.reload(); }, 900);
   }
 
-  const source = new EventSource("/events?topics=race,timer,vote,system");
+  // app.js holds this tab's one event stream; see the note there about why
+  // a second one per page cost Chrome its whole connection budget.
+  const source = window.raceEvents || new EventSource("/events?topics=race,timer,vote,system");
   ["race", "timer", "vote", "system"].forEach(function (topic) {
     source.addEventListener(topic, function (e) {
       let ev;

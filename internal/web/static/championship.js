@@ -126,7 +126,9 @@
 
   // --- live ---------------------------------------------------------------------
 
-  const source = new EventSource("/events?topics=bracket");
+  // app.js holds this tab's one event stream; see the note there about why
+  // a second one per page cost Chrome its whole connection budget.
+  const source = window.raceEvents || new EventSource("/events?topics=bracket");
   source.addEventListener("bracket", function (e) {
     let ev;
     try {
