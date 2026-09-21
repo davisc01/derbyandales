@@ -120,13 +120,13 @@ func (db *DB) Seasons(ctx context.Context) ([]model.Season, error) {
 
 // --- races -------------------------------------------------------------------
 
-const raceCols = `id, season_id, number, name, date, venue, kind, format, status, created_at`
+const raceCols = `id, season_id, number, name, date, venue, kind, format, status, theme, created_at`
 
 func scanRace(sc interface{ Scan(...any) error }) (model.Race, error) {
 	var r model.Race
 	var date, createdAt int64
 	err := sc.Scan(&r.ID, &r.SeasonID, &r.Number, &r.Name, &date, &r.Venue,
-		&r.Kind, &r.Format, &r.Status, &createdAt)
+		&r.Kind, &r.Format, &r.Status, &r.Theme, &createdAt)
 	if err != nil {
 		return r, err
 	}
@@ -151,14 +151,26 @@ func (db *DB) CreateRace(ctx context.Context, r model.Race) (model.Race, error) 
 	}
 	r.CreatedAt = time.Now()
 	res, err := db.ExecContext(ctx, `
-		INSERT INTO race (season_id, number, name, date, venue, kind, format, status, created_at)
-		VALUES (?,?,?,?,?,?,?,?,?)`,
-		r.SeasonID, r.Number, r.Name, unix(r.Date), r.Venue, r.Kind, r.Format, r.Status, unix(r.CreatedAt))
+		INSERT INTO race (season_id, number, name, date, venue, kind, format, status, theme, created_at)
+		VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		r.SeasonID, r.Number, r.Name, unix(r.Date), r.Venue, r.Kind, r.Format, r.Status,
+		r.Theme, unix(r.CreatedAt))
 	if err != nil {
 		return r, fmt.Errorf("insert race: %w", err)
 	}
 	r.ID, err = res.LastInsertId()
 	return r, err
+}
+
+// SetRaceTheme records the night's theme. Blank clears it, which is a real
+// answer: a night with no theme should say nothing rather than keep last
+// month's on the screen.
+func (db *DB) SetRaceTheme(ctx context.Context, raceID int64, theme string) error {
+	_, err := db.ExecContext(ctx, `UPDATE race SET theme = ? WHERE id = ?`, theme, raceID)
+	if err != nil {
+		return fmt.Errorf("set theme: %w", err)
+	}
+	return nil
 }
 
 // Race loads one race by id.

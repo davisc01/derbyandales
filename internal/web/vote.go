@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/davisc01/derbyandales/internal/bus"
 	"github.com/davisc01/derbyandales/internal/store"
@@ -22,6 +23,7 @@ func (s *Server) voteRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/vote/declare", s.handleDeclareWinner)
 	mux.HandleFunc("POST /api/vote/clear", s.handleClearWinner)
 	mux.HandleFunc("POST /api/vote/enable", s.handleEnableCategory)
+	mux.HandleFunc("POST /api/vote/theme", s.handleSetTheme)
 
 	// The intermission.
 	mux.HandleFunc("POST /api/race/resume", s.handleResumeRacing)
@@ -57,6 +59,9 @@ func (s *Server) handleBallotData(w http.ResponseWriter, r *http.Request) {
 
 	race, _ := s.app.DB.Race(ctx, raceID)
 	out["race"] = race.Name
+	// The theme question is asked against tonight's theme, so the tablet needs
+	// to be able to name it.
+	out["theme"] = race.Theme
 
 	categories, err := s.app.DB.VoteCategories(ctx, raceID)
 	if err != nil {
@@ -93,6 +98,29 @@ func (s *Server) handleBallotData(w http.ResponseWriter, r *http.Request) {
 	out["cars"] = cars
 
 	writeJSON(w, http.StatusOK, out)
+}
+
+// handleSetTheme records the night's theme, which the ballot shows under the
+// theme question and the trophy reveal shows under its name. A blank clears it.
+func (s *Server) handleSetTheme(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	raceID := s.raceIDForm(r)
+	if raceID == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "no race is loaded"})
+		return
+	}
+	theme := strings.TrimSpace(r.Form.Get("theme"))
+	if err := s.app.DB.SetRaceTheme(r.Context(), raceID, theme); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	_ = s.app.DB.Audit(r.Context(), "coordinator", "race.theme", theme)
+	// The tablet and the screens both show it, and both are already listening.
+	s.app.Bus.Publish(bus.TopicVote, "categories", map[string]any{"theme": theme})
+	writeJSON(w, http.StatusOK, map[string]string{"theme": theme})
 }
 
 func (s *Server) handleCastVote(w http.ResponseWriter, r *http.Request) {

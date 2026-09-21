@@ -45,21 +45,27 @@ type SceneInfo struct {
 	Ready bool `json:"ready"`
 }
 
-// Scenes lists the display scenes in the order a race night uses them.
+// Scenes lists the display scenes in the order a race night uses them: what
+// goes up before the racing, then the racing, then the ceremony, then the ones
+// picked out of order.
+//
+// The coordinator reads this list under pressure, mid-night, on a dropdown, so
+// it is ordered the way the evening runs rather than alphabetically or by when
+// each scene was built.
 func Scenes() []SceneInfo {
 	return []SceneInfo{
 		{SceneBlank, "Blank", "Between segments.", true},
-		{SceneRoster, "Racers", "Tonight's line-up, for the intros.", true},
-		{SceneRacing, "Now racing", "Lane assignments, then the finish order.", true},
-		{SceneReveal, "Results reveal", "One car at a time, slowest to fastest.", true},
-		{SceneFinal, "Final standings", "The whole table at once, for the wrap-up.", true},
-		{SceneWrapUp, "Wrap-up", "The night in review: the lanes, the fastest heats, the closest finish, and what records fell.", true},
-		{SceneSlides, "Car photos", "Each photographed car in turn, changing by itself every few seconds.", true},
-		{SceneAwards, "Design & theme trophies", "The two voted trophies, one at a time, with the car.", true},
-		{SceneBracket, "Bracket", "The championship bracket, live, with the matchup on the track marked.", true},
-		{SceneImpound, "Impound", "This heat and the next: numbers, lanes and pictures, for loading the tray.", true},
+		{SceneRoster, "Tonight's Racers", "Tonight's line-up, for the intros.", true},
+		{SceneSlides, "Car Slideshow", "Each photographed car in turn, changing by itself every few seconds.", true},
+		{SceneImpound, "Impound Display", "This heat and the next: numbers, lanes and pictures, for loading the tray.", true},
+		{SceneRacing, "Now Racing", "Lane assignments, then the finish order.", true},
+		{SceneAwards, "Design trophies reveal", "The two voted trophies, one at a time, with the car.", true},
+		{SceneReveal, "Race Results Reveal", "One car at a time, slowest to fastest.", true},
+		{SceneWrapUp, "Race Wrap-up", "The night in review: the lanes, the fastest heats, the closest finish, and what records fell.", true},
+		{SceneFinal, "Final Standings", "The whole table at once, for the wrap-up.", true},
 		{SceneVotingQR, "Voting", "Points people at the tablet during the intermission.", true},
-		{SceneRecords, "Club records", "Fastest run, fastest average, each lane's record and the most race wins.", true},
+		{SceneBracket, "Bracket", "The championship bracket, live, with the matchup on the track marked.", true},
+		{SceneRecords, "Club Records", "Fastest run, fastest average, each lane's record and the most race wins.", true},
 	}
 }
 

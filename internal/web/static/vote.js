@@ -5,22 +5,20 @@
 //
 // The flow is: question 1, question 2, thank you, back to the start. Each tap
 // is final and moves on by itself — asking a person holding a drink to confirm
-// a vote is a step too many.
+// a vote is a step too many. The handover at the end is the exception: the
+// tablet waits for somebody to say they are done with it.
 
 (function () {
   "use strict";
 
   const root = document.getElementById("ballot");
 
-  // How long the thank-you stays up before resetting for the next voter.
-  const THANK_YOU_MS = 4000;
-
   let categories = [];
   let cars = [];
+  let theme = "";
   let open = false;
   let step = 0;
   let busy = false;
-  let resetTimer = null;
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -55,6 +53,7 @@
       open = !!data.open;
       categories = data.categories || [];
       cars = data.cars || [];
+      theme = data.theme || "";
 
       // Voting closing mid-ballot sends the tablet back to the closed screen
       // rather than leaving a live-looking grid that swallows taps.
@@ -101,18 +100,30 @@
     root.replaceChildren(wrap);
   }
 
+  // The handover waits for a person rather than a clock.
+  //
+  // It used to reset itself after four seconds, which is either too long for
+  // somebody standing there holding the tablet out, or — far worse — too short
+  // for one being set back down on the table, in which case the next voter
+  // walks up to a live ballot and their first tap is somebody else's vote.
   function renderThankYou() {
     const wrap = el("div", "ballot-done");
     wrap.appendChild(el("div", "mark", "✓"));
     wrap.appendChild(el("h1", null, "Thank you"));
-    wrap.appendChild(el("p", null, "Both votes recorded. Passing to the next voter…"));
-    root.replaceChildren(wrap);
+    wrap.appendChild(el("p", null, "Both votes recorded."));
 
-    clearTimeout(resetTimer);
-    resetTimer = setTimeout(function () {
+    const next = el("button", "ballot-next", "Pass to the next voter");
+    next.type = "button";
+    next.addEventListener("click", function () {
       step = 0;
       render();
-    }, THANK_YOU_MS);
+    });
+    wrap.appendChild(next);
+    root.replaceChildren(wrap);
+
+    // The button is what the tablet is handed over on, so nothing else on the
+    // screen should be able to take the tap.
+    guardTaps(next);
   }
 
   function renderQuestion(category) {
@@ -121,6 +132,12 @@
       el("p", "ballot-step", "Step " + (step + 1) + " of " + categories.length)
     );
     head.appendChild(el("h1", "ballot-question", category.label));
+    // The theme question means nothing without the theme. Asking for the "best
+    // themed car" and leaving the voter to remember what the theme was is a lot
+    // to ask of somebody on their third pint.
+    if (category.key === "theme" && theme) {
+      head.appendChild(el("p", "ballot-theme", theme));
+    }
     head.appendChild(el("p", "ballot-hint", "Tap the car you like best."));
 
     const grid = el("div", "ballot-grid");
@@ -185,12 +202,12 @@
     setTimeout(update, 400);
   }
 
-  // guardTaps blocks input briefly after the grid is replaced, so a tap meant
-  // for the previous question cannot carry through to this one.
-  function guardTaps(grid) {
-    grid.style.pointerEvents = "none";
+  // guardTaps blocks input briefly after the screen is replaced, so a tap meant
+  // for the previous question cannot carry through to what took its place.
+  function guardTaps(node) {
+    node.style.pointerEvents = "none";
     setTimeout(function () {
-      grid.style.pointerEvents = "";
+      node.style.pointerEvents = "";
     }, 450);
   }
 
@@ -222,15 +239,18 @@
     photo.appendChild(el("div", "car-number", car.car_number));
     tile.appendChild(photo);
 
+    // The car, and only the car. These two trophies are for how a car looks and
+    // how well it carries its theme, and a driver's name on the tile invites a
+    // vote for the person instead — which is the one thing the design and theme
+    // votes must not be.
     const label = el("div", "car-label");
     label.appendChild(el("div", "car-name", car.car_name || "Car " + car.car_number));
-    label.appendChild(el("div", "car-driver", car.driver));
     tile.appendChild(label);
 
     // Spoken aloud by a screen reader, and what the tile means in one phrase.
     tile.setAttribute(
       "aria-label",
-      "Car " + car.car_number + ", " + (car.car_name || "") + ", driven by " + car.driver
+      "Car " + car.car_number + (car.car_name ? ", " + car.car_name : "")
     );
 
     tile.addEventListener("click", function () {

@@ -74,6 +74,11 @@ type Race struct {
 	Format    RaceFormat
 	Status    RaceStatus
 	CreatedAt time.Time
+
+	// Theme is the night's theme in the club's words — "Movie Night" — and is
+	// what the theme trophy is voted against. Empty is normal: not every night
+	// has one, and nothing should imply one where there is none.
+	Theme string
 }
 
 // Bracket reports whether this race is run as a single-elimination bracket.

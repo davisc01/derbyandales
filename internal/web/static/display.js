@@ -15,9 +15,15 @@
   let scene = "blank";
   let params = {};
   let revealIndex = 0;
+  // The newest revealed row is showing its place and time but not whose car it
+  // is. The top three are revealed in two presses — the place, then the person
+  // — because that gap is where the room turns round to look.
+  let revealHeld = false;
   // The awards scene is paced the same way as the reveal: one trophy, a pause
-  // while it is handed over and photographed, then the next.
+  // while it is handed over and photographed, then the next. Each is two
+  // presses too: the trophy's name, then who won it.
   let awardIndex = 0;
+  let awardShown = false;
   let awardRows = [];
   let revealRows = [];
   let revealTrophies = 3;
@@ -106,8 +112,10 @@
     scene = next || "blank";
     params = typeof rawParams === "string" ? safeParse(rawParams) : rawParams || {};
     revealIndex = 0;
+    revealHeld = false;
     revealRows = [];
     awardIndex = 0;
+    awardShown = false;
     awardRows = [];
     stopSlides();
     resetRacing();
@@ -237,6 +245,15 @@
   let resultVisibleAt = 0;
   // A next heat armed while the result is still being read waits here.
   let racingHold = null;
+  // The intermission was on screen when this display last looked. Racing
+  // resuming is then something to announce rather than to cut to: the room is
+  // at the bar, and four cars appearing on a screen nobody is watching is not
+  // how they are called back.
+  let wasIntermission = false;
+  // Set while "voting closed, racing resumes" is up.
+  let closingTimer = null;
+  // How long that stays up before the heat takes over.
+  const VOTE_CLOSED_MS = 10000;
   // Set while the rows are sliding out. A redraw in the middle would cut the
   // slide off, and the render that follows it reads the state fresh anyway.
   let racingSwapping = false;
@@ -273,8 +290,10 @@
   function resetRacing() {
     if (racingHold) clearTimeout(racingHold);
     if (racingSwapTimer) clearTimeout(racingSwapTimer);
+    if (closingTimer) clearTimeout(closingTimer);
     racingHold = null;
     racingSwapTimer = null;
+    closingTimer = null;
     racingSwapping = false;
     racingPhase = "";
     racingHeat = 0;
@@ -378,6 +397,7 @@
     if (state.intermission) {
       if (phase !== "result" || state.heat_no === intermissionAfter) {
         resetRacing();
+        wasIntermission = true;
         return renderVoting();
       }
       // Usually the result is already on screen: the intermission is a second
@@ -387,8 +407,20 @@
         holdThenVote(state.heat_no);
         return;
       }
-    } else if (intermissionAfter) {
-      intermissionAfter = 0;
+    } else {
+      if (intermissionAfter) intermissionAfter = 0;
+      // The vote has just closed. The screen says so, and says how many people
+      // voted, before the second half starts — ten seconds is long enough to
+      // read and short enough that nobody is waiting on it.
+      if (wasIntermission) {
+        wasIntermission = false;
+        closingTimer = setTimeout(function () {
+          closingTimer = null;
+          render();
+        }, VOTE_CLOSED_MS);
+        return renderVoting({ closing: true });
+      }
+      if (closingTimer) return;
     }
 
     // A result is being held on screen. Nothing replaces it until its seven
@@ -508,14 +540,19 @@
           result.appendChild(el("div", "lane-dnf-time", l.time + "s"));
         } else {
           result.appendChild(el("div", "lane-time", l.time + "s"));
+          // The speed is always there. A record used to take its place, which
+          // meant the one run people most wanted the number for was the one
+          // run with no number on it. The tag sits beside the speed instead,
+          // and what it beat goes under both, so the row height is unchanged.
+          const line = el("div", "lane-speed-line");
+          line.appendChild(el("span", "lane-mph", l.mph + " mph scale"));
           if (l.record) {
-            // A record takes the speed's place: it is the bigger news, and the
-            // row must not grow and push the lanes below it off the screen.
             row.classList.add("record-" + l.record.kind);
-            result.appendChild(el("div", "lane-record", l.record.label));
+            line.appendChild(el("span", "lane-record", l.record.label));
+          }
+          result.appendChild(line);
+          if (l.record) {
             result.appendChild(el("div", "lane-record-was", l.record.previous));
-          } else {
-            result.appendChild(el("div", "lane-mph", l.mph + " mph scale"));
           }
         }
       } else if (!l.bye) {
@@ -816,8 +853,24 @@
 
     const shown = Math.min(awardIndex, awardRows.length - 1);
     const a = awardRows[shown];
-    const { wrap, body } = sceneShell(a.name,
-      (shown + 1) + " of " + awardRows.length);
+    const counter = (shown + 1) + " of " + awardRows.length;
+    // The theme trophy is judged against the night's theme, so the theme is
+    // named with it. Nothing is shown where there is no theme.
+    const sub = a.theme ? a.theme + " \u00b7 " + counter : counter;
+    const { wrap, body } = sceneShell(a.name, sub);
+
+    // The trophy's name goes up on its own first, and the winner follows on
+    // the next press. The room needs a moment to know what is being given out
+    // before it is told who is getting it — and the coordinator needs it to
+    // pick up the trophy and turn round.
+    if (!awardShown) {
+      const hold = el("div", "award-hold");
+      hold.appendChild(el("div", "award-hold-name", a.name));
+      if (a.theme) hold.appendChild(el("div", "award-hold-theme", a.theme));
+      body.appendChild(hold);
+      wrap.appendChild(el("div", "reveal-prompt", "Press space for the winner"));
+      return swap(wrap);
+    }
 
     const card = el("div", "award-card");
     const pic = el("div", "award-pic");
@@ -866,7 +919,9 @@
 
     const list = el("div", "final");
     // Row height follows the field size, so twenty-four cars and eight both
-    // fill the screen rather than one of them overflowing it.
+    // fill the screen rather than one of them overflowing it. Past the point
+    // where shrinking any further would stop it being readable across a room,
+    // the list is allowed to overflow and scrolls itself instead.
     list.style.setProperty("--final-rows", String(rows.length));
     rows.forEach(function (s) {
       const row = el("div", "final-row");
@@ -886,7 +941,31 @@
     });
     body.appendChild(list);
     swap(wrap);
+    autoScroll(body, list);
   }
+
+  // The standings scroll themselves when the field will not fit.
+  //
+  // This is the picture people photograph and the screen left up while the
+  // room drinks, so it has to come back round to the top rather than stop at
+  // the bottom: somebody looking up halfway through the evening should not be
+  // shown the last four cars for twenty minutes.
+  function autoScroll(box, list) {
+    // Measured after the layout has happened, or the overflow is always zero.
+    requestAnimationFrame(function () {
+      const over = list.scrollHeight - box.clientHeight;
+      if (over <= 4) return;   // it fits; nothing to scroll
+      list.style.setProperty("--scroll-by", "-" + over + "px");
+      // A steady reading pace rather than a fixed duration: a longer list
+      // takes proportionally longer, and both ends get a pause to be read.
+      const seconds = Math.round(over / 28) + SCROLL_PAUSE_S * 2;
+      list.style.setProperty("--scroll-secs", seconds + "s");
+      list.classList.add("scrolling");
+    });
+  }
+
+  // Seconds held still at the top and at the bottom of a scrolling list.
+  const SCROLL_PAUSE_S = 4;
 
   async function renderReveal() {
     if (!revealRows.length) {
@@ -914,14 +993,31 @@
     shown
       .slice()
       .reverse()
-      .forEach(function (s) {
+      .forEach(function (s, i) {
         const row = el("div", "reveal-row");
         if (s.place <= 3) row.classList.add("podium");
         if (s.place === 1) row.classList.add("winner");
+        // The newest row, still waiting for its second press: the place and
+        // the time are up, and whose car it is comes next.
+        const held = revealHeld && i === 0;
+        if (held) row.classList.add("held");
 
         row.appendChild(el("div", "reveal-place", (s.tied ? "T" : "") + s.place));
 
         const who = el("div");
+        if (held) {
+          // Nothing that names the car: not the driver, not the number, not
+          // the trophy, and not a record, which would say who it was to
+          // anybody who has been watching the heats.
+          who.appendChild(el("div", "reveal-hold", "\u2026"));
+          row.appendChild(who);
+          const t = el("div");
+          t.appendChild(el("div", "reveal-time", s.average ? s.average + "s" : "\u2014"));
+          if (s.mph) t.appendChild(el("div", "reveal-mph", s.mph + " mph scale"));
+          row.appendChild(t);
+          list.appendChild(row);
+          return;
+        }
         who.appendChild(el("div", "reveal-driver", s.driver));
         who.appendChild(el("div", "reveal-car", "#" + s.car_number + "  " + (s.car_name || "")));
         // The speed trophies are handed over here, as each of the top three is
@@ -950,13 +1046,11 @@
 
     body.appendChild(list);
 
-    if (revealIndex < revealRows.length) {
-      const prompt = el(
-        "div",
-        "reveal-prompt",
-        revealIndex === 0 ? "Press space to begin" : "Press space for the next car"
-      );
-      wrap.appendChild(prompt);
+    if (revealHeld) {
+      wrap.appendChild(el("div", "reveal-prompt", "Press space for the driver"));
+    } else if (revealIndex < revealRows.length) {
+      wrap.appendChild(el("div", "reveal-prompt",
+        revealIndex === 0 ? "Press space to begin" : "Press space for the next car"));
     }
     swap(wrap);
   }
@@ -1221,7 +1315,13 @@
   // The intermission screen: what to vote for and where the tablet is. There
   // is deliberately no countdown — the intermission ends when the coordinator
   // says it does, not when a clock runs out.
-  async function renderVoting() {
+  //
+  // It carries no running vote count. A tally on the wall is a leaderboard:
+  // people vote for the car that is winning, and the ones who have already
+  // voted watch to see whether their car needs another. The coordinator has
+  // the numbers on the voting page, which is where they belong.
+  async function renderVoting(opts) {
+    const closing = !!(opts && opts.closing);
     let data = { categories: [], voting_open: false };
     try {
       data = await getJSON("/api/vote/tally");
@@ -1232,8 +1332,28 @@
     const wrap = el("div", "scene scene-voting");
     const inner = el("div", "voting-panel");
 
+    if (closing) {
+      // What the room gets at the end of the vote: that it is over, that
+      // racing is about to start, and how many people took part — one number,
+      // not one per trophy, because a per-trophy split invites the arithmetic
+      // that says who won before the trophies are handed over.
+      inner.appendChild(el("p", "voting-kicker", "Voting closed"));
+      inner.appendChild(el("h1", "voting-title", "Racing resumes now"));
+      const voters = votersFrom(data);
+      if (voters > 0) {
+        const box = el("div", "voting-total");
+        box.appendChild(el("div", "voting-total-count", voters));
+        box.appendChild(el("div", "voting-total-word",
+          voters === 1 ? "person voted" : "people voted"));
+        inner.appendChild(box);
+      }
+      inner.appendChild(el("p", "voting-where", "Back to the track."));
+      wrap.appendChild(inner);
+      return swap(wrap);
+    }
+
     inner.appendChild(el("p", "voting-kicker", "Intermission"));
-    inner.appendChild(el("h1", "voting-title", "Vote for your favourites"));
+    inner.appendChild(el("h1", "voting-title", "Vote for your favorites"));
     inner.appendChild(
       el("p", "voting-where", "The tablet is at the check-in table. Refill first.")
     );
@@ -1244,8 +1364,6 @@
       .forEach(function (c) {
         const box = el("div", "voting-q");
         box.appendChild(el("div", "voting-q-label", c.label));
-        box.appendChild(el("div", "voting-q-count", c.votes));
-        box.appendChild(el("div", "voting-q-word", c.votes === 1 ? "vote" : "votes"));
         qs.appendChild(box);
       });
     if (qs.children.length) inner.appendChild(qs);
@@ -1256,6 +1374,19 @@
 
     wrap.appendChild(inner);
     swap(wrap);
+  }
+
+  // How many people voted, from a tally that counts votes per trophy.
+  //
+  // Somebody who taps once and wanders off is still a voter, so this is the
+  // largest count rather than the smallest or the sum: two trophies and
+  // nineteen voters is nineteen people, not thirty-eight.
+  function votersFrom(data) {
+    let most = 0;
+    (data.categories || []).forEach(function (c) {
+      if (c.enabled && c.votes > most) most = c.votes;
+    });
+    return most;
   }
 
   function ordinal(n) {
@@ -1271,54 +1402,98 @@
     return revealChampionship ? name : name + " place trophy";
   }
 
-  // The reveal is operator-paced: space or arrow advances, backspace steps back.
-  document.addEventListener("keydown", function (e) {
-    if (scene === "awards") {
-      if (e.key === " " || e.key === "ArrowRight" || e.key === "Enter") {
-        e.preventDefault();
-        if (awardIndex < awardRows.length - 1) {
-          awardIndex++;
-          render();
-        }
-      } else if (e.key === "ArrowLeft" || e.key === "Backspace") {
-        e.preventDefault();
-        if (awardIndex > 0) {
-          awardIndex--;
-          render();
-        }
+  // Both ceremonies are paced by the coordinator, one press at a time, and both
+  // are two presses per item: what is being given out, then who gets it. The
+  // gap between the two presses is the point — it is where the room turns
+  // round, and where the person walks up.
+
+  // A place that is handed a trophy is revealed in two: the place and the
+  // time, then the driver and the car.
+  function podium(row) {
+    return row && row.place <= 3;
+  }
+
+  function revealForward() {
+    if (revealHeld) {
+      revealHeld = false;
+      return true;
+    }
+    if (revealIndex < revealRows.length) {
+      revealIndex++;
+      revealHeld = podium(revealRows[revealIndex - 1]);
+      return true;
+    }
+    return false;
+  }
+
+  function revealBack() {
+    if (revealHeld) {
+      // Take the row back off the screen entirely: it was only ever a place
+      // and a time, and half-revealing it again would be no step back at all.
+      revealIndex--;
+      revealHeld = false;
+      return true;
+    }
+    if (revealIndex > 0) {
+      if (podium(revealRows[revealIndex - 1])) {
+        revealHeld = true;
+        return true;
       }
+      revealIndex--;
+      return true;
+    }
+    return false;
+  }
+
+  function awardForward() {
+    if (!awardShown) {
+      awardShown = true;
+      return true;
+    }
+    if (awardIndex < awardRows.length - 1) {
+      awardIndex++;
+      awardShown = false;
+      return true;
+    }
+    return false;
+  }
+
+  function awardBack() {
+    if (awardShown) {
+      awardShown = false;
+      return true;
+    }
+    if (awardIndex > 0) {
+      awardIndex--;
+      awardShown = true;
+      return true;
+    }
+    return false;
+  }
+
+  document.addEventListener("keydown", function (e) {
+    const forward = e.key === " " || e.key === "ArrowRight" || e.key === "Enter";
+    const back = e.key === "ArrowLeft" || e.key === "Backspace";
+    if (!forward && !back) return;
+
+    if (scene === "awards") {
+      e.preventDefault();
+      if (forward ? awardForward() : awardBack()) render();
       return;
     }
     if (scene !== "results-reveal") return;
-    if (e.key === " " || e.key === "ArrowRight" || e.key === "Enter") {
-      e.preventDefault();
-      if (revealIndex < revealRows.length) {
-        revealIndex++;
-        render();
-      }
-    } else if (e.key === "ArrowLeft" || e.key === "Backspace") {
-      e.preventDefault();
-      if (revealIndex > 0) {
-        revealIndex--;
-        render();
-      }
-    }
+    e.preventDefault();
+    if (forward ? revealForward() : revealBack()) render();
   });
 
   // Touch works too, for a screen driven from a tablet.
   document.addEventListener("click", function () {
     if (scene === "awards") {
-      if (awardIndex < awardRows.length - 1) {
-        awardIndex++;
-        render();
-      }
+      if (awardForward()) render();
       return;
     }
     if (scene !== "results-reveal") return;
-    if (revealIndex < revealRows.length) {
-      revealIndex++;
-      render();
-    }
+    if (revealForward()) render();
   });
 
   // --- live updates ---------------------------------------------------------

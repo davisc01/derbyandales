@@ -42,6 +42,19 @@
   </table>
 </section>
 
+<section class="card">
+  <h1>Tonight's theme</h1>
+  <p class="sub">What the theme trophy is judged against. It shows on the
+     ballot, under the question, and beside <b>Best Theme</b> when the trophy is
+     revealed. Leave it empty on a night with no theme.</p>
+  <div class="console-row">
+    <input type="text" id="race-theme" value="{{$d.Race.Theme}}"
+           placeholder="Movie Night" maxlength="60" aria-label="Tonight's theme">
+    <button class="btn" id="save-theme">Save</button>
+    <span class="note" id="theme-status"></span>
+  </div>
+</section>
+
 {{if $d.Categories}}
 {{range $cat := $d.Categories}}
 <section class="card" data-category="{{$cat.ID}}">

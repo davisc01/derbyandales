@@ -263,6 +263,16 @@ html, body { height: 100%; }
 .reveal-row.winner .reveal-place,
 .reveal-row.winner .reveal-time { color: var(--green); }
 
+/* A podium place with the time up and the name still to come. The dots hold
+   the row's shape so nothing jumps sideways when the name lands. */
+.reveal-hold {
+  font-size: 1em;
+  font-weight: 800;
+  letter-spacing: .3em;
+  color: var(--ink-faint);
+}
+.reveal-row.held { background: rgba(63, 191, 99, .06); }
+
 .reveal-prompt {
   position: fixed;
   bottom: 2vh;
@@ -339,21 +349,27 @@ html, body { height: 100%; }
   margin-top: 5vh;
 }
 
+/* The trophies being voted on, named. No running count: a tally on the wall is
+   a leaderboard, and a leaderboard changes how people vote. */
 .voting-q {
   background: var(--panel);
   border-radius: 1.6vh;
   padding: 2.5vh 4vw;
   min-width: 22vw;
 }
-.voting-q-label { font-size: 2.6vh; color: var(--ink-dim); }
-.voting-q-count {
-  font-size: 9vh;
+.voting-q-label { font-size: 3.4vh; font-weight: 700; }
+
+/* The one number the room gets, once voting has closed and it can no longer
+   change how anybody votes: how many people took part. */
+.voting-total { margin-top: 5vh; }
+.voting-total-count {
+  font-size: 14vh;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--green);
 }
-.voting-q-word { font-size: 2.2vh; color: var(--ink-dim); }
+.voting-total-word { font-size: 3vh; color: var(--ink-dim); margin-top: 1vh; }
 
 .voting-closed-note { font-size: 2.8vh; color: var(--ink-dim); margin-top: 4vh; }
 
@@ -365,7 +381,33 @@ html, body { height: 100%; }
   display: flex;
   flex-direction: column;
   gap: calc(0.7vh * (24 / max(var(--final-rows), 8)));
-  font-size: clamp(1rem, calc(62vh / max(var(--final-rows), 8)), 3rem);
+  /* The lower bound is a floor, not a fallback: past about thirty cars the
+     type would be too small to read across a bar, so the list overflows and
+     scrolls itself instead of shrinking further. */
+  font-size: clamp(1.15rem, calc(62vh / max(var(--final-rows), 8)), 3rem);
+}
+
+/* The list is translated rather than scrolled, so the scene has to clip it or
+   the rows ride up over the title. */
+.scene-final-standings .scene-body { overflow: hidden; }
+
+/* Down the list, a pause at the bottom, back to the top, and round again. The
+   distance is measured on the night and handed in as a variable: a 12-car
+   field that fits does not scroll at all. */
+.final.scrolling {
+  animation: final-scroll var(--scroll-secs, 30s) ease-in-out infinite;
+}
+
+@keyframes final-scroll {
+  0%, 12%   { transform: translateY(0); }
+  50%, 62%  { transform: translateY(var(--scroll-by, 0)); }
+  100%      { transform: translateY(0); }
+}
+
+/* A screen that scrolls on its own is the kind of motion somebody may have
+   asked not to see; the whole field is still there to scroll by hand. */
+@media (prefers-reduced-motion: reduce) {
+  .final.scrolling { animation: none; }
 }
 .final-row {
   display: grid;
@@ -392,6 +434,26 @@ html, body { height: 100%; }
 /* --- the design and theme trophies -------------------------------------------------
    One at a time, with the car big. These are given for how a car looks, so a
    list of names would be the wrong shape entirely. */
+
+/* A trophy's name on its own, before the car is shown. The room is told what is
+   being given out, and then — on the next press — who is getting it. */
+.award-hold {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  height: 100%;
+}
+.award-hold-name {
+  font-size: clamp(2.5rem, 11vh, 9rem);
+  font-weight: 800;
+  line-height: 1.05;
+}
+.award-hold-theme {
+  font-size: clamp(1.2rem, 4.5vh, 3.5rem);
+  color: var(--green);
+  font-weight: 700;
+  margin-top: 2vh;
+}
 
 .award-card {
   display: flex;
@@ -646,13 +708,24 @@ html, body { height: 100%; }
 }
 
 /* --- records ----------------------------------------------------------------
-   A broken record replaces the scale speed under the time, so the row stays
-   the same height. The track record gets the gold the heat winner has, and a
-   glow, because it is the one the room should stop for. */
+   A broken record sits beside the scale speed rather than replacing it: the
+   run people most want the number for was the one run that had no number on
+   it. The track record gets the gold the heat winner has, and a glow, because
+   it is the one the room should stop for. */
+
+/* Speed and tag on one line, so the row is the same height with a record as
+   without one and the lanes below it do not move down the screen. */
+.lane-speed-line {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .8vw;
+  margin-top: .5vh;
+  flex-wrap: nowrap;
+}
 
 .lane-record {
   display: inline-block;
-  margin-top: .5vh;
   padding: .2vh 1vw;
   border-radius: .6vh;
   font-size: 2.3vh;
@@ -663,6 +736,8 @@ html, body { height: 100%; }
   color: var(--ink);
 }
 .lane-record-was { font-size: 1.9vh; color: var(--ink-dim); margin-top: .3vh; }
+/* The speed keeps its own line's baseline next to the tag. */
+.lane-speed-line .lane-mph { white-space: nowrap; }
 
 .lane-row.record-track .lane-record { background: var(--gold); color: #1a1405; }
 .lane-row.record-track { animation: record-glow 1.6s ease-in-out 3; }

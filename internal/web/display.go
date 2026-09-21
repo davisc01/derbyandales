@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/davisc01/derbyandales/internal/bus"
@@ -313,6 +315,25 @@ func (s *Server) handleRoster(w http.ResponseWriter, r *http.Request) {
 	}
 	race, _ := s.app.DB.Race(r.Context(), raceID)
 
+	// Alphabetical by surname, the way a programme lists people, so anybody
+	// looking for their own name on a TV across the room can find it. Entries
+	// come back in car-number order, which is the loading order for the track
+	// and no use at all for reading. A racer with two cars is sorted by number
+	// between them.
+	sorted := make([]store.EntryView, len(entries))
+	copy(sorted, entries)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		a, b := sorted[i], sorted[j]
+		if x, y := strings.ToLower(a.LastName), strings.ToLower(b.LastName); x != y {
+			return x < y
+		}
+		if x, y := strings.ToLower(a.FirstName), strings.ToLower(b.FirstName); x != y {
+			return x < y
+		}
+		return a.CarNumber < b.CarNumber
+	})
+	entries = sorted
+
 	rows := make([]map[string]any, 0, len(entries))
 	drivers := map[string]bool{}
 	for _, e := range entries {
@@ -477,6 +498,12 @@ func (s *Server) handleRaceAwards(w http.ResponseWriter, r *http.Request) {
 			"car_number": a.Entry.CarNumber,
 			"car_name":   a.Entry.CarName,
 			"driver":     a.Entry.FullName(),
+		}
+		// The theme trophy is the one award that means nothing without the
+		// theme it was judged against, so the night's theme rides along with
+		// it and the screen can say "Best Theme — Movie Night".
+		if race.Theme != "" && a.Name == store.AwardNameForVote[store.VoteTheme] {
+			row["theme"] = race.Theme
 		}
 		if a.Entry.PhotoID != nil {
 			row["photo_id"] = *a.Entry.PhotoID
