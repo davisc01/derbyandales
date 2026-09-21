@@ -123,8 +123,9 @@ type Entry struct {
 	// previous championship, or it does not meet the race rules.
 	//
 	// An excluded car still races and still appears in the heat results. It is
-	// left out of the standings entirely, which means it takes no award, earns
-	// no points, and cannot qualify. Because the exclusion happens before places
+	// left out of the standings entirely, which means it takes no speed
+	// trophy, earns no points, and cannot qualify. It stays on the design and
+	// theme ballot: the exclusion is about speed, not about the paint. Because the exclusion happens before places
 	// are assigned, it moves everyone behind it up: in 2026 race 4 the excluded
 	// car had the fastest average of the night, so this decided the winner.
 	Excluded        bool

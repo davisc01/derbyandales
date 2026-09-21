@@ -43,15 +43,22 @@ These are the domain, and getting them wrong changes published results.
   `internal/scoring/golden_test.go`.
 - **Three kinds of entry**, and they differ:
 
-  | | Races? | In standings? | Award / points / qualify? |
-  |---|---|---|---|
-  | Normal | yes | yes | yes |
-  | CONTROL pace car | yes | **yes** | no |
-  | Excluded (ineligible) | yes | **no** | no |
+  | | Races? | In standings? | Speed trophy / points / qualify? | Design & theme vote? |
+  |---|---|---|---|---|
+  | Normal | yes | yes | yes | yes |
+  | CONTROL pace car | yes | **yes** | no | **no** |
+  | Excluded (ineligible) | yes | **no** | no | **yes** |
 
   Use `Entry.Scores()` and `Entry.EarnsPoints()` rather than testing the flags.
   In 2026 race 4 the excluded car had the fastest average of the night, so this
   decided the winner of record.
+
+  **An excluded car stays on the ballot.** It is out for speed reasons — barred
+  from the standings, not from having a nice paint job — and it is sitting on
+  the table in front of the people voting. The pace car comes off, because it is
+  equipment (`store.BallotEntries`, and `DeclareVoteWinner` refuses it). So
+  "takes no award" means no *speed* trophy: an ineligible car can win Best
+  Theme or Best Design.
 
   The pace car is **equipment, not a person**. It must not be counted in the
   field size, and its "driver" must never appear in a list of racers — both
