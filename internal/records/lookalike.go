@@ -13,6 +13,19 @@ import (
 // share a surname and nearly share a first name — so the pair is shown to a
 // person, who corrects whichever spelling is wrong.
 
+// confirmedDistinct holds pairs the club has looked at and told us are two
+// people. The rule cannot tell them from a misspelling on its own — Chance and
+// Lance Greer differ by exactly the letter or two it allows — so the answer is
+// recorded here instead of the pair being raised again every time the archive
+// is read. Keys are person keys (see history.PersonKey).
+var confirmedDistinct = map[[2]string]bool{
+	{"chance greer", "lance greer"}: true, // the club confirmed it, 2026-09-21
+}
+
+func confirmedDifferent(a, b string) bool {
+	return confirmedDistinct[[2]string{a, b}] || confirmedDistinct[[2]string{b, a}]
+}
+
 // lookalikes finds pairs of racers who share one half of their name and are a
 // letter or two apart on the other.
 func lookalikes(runs []Run, results []Result) [][2]string {
@@ -32,7 +45,7 @@ func lookalikes(runs []Run, results []Result) [][2]string {
 	var out [][2]string
 	for i, a := range keys {
 		for _, b := range keys[i+1:] {
-			if similar(a, b) {
+			if similar(a, b) && !confirmedDifferent(a, b) {
 				out = append(out, [2]string{names[a], names[b]})
 			}
 		}

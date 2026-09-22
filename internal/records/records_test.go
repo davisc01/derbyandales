@@ -198,3 +198,17 @@ func TestAMisspeltNameIsShownRatherThanMerged(t *testing.T) {
 		t.Error("runs alone should not make a career")
 	}
 }
+
+// Chance and Lance Greer are two people, not one name spelled two ways — the
+// club checked. The rule cannot see that, so the answer is recorded; without it
+// the records page raises them again after every archive read, and a reader who
+// takes the hint merges two real careers.
+func TestAPairConfirmedToBeTwoPeopleIsNotRaisedAgain(t *testing.T) {
+	b := Compute([]Run{
+		run("chance greer", r2025, 1, 1, 2.4),
+		run("lance greer", r2025, 1, 2, 2.4),
+	}, nil)
+	if len(b.Lookalikes) != 0 {
+		t.Errorf("lookalikes = %v, want none", b.Lookalikes)
+	}
+}
