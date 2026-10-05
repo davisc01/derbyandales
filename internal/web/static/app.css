@@ -769,6 +769,7 @@ legend { padding: 0 6px; font-size: 13px; color: var(--ink-dim); }
 /* --- ties for a trophy ------------------------------------------------------------ */
 
 .tie-card { border-color: rgba(240, 165, 58, .35); }
+.late-card { border-color: rgba(240, 165, 58, .35); }
 .ties { list-style: none; margin: 0; padding: 0; }
 .tie { padding: 12px 0; border-top: 1px solid var(--line); }
 .tie:first-child { border-top: 0; }

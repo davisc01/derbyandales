@@ -207,6 +207,40 @@
     });
   });
 
+  const fitLate = $("fit-late");
+  if (fitLate) {
+    fitLate.addEventListener("click", async function () {
+      fitLate.disabled = true;
+      say("fit-late-status", "Rebuilding the heats not yet run…");
+      try {
+        await post("/api/race/latecars");
+        location.reload();
+      } catch (err) {
+        say("fit-late-status", err.message, true);
+        fitLate.disabled = false;
+      }
+    });
+  }
+
+  // A car checked in at the desk, or fitted in from another tab, changes the
+  // late-car card and the heat list. The page is rendered by the server, so
+  // it reloads — but never under a half-typed set of times, which would be
+  // lost; that waits until the dialog closes.
+  let reloadPending = false;
+  async function checkLateCars() {
+    try {
+      const plan = await fetch("/api/race/latecars").then((r) => r.json());
+      const card = $("late-cars");
+      const shown = card ? Number(card.dataset.count) : 0;
+      if ((plan.cars || []).length !== shown) reloadSoon();
+    } catch (err) { /* the next event will ask again */ }
+  }
+  function reloadSoon() {
+    const dialog = document.getElementById("times-dialog");
+    if (dialog && dialog.open) { reloadPending = true; return; }
+    location.reload();
+  }
+
   // --- entering times by hand -------------------------------------------------
   //
   // A correction, or a whole night with no timer at all. Both are the same
@@ -267,7 +301,10 @@
 
   if (timesDialog) {
     timesDialog.addEventListener("close", async function () {
-      if (timesDialog.returnValue !== "save" || !timesHeat) return;
+      if (timesDialog.returnValue !== "save" || !timesHeat) {
+        if (reloadPending) location.reload();
+        return;
+      }
       const params = { heat_id: timesHeat };
       document.querySelectorAll("#times-lanes input").forEach(function (i) {
         params[i.name] = i.value;
@@ -297,6 +334,8 @@
       const d = ev.data || {};
       say("run-status", d.reason || "Nothing from the timer since this heat was armed.", true);
     }
+    if (ev.kind === "checkin") checkLateCars();
+    if (ev.kind === "rescheduled") reloadSoon();
     refreshHeat();
   });
 

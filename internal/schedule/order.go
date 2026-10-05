@@ -136,11 +136,26 @@ func repair(heats []Heat, cars int) []Heat {
 // spacingCost measures how rushed the running order is: heavily for a car in
 // back-to-back heats, lightly for one heat of rest.
 func spacingCost(heats []Heat, cars int) int {
+	return spacingCostAfter(nil, heats, cars)
+}
+
+// spacingCostAfter scores heats as if they followed run, which is how a block
+// rebuilt mid-race is judged: what matters is the gap to each car's last real
+// run, not to the start of the block.
+func spacingCostAfter(run, heats []Heat, cars int) int {
 	last := make([]int, cars)
 	lastLane := make([]int, cars)
 	for i := range last {
 		last[i] = -10
 		lastLane[i] = -1
+	}
+	for h, heat := range run {
+		for lane, car := range heat {
+			if car != Bye && car < cars {
+				last[car] = h - len(run)
+				lastLane[car] = lane
+			}
+		}
 	}
 	cost := 0
 	for h, heat := range heats {

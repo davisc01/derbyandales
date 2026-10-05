@@ -37,6 +37,9 @@ const (
 	// which is where a whole season's results become the night's running order.
 	BackupBracketSeed BackupReason = "bracket-seed"
 	BackupManual      BackupReason = "manual"
+	// BackupLateCar is taken before the unrun heats are rebuilt to fit in a
+	// car that arrived after racing started.
+	BackupLateCar BackupReason = "late-car"
 	// BackupDemoClear is taken before the demo data is deleted. The data
 	// itself is fabricated, but a night spent rehearsing on it is not, and
 	// somebody who clears it on race day at the wrong moment needs a way back.

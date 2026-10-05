@@ -326,6 +326,9 @@ func (s *Server) handleCreateEntry(w http.ResponseWriter, r *http.Request) {
 	})
 
 	out := map[string]any{"id": created.ID}
+	if msg := s.lateCheckin(ctx, race); msg != "" {
+		out["late"] = msg
+	}
 	// A car that has already qualified this season is not allowed to race again
 	// before the championship. Said rather than enforced, like the check below:
 	// cars are matched by name, and a name can be reused for a new car.
@@ -688,4 +691,20 @@ func (s *Server) qualifiedCar(ctx context.Context, seasonID, racerID int64, carN
 		}
 	}
 	return season.Slot{}, false
+}
+
+// lateCheckin is what the desk is told when a car checks in after the schedule
+// was built. The car is in no heat until race control fits it in, and the
+// person at the desk is the one who can tell the racer what happens next.
+func (s *Server) lateCheckin(ctx context.Context, race model.Race) string {
+	if race.Bracket() {
+		return ""
+	}
+	if p, err := s.app.DB.Progress(ctx, race.ID); err != nil || p.Total == 0 {
+		return ""
+	}
+	if frozen, err := s.app.DB.RaceFrozen(ctx, race.ID); err == nil && frozen {
+		return "This race has already finished, so this car will not race tonight."
+	}
+	return "Racing has already started — race control will be asked to fit this car into the heats."
 }

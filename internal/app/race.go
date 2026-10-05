@@ -49,6 +49,10 @@ type RaceController struct {
 	// cannot be read there is no other sign that a heat never started.
 	armedAt     time.Time
 	silentAsked bool
+
+	// fitting serialises FitLateCars, which reads the schedule and rewrites
+	// the rest of it.
+	fitting sync.Mutex
 }
 
 // DefaultAutoAdvance is how long a finished heat stays on the screens before

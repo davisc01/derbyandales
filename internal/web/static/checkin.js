@@ -253,7 +253,7 @@
         // car is a decision and it needs a reason. The page stops rather than
         // reloading, so the warning is actually read.
         if (result.warning) {
-          say("checkin-status", result.warning, true);
+          say("checkin-status", result.warning + (result.late ? " " + result.late : ""), true);
           const status = $("checkin-status");
           const act = document.createElement("button");
           act.className = "btn small";
@@ -282,7 +282,9 @@
           return;
         }
 
-        say("checkin-status", "Checked in.");
+        // Checked in after the schedule was built: the car is in no heat
+        // until race control fits it in, and the desk should know to say so.
+        say("checkin-status", result.late ? "Checked in. " + result.late : "Checked in.");
         // Keep the driver's name: the commonest next action is a second car
         // for the same person.
         carNumber.value = "";
@@ -293,6 +295,17 @@
         $("reason-field").hidden = true;
         say("car-number-hint", "");
         photoID = null;
+        if (result.late) {
+          // Stop rather than reload, so the notice is actually read.
+          const ok = document.createElement("button");
+          ok.className = "btn small";
+          ok.textContent = "Got it";
+          ok.style.marginLeft = "10px";
+          ok.addEventListener("click", function () { location.reload(); });
+          $("checkin-status").appendChild(ok);
+          btn.disabled = false;
+          return;
+        }
         setTimeout(() => location.reload(), 500);
       } catch (err) {
         say("checkin-status", err.message, true);

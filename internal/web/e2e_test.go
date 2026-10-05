@@ -46,6 +46,10 @@ type e2e struct {
 	a    *app.App
 	h    http.Handler
 	site string
+
+	// afterHeat, if set, runs in raceByHand once a heat's times are in and
+	// before the next is armed — the moment somebody walks in late.
+	afterHeat func(raceID string, done int)
 }
 
 func newE2E(t *testing.T) *e2e {
@@ -227,7 +231,7 @@ func (e *e2e) raceByHand(raceID string, pace paceOf) {
 
 	voted := false
 	state := e.post("/api/race/next", nil)
-	for guard := 0; guard < 200; guard++ {
+	for done := 1; done < 200; done++ {
 		heat, _ := state["heat"].(map[string]any)
 		if heat == nil {
 			break
@@ -236,6 +240,9 @@ func (e *e2e) raceByHand(raceID string, pace paceOf) {
 			break // ArmNext found nothing left and the race has finished
 		}
 		e.post("/api/race/times", timesFor(heat, pace))
+		if e.afterHeat != nil {
+			e.afterHeat(raceID, done)
+		}
 
 		next, msg := e.try("/api/race/next", nil)
 		if strings.Contains(msg, "intermission") {
@@ -462,6 +469,31 @@ func TestE2EAFullSeasonToAChampion(t *testing.T) {
 			paces[id(out["id"])] = 2.20 // faster than anyone: it must still not place
 		}
 
+		// Race 3: somebody walks in after heat 5. The desk is told, race
+		// control fits the car in, and it gets its four runs like everybody
+		// else — at the back of the field, so nobody's qualifying changes.
+		e.afterHeat = nil
+		if n == 3 {
+			e.afterHeat = func(raceID string, done int) {
+				if done != 5 {
+					return
+				}
+				out := e.post("/api/entry", url.Values{
+					"race_id": {raceID}, "first_name": {"Late"}, "last_name": {"Arrival"},
+					"car_name": {"Fashionably Late"}, "car_number": {"77"},
+				})
+				if late, _ := out["late"].(string); late == "" {
+					t.Error("checking in after heat 5 did not tell the desk the car is late")
+				}
+				paces[id(out["id"])] = 2.90
+				plan := e.get("/api/race/latecars")
+				if cars, _ := plan["cars"].([]any); len(cars) != 1 {
+					t.Fatalf("race control sees %d late cars, want 1", len(cars))
+				}
+				e.post("/api/race/latecars", nil)
+			}
+		}
+
 		if n == 1 {
 			e.raceOnTheTimer(raceID)
 			// The simulator's times are its own, so give race 1's cars their
@@ -527,6 +559,19 @@ func TestE2EAFullSeasonToAChampion(t *testing.T) {
 		}
 		if n == 5 && names["2nd"] != "Racer 03" {
 			t.Errorf("race 5's 2nd went to %q, but Racer 03 won the run-off", names["2nd"])
+		}
+		if n == 3 {
+			runs := 0
+			for _, row := range heats[1:] {
+				for _, cell := range row {
+					if cell == "Fashionably Late" {
+						runs++
+					}
+				}
+			}
+			if runs != 4 {
+				t.Errorf("the late car has %d runs in race 3's heats.csv, want 4", runs)
+			}
 		}
 		if n == 2 {
 			for _, row := range standings[1:] {

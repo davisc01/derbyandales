@@ -27,6 +27,8 @@ func (s *Server) raceRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/race/times", s.handleEnterTimes)
 	mux.HandleFunc("POST /api/race/format", s.handleRaceFormat)
 	mux.HandleFunc("POST /api/race/demo-tie", s.handleDemoTie)
+	mux.HandleFunc("GET /api/race/latecars", s.handleLateCars)
+	mux.HandleFunc("POST /api/race/latecars", s.handleFitLateCars)
 }
 
 func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +59,17 @@ func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A car checked in after the schedule was built is in no heat at all, and
+	// until this card it was found out at the reveal. Worked out on every
+	// render rather than stored: it is whatever the heats say right now.
+	var late app.LateCarPlan
+	if state.RaceID != 0 {
+		var err error
+		if late, err = s.app.Race.LateCars(ctx, state.RaceID); err != nil {
+			s.app.Log.Warn("working out late cars", "race", state.RaceID, "err", err)
+		}
+	}
+
 	// Offered only in a demo season, once the heats are run and nothing is
 	// tied — the one state where a person wants to see a run-off and cannot get
 	// one.
@@ -81,6 +94,7 @@ func (s *Server) handleRacePage(w http.ResponseWriter, r *http.Request) {
 			"Timer":     s.app.Timer.Status(),
 			"Bracket":   bracketRace,
 			"DemoTie":   demoTie,
+			"Late":      late,
 		},
 	})
 }
@@ -292,4 +306,34 @@ func (s *Server) handleDemoTie(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"tied": true})
+}
+
+// handleLateCars answers race control's question after a check-in: is anybody
+// now in the race but in no heat?
+func (s *Server) handleLateCars(w http.ResponseWriter, r *http.Request) {
+	raceID := s.app.Race.CurrentRaceID()
+	if raceID == 0 {
+		writeJSON(w, http.StatusOK, app.LateCarPlan{})
+		return
+	}
+	plan, err := s.app.Race.LateCars(r.Context(), raceID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, plan)
+}
+
+// handleFitLateCars rebuilds the unrun heats so the late cars race too.
+func (s *Server) handleFitLateCars(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	plan, err := s.app.Race.FitLateCars(r.Context(), s.raceIDForm(r))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, plan)
 }

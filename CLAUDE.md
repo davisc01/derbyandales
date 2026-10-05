@@ -9,7 +9,7 @@ and [docs/ROADMAP.md](docs/ROADMAP.md) for what is left to build.
 ```sh
 make check                      # gofmt, vet, tests — run before committing
 make test                       # tests only
-make e2e                        # two whole seasons end to end (~30 s) — run after rule changes
+make e2e                        # two whole seasons end to end (~85 s) — run after rule changes
 go test ./... -race             # the concurrency-sensitive packages need this
 make app                        # dist/DerbyAndAles.app (universal binary)
 go run ./cmd/derbyandales -demo # a practice season, no hardware needed
@@ -192,6 +192,15 @@ These are the domain, and getting them wrong changes published results.
   a bye racer appears in round two immediately rather than looking like a
   matchup waiting to happen. A 24-car field is still 23 races: byes move where
   the races happen, not how many there are.
+- **A car checked in after the schedule is built is fitted in, never given
+  extra runs to others.** Check-in stays open, and such a car used to be in no
+  heat with nobody told. Race control now offers to rebuild the heats not yet
+  run (`RaceController.FitLateCars`, `schedule.Fit`): what each car still owes,
+  lane by lane, plus four for the late car, dealt back out as an edge
+  colouring — so it is one more heat per late car with every lane filled, and
+  empty lanes only when fewer than four heats are left. Heats raced, the heat
+  on the track and the one in the impound tray never change. A frozen race is
+  not reopened: the card says the car did not race.
 
 ## Conventions
 

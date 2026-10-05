@@ -81,6 +81,36 @@
   </div>
 </section>
 
+{{with $d.Late}}{{if .Cars}}
+<section class="card late-card" id="late-cars" data-count="{{len .Cars}}">
+  <h1>Checked in after the schedule was built</h1>
+  <p class="sub">
+    {{if eq (len .Cars) 1}}This car is{{else}}These {{len .Cars}} cars are{{end}}
+    in the race but in no heat, so as things stand
+    {{if eq (len .Cars) 1}}it will not{{else}}they will not{{end}} be called to the track.
+  </p>
+  <div class="tie-cars note">
+    {{range .Cars}}<span class="tie-car"><span class="mono">#{{.CarNumber}}</span> {{.CarName}} &mdash; {{.FullName}}</span>{{end}}
+  </div>
+  {{if .CanFit}}
+  <p class="note">
+    {{if .Unrun}}The {{.Unrun}} heat{{if ne .Unrun 1}}s{{end}} after heat {{.KeptThrough}} become {{.Heats}}{{else}}{{.Heats}} heats are added after heat {{.KeptThrough}}{{end}}{{if .EmptyLanes}},
+    with {{.EmptyLanes}} empty lane{{if ne .EmptyLanes 1}}s{{end}} &mdash; there is not enough of the night left to fill them{{else}},
+    every lane filled{{end}}.
+    Everyone else keeps the lanes they were still owed, and the late
+    {{if eq (len .Cars) 1}}car runs{{else}}cars run{{end}} once in each lane, spread through the rest of the night.
+    {{if .KeptThrough}}Heats up to {{.KeptThrough}} &mdash; run, on the track, or in the impound tray &mdash; do not change.{{end}}
+  </p>
+  <div class="console-row">
+    <button class="btn primary" id="fit-late">Fit {{if eq (len .Cars) 1}}it{{else}}them{{end}} into the race</button>
+    <span class="note" id="fit-late-status"></span>
+  </div>
+  {{else}}
+  <p class="note warn-text">{{.Reason}}</p>
+  {{end}}
+</section>
+{{end}}{{end}}
+
 {{if $d.Ties}}
 <section class="card tie-card">
   <h1>Tied for a trophy or a championship place</h1>
