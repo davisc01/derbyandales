@@ -54,8 +54,14 @@ vet:
 app:
 	./packaging/make-app.sh "$(VERSION)"
 
+## pi: the Raspberry Pi display kiosk, ready to copy to a Pi (see pi/README.md)
+pi:
+	rm -rf $(DIST)/pi && mkdir -p $(DIST)/pi
+	cp pi/*.sh pi/waiting.html pi/README.md $(DIST)/pi/
+	cp internal/web/static/logo.png $(DIST)/pi/
+
 ## clean: remove build output and the scratch data directory
 clean:
 	rm -rf $(DIST) .devdata
 
-.PHONY: help build run test e2e race cover check fmt fmt-check vet app clean
+.PHONY: help build run test e2e race cover check fmt fmt-check vet app pi clean

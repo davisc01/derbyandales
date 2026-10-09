@@ -105,6 +105,9 @@ camera works there too.
 Displays and the voting tablet do not need a camera, so plain HTTP is fine
 for them.
 
+The main TV can be driven by a Raspberry Pi instead of a laptop: plug it in and
+it opens the display by itself. See [pi/README.md](pi/README.md).
+
 ## Where data lives
 
 Everything is under one folder, so backing up the club's data is a folder copy:

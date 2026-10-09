@@ -1,0 +1,105 @@
+<!doctype html>
+<!--
+  Shown on the TV from the moment the Pi boots until the race server answers.
+  Without it, a Pi that comes up before the Mac sits on Chromium's "can't reach
+  this site" page and never tries again.
+
+  It moves to the display only once /healthz names the app, so another program
+  on the port is not mistaken for it. After that this page is gone: the display
+  page reconnects by itself if the Mac drops out later.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Waiting for the race server</title>
+<style>
+  :root {
+    --bg: #0b0c12; --ink: #f2f4fa; --ink-dim: #98a0b8; --ink-faint: #6b7390;
+    --amber: #f5b23c;
+    --sans: Roboto, "DejaVu Sans", Helvetica, Arial, sans-serif;
+    --mono: "DejaVu Sans Mono", monospace;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); cursor: none; overflow: hidden; }
+  main { height: 100vh; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 3vh; text-align: center; padding: 0 6vw; box-sizing: border-box; }
+  img { width: 22vh; height: 22vh; }
+  h1 { font-size: 6vh; font-weight: 700; margin: 0; }
+  p { font-size: 3.2vh; color: var(--ink-dim); margin: 0; line-height: 1.4; }
+  code { font-family: var(--mono); color: var(--ink); }
+  .problem { color: var(--amber); }
+  .small { font-size: 2.4vh; color: var(--ink-faint); }
+</style>
+</head>
+<body>
+<main>
+  <img src="logo.png" alt="" onerror="this.remove()">
+  <h1>Waiting for the race server</h1>
+  <p id="status"></p>
+  <p class="small" id="detail"></p>
+</main>
+<script>
+(function () {
+  "use strict";
+  const params = new URLSearchParams(location.search);
+  const servers = [params.get("server"), params.get("fallback")].filter(Boolean);
+  const status = document.getElementById("status");
+  const detail = document.getElementById("detail");
+  const startedAt = Date.now();
+
+  function say(node, text, code) {
+    node.textContent = text;
+    if (code) {
+      const c = document.createElement("code");
+      c.textContent = code;
+      node.appendChild(c);
+    }
+  }
+
+  if (!servers.length) {
+    status.className = "problem";
+    say(status, "No race server address is set. Put the SD card in the Mac and set SERVER in ",
+      "derbyandales.txt");
+    return;
+  }
+
+  // Answers only for the app itself: a reply that is not JSON naming
+  // derbyandales is somebody else on the port.
+  async function answers(server) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 1500);
+    try {
+      const res = await fetch(server + "/healthz", { cache: "no-store", signal: ctrl.signal });
+      const body = await res.json();
+      return body && body.app === "derbyandales";
+    } catch (e) {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function poll() {
+    for (const server of servers) {
+      if (await answers(server)) {
+        say(status, "Found it at ", server);
+        location.replace(server + "/display");
+        return;
+      }
+    }
+    const secs = Math.round((Date.now() - startedAt) / 1000);
+    // After a minute it is worth saying what usually causes this. Not before:
+    // the Mac is often still starting up, and that is not a problem.
+    detail.textContent = secs < 60
+      ? "This screen will switch over by itself."
+      : "Still nothing after " + secs + " s. Is Derby and Ales open on the Mac, " +
+        "and is the Mac on the same network as this screen?";
+    setTimeout(poll, 2000);
+  }
+
+  say(status, "Looking for it at ", servers.join("  or  "));
+  poll();
+})();
+</script>
+</body>
+</html>

@@ -320,6 +320,8 @@ person can show. Run it as an actual evening, in order, with ~24 fake entries.
    - a second screen opens **Impound**;
    - the voting tablet opens **Voting booth**;
    - a TV (or a laptop on HDMI) opens **Main display**, full screen.
+   - or a Raspberry Pi set up from `pi/README.md` is plugged into the TV and
+     finds the Mac by itself. Rehearse the now-racing animation on it.
 4. Import the past championships in Settings, then open **Tonight** and follow
    it from here on. Note anywhere it says something untrue or unhelpful.
 
@@ -515,6 +517,12 @@ person can show. Run it as an actual evening, in order, with ~24 fake entries.
   buttons for check-in and roster, impound, the voting booth and the main
   display, each opening in its own tab, with no coordinator navigation.
   Check-in from a plain-HTTP tablet is sent to the HTTPS address for the camera.
+- **A Raspberry Pi can be the main display** with no keyboard or mouse
+  (`pi/`, `make pi`). It boots into Chromium full screen under `cage`, waits on
+  a local page until `/healthz` names the app, then opens `/display`. The
+  server address, a lower screen resolution and reduced motion are set in a
+  text file on the SD card's boot partition, so they can be changed from the
+  Mac. A Pi 3 is untested against the animations; a Pi 4 is the safe choice.
 
 ## Settled
 

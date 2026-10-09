@@ -691,7 +691,7 @@ html, body { height: 100%; }
   border-radius: 1.2vh;
   overflow: hidden;
   background: var(--panel);
-  animation: slide-in .6s ease-out;
+  animation: slide-pic-in .6s ease-out;
 }
 .slide-pic img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .slide-caption { display: flex; align-items: baseline; gap: 2.5vw; padding: 0 1vw; }
@@ -699,7 +699,9 @@ html, body { height: 100%; }
 .slide-car { font-size: 5vh; font-weight: 700; line-height: 1.1; }
 .slide-driver { font-size: 3vh; color: var(--ink-dim); }
 
-@keyframes slide-in {
+/* Its own name: a second `slide-in` silently replaced the reveal's, so the
+   reveal rows zoomed instead of rising. */
+@keyframes slide-pic-in {
   from { opacity: 0; transform: scale(.985); }
   to   { opacity: 1; transform: scale(1); }
 }

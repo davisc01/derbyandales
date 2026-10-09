@@ -154,6 +154,28 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+// The Pi kiosk boots into a local waiting page and moves to the display once
+// the Mac answers. That page is file://, so unless /healthz allows any origin
+// the browser hides the reply and the TV waits forever with the app running.
+func TestHealthzCanBeReadByThePiWaitingPage(t *testing.T) {
+	s := mustServer(t)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/healthz", nil)
+	req.Header.Set("Origin", "null") // what a file:// page sends
+	handler(t, s).ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want *", got)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["app"] != "derbyandales" {
+		t.Errorf("app = %v; the waiting page keys on it", body["app"])
+	}
+}
+
 // The SSE stream is how every display stays current. It must send headers and
 // flush immediately, not buffer until the first event.
 func TestEventStreamFlushesAndDelivers(t *testing.T) {

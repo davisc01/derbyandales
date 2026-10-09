@@ -413,6 +413,11 @@ func (s *Server) handleQuitAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	// The Pi kiosk's waiting page is a file:// page polling for the Mac to come
+	// up. Without this it can reach the app but not read the reply, so it
+	// cannot tell the app from some other program on the port. Nothing here is
+	// secret, and the venue network is offline.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":          true,
 		"app":         "derbyandales",
